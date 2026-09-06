@@ -124,14 +124,14 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
 
   return <Sheet title={tag.name} subtitle={`${tag.category} · Criada em ${formatDate(tag.createdAt)}`} onClose={close}>
     <View style={s.between}>
-      <View style={[s.row, { flex: 1 }]}><View style={[styles.itemIcon, { backgroundColor: tag.color || info.color }]}><Icon name={info.icon} size={24} /></View><View style={{ gap: 4, flex: 1 }}><Text style={s.h3}>Sua etiqueta</Text><Text style={s.small}>Pronta para um reencontro.</Text></View></View>
+      <View style={[s.row, { flex: 1 }]}><View style={[styles.itemIcon, { backgroundColor: info.color }]}><Icon name={info.icon} size={24} /></View><View style={{ gap: 4, flex: 1 }}><Text style={s.h3}>Sua etiqueta</Text></View></View>
       <Pill status={tag.status} />
     </View>
 
     <View style={styles.qrCard}>
       <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={190} backgroundColor="white" color="#252925" ecl="M" quietZone={10} /></View>
       <Text style={styles.qrTitle}>Encontrou? Escaneie para devolver.</Text>
-      <View style={s.row}><Icon name="shield" size={13} color={C.green} /><Text style={s.small}>Seu e-mail e sua anotação ficam privados.</Text></View>
+      <View style={s.row}><Icon name="shield" size={13} color={C.purple} /><Text style={s.small}>Seu e-mail e sua anotação ficam privados.</Text></View>
     </View>
 
     {localOnly ? <View style={styles.localNote}><Icon name="info" size={17} color={C.amber} /><Text style={[s.small, { color: C.amber, flex: 1 }]}>Este link funciona apenas neste computador. Antes de usar a etiqueta em outro celular, defina um endereço acessível pela rede ou pela internet.</Text></View> : null}
@@ -184,13 +184,13 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
 
 const styles = StyleSheet.create({
   itemIcon: { width: 48, height: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  qrCard: { padding: 22, borderWidth: 1, borderColor: C.line, backgroundColor: 'white', borderRadius: 18, alignItems: 'center', gap: 10 },
+  qrCard: { padding: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, borderRadius: 18, alignItems: 'center', gap: 10 },
   qrPaper: { backgroundColor: 'white', padding: 5 },
   qrTitle: { color: C.ink, fontSize: 15, fontWeight: '600', textAlign: 'center' },
   localNote: { flexDirection: 'row', gap: 10, padding: 13, borderRadius: 12, backgroundColor: C.amberSoft, alignItems: 'flex-start' },
   buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   halfButton: { flex: 1, minWidth: 165, paddingHorizontal: 12 },
   nfcProgress: { padding: 15, backgroundColor: C.soft, borderRadius: 13, gap: 8 },
-  privateNote: { padding: 15, borderRadius: 13, backgroundColor: '#F0F1EB', gap: 8 },
-  transfer: { padding: 17, borderWidth: 1, borderColor: '#ECCFD0', borderRadius: 15, gap: 14, backgroundColor: '#FFFAFA' },
+  privateNote: { padding: 15, borderRadius: 13, backgroundColor: C.raised, gap: 8 },
+  transfer: { padding: 17, borderWidth: 1, borderColor: C.redLine, borderRadius: 15, gap: 14, backgroundColor: C.redSoft },
 });

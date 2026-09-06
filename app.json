@@ -5,13 +5,13 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#293D33",
+        "backgroundColor": "#090910",
         "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -21,9 +21,16 @@
       "favicon": "./assets/favicon.png",
       "name": "SeekerTag",
       "shortName": "SeekerTag",
-      "description": "Pequenas etiquetas. Grandes reencontros."
+      "description": "Etiquetas QR e conversas privadas para devolver objetos."
     },
     "plugins": [
+      [
+        "./plugins/withAndroidCompatibility",
+        {
+          "allowCleartext": true,
+          "darkSplash": true
+        }
+      ],
       [
         "expo-camera",
         {
@@ -39,13 +46,35 @@
           "nfcPermission": "Permita que o SeekerTag grave o link na sua etiqueta NFC."
         }
       ],
+      "expo-system-ui",
       [
-        "./plugins/withAndroidCompatibility",
+        "expo-status-bar",
         {
-          "allowCleartext": true
+          "style": "light"
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "style": "light",
+          "enforceContrast": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#090910",
+          "image": "./assets/icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#090910",
+            "image": "./assets/icon.png"
+          }
         }
       ]
     ],
-    "scheme": "seekertag"
+    "scheme": "seekertag",
+    "backgroundColor": "#090910"
   }
 }

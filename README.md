@@ -63,7 +63,9 @@ Se o IP do computador mudar, recompile o APK com `EXPO_PUBLIC_API_URL` atualizad
 
 Validação executada em 6 de setembro de 2026: **12 testes de backend**, **8 testes de ponta a ponta no ambiente de desenvolvimento** e **8 na exportação de produção** passaram. TypeScript e auditorias npm da aplicação e do servidor passaram, sem vulnerabilidades reportadas. A exportação web carrega somente a fonte de ícones utilizada (56 KB), além dos bundles JavaScript. O override de `xcode → uuid` corrige uma dependência indireta antiga; a geração de UUID desse pacote foi verificada.
 
-No emulador Android, o APK standalone abriu sem Metro e sem erros `AndroidRuntime`/`ReactNativeJS`. Foram verificados cadastro real, objeto/QR, PDF no compartilhamento e na impressão do sistema, sessão após encerrar e reabrir, estados de NFC/carteira indisponíveis, permissão da câmera e abertura por link manual. Leitura ótica de QR, gravação em etiqueta NFC física e autorização em carteira real não foram exercitadas.
+O tema usa as bases escuras do Orkest e o destaque lavanda `#C4A1FF`, sem sublabels decorativas. Os 8 testes de ponta a ponta passaram novamente após essa atualização, com revisão visual de desktop e mobile. O fundo do QR permanece branco para leitura e impressão.
+
+No emulador Android, o APK standalone inicial abriu sem Metro e sem erros `AndroidRuntime`/`ReactNativeJS`. Foram verificados cadastro real, objeto/QR, PDF no compartilhamento e na impressão do sistema, sessão após encerrar e reabrir, estados de NFC/carteira indisponíveis, permissão da câmera e abertura por link manual. Leitura ótica de QR, gravação em etiqueta NFC física e autorização em carteira real não foram exercitadas.
 
 ## O que funciona
 

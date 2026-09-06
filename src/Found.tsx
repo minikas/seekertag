@@ -14,15 +14,15 @@ export default function Found({ code, chatId, goHome, goChat }: { code?: string;
     <View style={[s.card, { padding: 26, gap: 22 }]}>
       {loading && <ActivityIndicator color={C.purple} />}
       {!!error && <Notice error text={error} />}
-      {chatId && chatToken ? <><View style={{ gap: 9 }}><Text style={s.eyebrow}>UM REENCONTRO COMEÇA AQUI</Text><Text accessibilityRole="header" style={s.h2}>Obrigado por ajudar.</Text></View><Conversation id={chatId} token={chatToken} finder /></> : tag ? <>
-        <View style={{ alignItems: 'center', gap: 16, paddingVertical: 15 }}><View style={[s.circle, { backgroundColor: cat.color, width: 92, height: 92, borderRadius: 28 }]}><Icon name={cat.icon} size={39} /></View><Text style={s.eyebrow}>{tag.status === 'lost' ? 'ALGUÉM ESTÁ SENTINDO FALTA' : 'ESTE OBJETO TEM UMA HISTÓRIA'}</Text><Text accessibilityRole="header" style={[s.h1, { fontSize: 30, textAlign: 'center' }]}>{tag.name}</Text><Text style={[s.body, { textAlign: 'center' }]}>Encontrou este objeto? Você pode fazer o dia de alguém melhor.</Text></View>
-        {tag.publicMessage ? <View style={{ padding: 17, borderRadius: 14, backgroundColor: C.bg, gap: 7 }}><Text style={s.eyebrow}>UMA MENSAGEM DO DONO</Text><Text style={[s.body, { color: C.ink }]}>{tag.publicMessage}</Text></View> : null}
+      {chatId && chatToken ? <><View style={{ gap: 9 }}><Text accessibilityRole="header" style={s.h2}>Obrigado por ajudar.</Text></View><Conversation id={chatId} token={chatToken} finder /></> : tag ? <>
+        <View style={{ alignItems: 'center', gap: 16, paddingVertical: 15 }}><View style={[s.circle, { backgroundColor: cat.color, width: 92, height: 92, borderRadius: 28 }]}><Icon name={cat.icon} size={39} /></View><Text accessibilityRole="header" style={[s.h1, { fontSize: 30, textAlign: 'center' }]}>{tag.name}</Text><Text style={[s.body, { textAlign: 'center' }]}>Encontrou este objeto? Você pode fazer o dia de alguém melhor.</Text></View>
+        {tag.publicMessage ? <View style={{ padding: 17, borderRadius: 14, backgroundColor: C.bg, gap: 7 }}><Text style={[s.body, { color: C.ink }]}>{tag.publicMessage}</Text></View> : null}
         {tag.rewardAmount > 0 && <View style={{ padding: 15, borderRadius: 12, backgroundColor: C.amberSoft, gap: 8 }}><View style={s.row}><Icon name="gift" color={C.amber} size={18} /><Text style={{ fontWeight: '600', color: C.amber }}>{tag.rewardCurrency === 'BRL' ? 'R$' : tag.rewardCurrency} {tag.rewardAmount} de agradecimento</Text></View><Text style={s.small}>Promessa do dono, combinada após a devolução. O SeekerTag não guarda ou transfere esse valor.</Text></View>}
         <Field label="Como podemos te chamar? (opcional)" value={finderName} onChangeText={setFinderName} placeholder="Seu primeiro nome ou apelido" maxLength={60} />
         <Field label="Mensagem para o dono" value={message} onChangeText={setMessage} placeholder="Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui." multiline maxLength={2000} />
         <Button onPress={submit} busy={busy} icon="send">Avisar o dono</Button>
-        <View style={[s.row, { alignItems: 'flex-start' }]}><Icon name="shield" size={16} color={C.green} /><Text style={[s.small, { flex: 1 }]}>A conversa acontece aqui. Seu telefone, e-mail e localização não são pedidos nem compartilhados automaticamente.</Text></View>
+        <View style={[s.row, { alignItems: 'flex-start' }]}><Icon name="shield" size={16} color={C.purple} /><Text style={[s.small, { flex: 1 }]}>A conversa acontece aqui. Seu telefone, e-mail e localização não são pedidos nem compartilhados automaticamente.</Text></View>
       </> : null}
-    </View><Text style={[s.small, { textAlign: 'center' }]}>Um pequeno gesto. Uma grande diferença.{ '\n' }SeekerTag conecta pessoas para devolver o que importa.</Text>
+    </View>
   </View></ScrollView>;
 }
