@@ -49,9 +49,23 @@ docker run --rm -p 4318:4318 -v seekertag-data:/data \
 
 O domínio deve apontar para o proxy HTTPS que atende o contêiner. O volume mantém as contas, etiquetas e conversas entre reinicializações. A configuração Docker é fornecida para implantação; não publica automaticamente um serviço.
 
+## Avisos por e-mail e domínio permanente
+
+A integração preparada usa Resend. O fluxo básico continua funcionando sem ela. A pessoa escolhe “Minha conta → Avisos por e-mail”, confirma um código recebido no endereço da própria conta e pode desativar os avisos depois.
+
+Para ativar, o responsável precisa de um domínio HTTPS permanente para `PUBLIC_URL`, um remetente verificado no Resend e as variáveis privadas de servidor `NOTIFICATIONS_ENABLED=true`, `RESEND_API_KEY` e `NOTIFICATION_FROM`. O [modelo de configuração](.env.example) não contém credenciais. Configure os valores pelo gerenciador de segredos da hospedagem; nunca use o prefixo `EXPO_PUBLIC_` para uma chave de serviço. Para um arquivo privado local já configurado, o servidor pode ser iniciado com `node --env-file=.env server/index.js` depois do build web.
+
+O servidor agrupa avisos da mesma conversa por 30 segundos e processa a fila a cada 15 segundos. Não envia o conteúdo das mensagens nem credenciais por e-mail: o link exige login do dono. Leitura, encerramento e desativação cancelam os avisos pendentes antes do envio. Falhas temporárias usam repetição com a mesma chave no provedor, no máximo seis tentativas e dentro de 23 horas. Aceitação pelo provedor não comprova entrega na caixa de entrada; o painel informa falhas definitivas e as mensagens permanecem no app.
+
+A fila, as preferências, os desafios e o segredo de verificação persistem no SQLite. Preserve o banco completo nos backups. Mudar de domínio não atualiza QRs já impressos: mantenha o domínio original ou um redirecionamento permanente. Uma mudança de origem durante um envio incerto interrompe aquele aviso para evitar repetição com conteúdo diferente. Reiniciar o servidor retoma as operações pendentes elegíveis.
+
+Nesta entrega os testes capturam o transporte localmente. O domínio público, a conta do serviço e o recebimento em uma caixa de e-mail real ainda dependem de configuração. Referências: [envio de e-mail Resend](https://resend.com/docs/api-reference/emails/send-email) e [idempotência do provedor](https://resend.com/docs/dashboard/emails/idempotency-keys).
+
 ## APK entregue e verificação
 
 O APK local está em `artifacts/SeekerTag-preview.apk`. É um pacote Android arm64 para teste, assinado com chave de desenvolvimento, com o JavaScript embutido. Nesta compilação, a API aponta para **http://192.168.1.44:4318/api**. O computador e o Seeker precisam estar na mesma rede, e o serviço deve continuar rodando.
+
+Com o servidor desta entrega ativo, [baixe o APK pela rede local](http://192.168.1.44:4318/SeekerTag-preview.apk). SHA256: `bfc1c5aabf5611855cb4ca2f94d5cbe0265edb23c9d0faf8e7b3f0bd4363c870`.
 
 Para reiniciar a versão compilada pela rede:
 
@@ -63,18 +77,23 @@ Se o IP do computador mudar, recompile o APK com `EXPO_PUBLIC_API_URL` atualizad
 
 O tema usa as bases escuras do Orkest e o destaque lavanda `#C4A1FF`, sem sublabels decorativas. O fundo do QR permanece branco para leitura e impressão. A versão Android escura passou por compilação release, verificação de assinatura e inspeção dos recursos dentro do APK.
 
-O APK atualizado passou pelo fluxo Maestro em um emulador com perfil Pixel 7, Android 16/API 36: login, criação de objeto e QR, sessão após encerrar e reabrir, abertura por link manual, aviso ao dono e acesso à conversa após outro reinício. O teste confirmou o objeto e a mensagem na API real. As evidências ficam em `artifacts/native-android/`. Ainda não houve teste em aparelho físico.
+O APK atualizado passou por dois fluxos Maestro em um emulador com perfil Pixel 7, Android 16/API 36: login, criação simples de objeto e QR, sessão após encerrar e reabrir, abertura por link manual, aviso ao dono e acesso pela lista de conversas após outro reinício. O teste confirmou o objeto e a mensagem na API real. Também passaram o leitor com teclado e Voltar, o rascunho após reinício e o envio com o teclado aberto. As evidências ficam em `artifacts/native-android/`. Ainda não houve teste em aparelho físico.
 
 ## O que funciona
 
 - Cadastro, login, logout e recuperação com código de uso único; senhas com scrypt, sessões revogáveis.
 - Criar e editar objetos, categoria, anotação particular e mensagem pública.
 - Busca, filtros, indicadores calculados, marcar perdido, pausar e reativar.
-- QR real, PDF A4 com seis etiquetas, copiar/compartilhar link e gravação NFC em hardware compatível.
+- QR real e PDF A4 em três formatos: padrão (6 etiquetas), compacto (15) e dobrável (4). Copiar/compartilhar link e gravação NFC em hardware compatível.
+- Criação simples com nome e categoria; opções extras recolhidas. Confirmação opcional de que a etiqueta foi presa e testada, identificada como declaração da pessoa.
 - Página de quem encontra sem cadastro ou instalação; nenhum e-mail, telefone ou anotação privada do dono é enviado.
-- Conversa entre dono e finder com histórico persistente e atualização periódica enquanto o app está aberto.
-- Acesso do finder salvo por 30 dias no mesmo navegador. Limpar os dados do site remove o acesso neste aparelho. O link sozinho não permite que outro navegador leia a conversa.
-- Confirmação de devolução que encerra as conversas do objeto e atualiza seu histórico.
+- Conversa entre dono e finder com histórico persistente, mensagens não lidas e atualização periódica. O histórico acompanha novas mensagens quando você está no final; preserva sua posição ao ler mensagens antigas.
+- Envios de etiquetas, avisos e mensagens recuperáveis após queda da resposta, usando a mesma operação. Rascunhos novos não são apagados pela conclusão de um envio anterior.
+- Restauração de sessão com reconexão e proteção contra respostas atrasadas de outra conta.
+- Lista “Minhas conversas” para voltar sem escanear novamente. Acesso do finder salvo por 30 dias no mesmo navegador. Limpar os dados do site remove o acesso neste aparelho. O link sozinho não permite que outro navegador leia a conversa.
+- Confirmação de devolução que encerra as conversas do objeto e atualiza seu histórico. Avisos por engano, sem devolução ou indesejados podem ser encerrados separadamente, sem registrar uma devolução.
+- Novo código de recuperação emitido mediante senha atual, com repetição segura se a resposta se perder. Copiar/guardar o código antes de continuar.
+- Alertas opcionais por e-mail, com confirmação do endereço, fila SQLite e integração Resend. Exigem configuração no servidor; a instalação local mantém os alertas desativados.
 - Transferência para outra conta, confirmada com a senha atual, preservando a privacidade das conversas anteriores.
 - Conexão opcional de carteira Solana por Mobile Wallet Adapter no Android ou carteira injetada compatível na web.
 
@@ -98,6 +117,8 @@ EXPO_PUBLIC_API_URL=https://seu-dominio.example/api npm run build:android
 ```
 
 O script detecta a rede local, JDK/SDK no macOS, limita a compilação a arm64 e copia o resultado para `artifacts/SeekerTag-preview.apk`. `-- --incremental` pode ser usado quando apenas o código JavaScript/TypeScript mudou.
+
+Para a base nativa já compilada e identificada desta entrega, `scripts/rebundle-native.mjs ios|android` permite atualizar apenas o JavaScript e cria candidatos separados. O script confere os hashes da base, as dependências/configurações, a versão Hermes, a assinatura e, no Android, o alinhamento e a identidade dos arquivos nativos. A única promoção de dependência permitida é `@noble/hashes` 2.4.0, que já fazia parte do mesmo grafo instalado e contém somente JavaScript. Mudanças em módulos nativos, recursos ou configurações exigem build completo. Os candidatos precisam passar pelo teste nativo antes de substituir os artefatos entregues.
 
 Requer JDK 17, Android SDK/NDK e emulador ou aparelho. `eas.json` inclui perfis development, preview APK e production AAB; builds remotos dependem da conta Expo do responsável. O plugin `plugins/withAndroidCompatibility.js` permite HTTP nas compilações locais. Defina `allowCleartext: false` no `app.json` para uma distribuição com API HTTPS.
 
@@ -135,9 +156,9 @@ Referências de plataforma: [requisitos do Expo 57](https://docs.expo.dev/versio
 
 Recompensas são **promessas opcionais**, claramente identificadas na interface. O app não recebe, bloqueia, libera ou reembolsa dinheiro. Escrow, pagamentos USDC/SKR, associação verificada de carteira/alias `.skr` e verificação SGT não estão implementados. A conexão de carteira é opcional e local; não equivale a provar propriedade de uma etiqueta.
 
-Não há push ou envio de e-mail: os avisos ficam na caixa de conversas e são atualizados enquanto o aplicativo está aberto. Uma implantação pública com HTTPS, serviços de notificações, testes com NFC físico/Seed Vault e publicação na dApp Store são etapas próprias. A etiqueta é passiva e não rastreia localização.
+Não há push. Os avisos ficam em Conversas; o envio opcional de e-mail está implementado, mas ainda não foi ativado nesta instalação. Uma implantação pública com HTTPS, recebimento real dos e-mails, testes com NFC físico/Seed Vault e publicação na dApp Store dependem da configuração e validação externa. A etiqueta é passiva e não rastreia localização.
 
-Mensagens são privadas por autorização da API, sem criptografia ponta a ponta. Sessões web do dono duram a aba; credenciais do finder persistem no navegador por 30 dias. No Android e no iOS, o SecureStore protege as credenciais em repouso. Quem opera o servidor controla o banco. Não há telemetria nem SDK de anúncios.
+Mensagens são privadas por autorização da API, sem criptografia ponta a ponta. Sessões web do dono duram a aba; credenciais do finder persistem no navegador por 30 dias. No Android e no iOS, o SecureStore protege as credenciais em repouso. Quem opera o servidor controla o banco. Não há telemetria nem SDK de anúncios. Os registros locais de envios ainda pendentes não expiram automaticamente. Após a conclusão, as chaves e o conteúdo são apagados; pequenos marcadores com hash e data permanecem para impedir que uma aba antiga restaure operações concluídas. Remover um acesso salvo também remove os envios e rascunhos daquela conversa.
 
 ## Testar
 
@@ -163,7 +184,7 @@ Os testes de API e navegador exercitam o produto com API e banco reais. Os teste
 
 Para apontar os testes a uma instalação existente, defina `WEB_URL` e `API_URL` com origens correspondentes. Esses testes criam contas, etiquetas e mensagens; use somente uma instalação dedicada à verificação. Sem essas variáveis, a execução usa o ambiente isolado local.
 
-Artefatos locais de QA ficam em `artifacts/` e são ignorados pelo Git, pois podem conter dados de teste. Os testes não salvam traces com credenciais. A matriz de navegadores usa Chromium e WebKit, incluindo viewport/touch de iPhone. A queda de rede é aplicada pelo próprio navegador: o POST falha de verdade, o rascunho fica preservado, e o teste consulta o banco pela API para confirmar que o reenvio gera uma única mensagem. Esse cenário cobre falha antes da entrega, não a perda da resposta depois que o servidor já gravou a mensagem. [WebKit emulado](https://playwright.dev/docs/browsers#webkit) não equivale a Safari rodando em um iPhone físico.
+Artefatos locais de QA ficam em `artifacts/` e são ignorados pelo Git, pois podem conter dados de teste. Os testes não salvam traces com credenciais. A matriz de navegadores usa Chromium e WebKit, incluindo viewport/touch de iPhone. A queda de rede é aplicada pelo próprio navegador: o POST falha de verdade, o rascunho fica preservado, e o teste consulta o banco pela API para confirmar que o reenvio gera uma única mensagem. A suíte também retém ou descarta respostas depois que a API gravou a operação: verifica repetição após reinício, rascunho novo durante envio, navegação tardia, restauração e troca de sessões. Os testes de notificações exercitam a API e o SQLite reais com transporte de e-mail capturado em memória; não enviam e-mails externos. [WebKit emulado](https://playwright.dev/docs/browsers#webkit) não equivale a Safari rodando em um iPhone físico.
 
 ### Testes nativos
 
@@ -184,52 +205,62 @@ NATIVE_PLATFORM=android NATIVE_DEVICE_ID=emulator-5554 \
 EXPO_PUBLIC_API_URL=http://192.168.1.44:4318/api npm run test:native
 ```
 
-A URL precisa coincidir com a API embutida no aplicativo instalado. Diferentemente do Playwright, este comando não inicia um servidor isolado: cria duas contas sintéticas e objetos na API indicada. Use uma API de teste e compile o app para esse mesmo endereço. O fluxo usa login pela interface, cria um objeto pela interface e confere o resultado na API, reinicia o app para testar a sessão, abre um QR por link manual e verifica o aviso e o acesso persistente do finder. O cadastro dessas contas é feito pela API.
+A URL precisa coincidir com a API embutida no aplicativo instalado. Diferentemente do Playwright, este comando não inicia um servidor isolado: cria duas contas sintéticas e objetos na API indicada. Use uma API de teste e compile o app para esse mesmo endereço. O fluxo usa login pela interface, cria um objeto pela interface e confere o resultado na API, reinicia o app para testar a sessão, abre um QR por link manual e verifica o aviso e o acesso persistente do finder pela lista de conversas salvas, sem precisar escanear de novo. O cadastro dessas contas é feito pela API.
 
-Após esse fluxo no mesmo simulador iOS, teste o compartilhador de PDF e os estados de NFC/carteira indisponíveis:
+Depois do fluxo principal no mesmo dispositivo, verifique teclado, rascunho após reinício e envio. No iOS, execute também o compartilhador de PDF e os estados de NFC/carteira indisponíveis:
 
 ```sh
-maestro test --device UUID-DO-SIMULADOR \
-  --test-output-dir artifacts/native-ios-services --format JUNIT \
-  --output artifacts/native-ios-services-report.xml tests/native/ios-services.yaml
+NATIVE_PLATFORM=ios NATIVE_DEVICE_ID=UUID-DO-SIMULADOR \
+node scripts/test-native-extra.mjs composer
+
+NATIVE_PLATFORM=ios NATIVE_DEVICE_ID=UUID-DO-SIMULADOR \
+node scripts/test-native-extra.mjs ios-services
+
+# Depois do fluxo principal Android:
+NATIVE_PLATFORM=android NATIVE_DEVICE_ID=emulator-5554 \
+node scripts/test-native-extra.mjs composer
 ```
 
-Esse teste usa a conta e o objeto deixados pelo fluxo anterior. O simulador deve continuar iniciado, com acesso à API. A verificação do compartilhador aceita o sistema em português, inglês ou espanhol. O cenário de NFC indisponível se aplica ao simulador, não a um iPhone com NFC.
+Os testes extras usam a conta, o objeto e a conversa deixados pelo fluxo principal. O dispositivo deve continuar iniciado, com acesso à API. A verificação do compartilhador aceita o sistema em português, inglês ou espanhol. O cenário de NFC indisponível se aplica ao simulador, não a um iPhone com NFC. Os wrappers guardam apenas os relatórios e as capturas escolhidas, apagando os dumps temporários do Maestro.
 
 Evidências e logs com credenciais removidas ficam em `artifacts/native-ios/` e `artifacts/native-android/`. O teste usa o armazenamento seguro real do app e não limpa o Keychain global nem apaga o simulador.
 
 ### Estado da validação
 
-Última revisão: 6 de setembro de 2026. A suíte foi ampliada porque a rodada anterior tinha 12 testes de API e 8 cenários E2E executados em Chromium; não havia validação iOS/WebKit. Nesta revisão, os 12 testes unitários, 22 testes de API e 34 casos do Playwright passaram: 68 verificações automatizadas, além de dois fluxos Maestro no iOS e um no Android. O relatório dos 34 casos Playwright está em `artifacts/cross-browser-report/index.html`, com dados em `artifacts/cross-browser-results.json`.
+Última execução da matriz: **6 de setembro de 2026, 16:38 UTC**, concluída em 4,3 minutos. Nesta implementação passaram **32 testes unitários, 42 testes de API e 85 execuções do Playwright: 159 verificações automatizadas**, além dos fluxos nativos abaixo. O Playwright terminou com **zero falhas, skips, casos instáveis ou retries**. O [relatório HTML](artifacts/cross-browser-report/index.html) e os [resultados JSON](artifacts/cross-browser-results.json) correspondem à mesma rodada final.
 
-| Camada | Resultado desta revisão | Escopo |
+| Camada | Resultado desta implementação | Escopo |
 | --- | --- | --- |
-| Unitários | 12 passaram | Sessões, capacidades com expiração, validação Base58, links NFC, nomes de PDF |
-| API | 22 passaram | Autorização, persistência, concorrência, limites e decodificação real de QR/PDF |
-| Navegadores | 34 passaram, sem skips ou retries | 2 contratos HTTP, 11 Chromium, 10 WebKit desktop e 11 WebKit com perfil iPhone |
-| iOS nativo | Build Release e dois fluxos Maestro passaram no simulador iPhone 17e, iOS 26.5 | Login, objeto conferido na API, QR, sessão após reinício, aviso e acesso persistente do finder; PDF no compartilhador nativo; estados de NFC/carteira indisponíveis |
-| Android | APK atualizado compilado, assinatura verificada e fluxo Maestro aprovado no Android 16/API 36 | Login, objeto conferido na API, QR, sessão após reinício, aviso e acesso persistente do finder; emulador com perfil Pixel 7 |
-| Hardware e distribuição | Não realizados | Leitura óptica de QR, gravação NFC física, carteira real, TestFlight/App Store e produção HTTPS |
+| Unitários | 32 passaram | Armazenamento, expiração, migração, concorrência entre abas, operações pendentes, remoção de acessos, Base58/NFC |
+| API | 42 passaram | 31 testes de API/QR/PDF e 11 de notificações: autorização, persistência, perdas após commit, repetição, verificação de e-mail e fila |
+| Navegadores | 85 passaram | 2 contratos HTTP, 28 Chromium, 27 WebKit desktop e 28 WebKit com perfil iPhone |
+| iOS nativo | Pacote atualizado e 3 fluxos Maestro passaram no iPhone 17e/iOS 26.5 | Fluxo principal com confirmação na API, sessões e conversas após reinício; teclado, rascunho e envio; PDF no compartilhador; indisponibilidade de NFC/carteira no simulador |
+| Android | Pacote atualizado e 2 fluxos Maestro passaram no Pixel 7/Android 16 | Fluxo principal com confirmação na API; sessão e conversas após reinício; leitor com teclado e Voltar; rascunho persistente e envio com teclado aberto |
+| Hardware e distribuição | Não realizados | QR impresso/leitura óptica, NFC físico, carteira real, recebimento real de e-mail, iPhone físico/TestFlight/App Store e produção HTTPS |
 
-A instrumentação de `server/app.js` mediu 98,86% das linhas, 93,75% dos ramos e 100% das funções. Esses números cobrem o servidor de aplicação, não implantação, proxy, falha de disco ou hardware. Para reproduzir:
+Os pacotes desta implementação reutilizam os binários nativos Release já compilados, com JavaScript Hermes atualizado e assinaturas verificadas. O script compara configuração, dependências e arquivos nativos com a base antes de produzir cada candidato; os testes nativos rodam após sua instalação. Não houve mudança de módulos nativos nesta implementação. As verificações ficam em `artifacts/ios-ux-build-verification.json` e `artifacts/android-ux-build-verification.json`; os resultados Maestro ficam em `artifacts/native-ios/` e `artifacts/native-android/`.
+
+As regressões incluem resposta perdida depois de gravar no banco, novo rascunho durante envio, saída da conversa durante POST, recuperação de senha/código, sessão antiga respondendo após novo login, reconexão e quota ao atualizar o índice de conversas. Os testes de notificações usam transporte capturado, sem envio externo. Durante a validação foram corrigidas também duas condições de corrida das próprias fixtures, aguardando a carga real antes de revogar a sessão ou recarregar a conversa; a auditoria de erros permaneceu ativa.
+
+Os percentuais de cobertura publicados anteriormente se referiam ao servidor anterior à implementação e não são atribuídos a esta versão. Para medir a fonte atual:
 
 ```sh
 cd server
-node --test --experimental-test-coverage --test-coverage-include=app.js test/*.test.js
+node --test --experimental-test-coverage --test-coverage-include=app.js --test-coverage-include=notifications.js test/*.test.js
 ```
 
-A tabela distingue testes executados, limites da plataforma e validações que exigem aparelhos ou serviços externos. Cobertura de código não substitui os testes físicos pendentes.
-
-Esta rodada corrigiu dois problemas encontrados nos testes: um ciclo ao usar Voltar depois de abrir uma conversa existente e a falta de orientação quando o navegador não conseguia autorizar a câmera. Ambos passaram pela verificação de regressão.
+Cobertura de código, emulação de navegador e simuladores não substituem os testes físicos pendentes. O [relatório de implementação](docs/reviews/2026-09-06/implementacao.md) relaciona a entrega às propostas da auditoria.
 
 ## Organização
 
 | Caminho | Responsabilidade |
 | --- | --- |
-| `App.tsx` | Sessão, rotas públicas, leitura QR e onboarding |
+| `App.tsx` | Sessão, reconexão, rotas públicas/privadas, leitura QR e código de recuperação |
 | `src/Dashboard.tsx` | Objetos, busca, conversas e conta |
 | `src/TagForm.tsx`, `src/TagDetails.tsx` | Cadastro, etiqueta, PDF/NFC e transferência |
-| `src/Found.tsx`, `src/Conversation.tsx` | Fluxo público e relay de mensagens |
+| `src/Found.tsx`, `src/Conversation.tsx`, `src/SavedConversations.tsx` | Fluxo público, mensagens, leitura e acessos salvos |
+| `src/mutationStore.ts`, `src/finderStore.ts` | Envios recuperáveis, concorrência entre abas e índice de conversas |
+| `src/NotificationsPanel.tsx`, `server/notifications.js` | Preferências verificadas, fila persistente e transporte de e-mail |
 | `src/platform/` | Armazenamento, carteira, câmera, NFC e arquivos por plataforma |
 | `server/` | API, SQLite, autenticação, QR/PDF e web compilada |
 | `tests/unit/`, `server/test/` | Regras locais, armazenamento e API |

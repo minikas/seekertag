@@ -20,6 +20,7 @@ for (const role of ['owner', 'finder'] as const) {
       const tag = await createTag(owner, item);
 
       await finder.goto(`${web}/found/${tag.code}`);
+      await finder.getByRole('button', { name: 'Adicionar meu nome (opcional)', exact: true }).click();
       await finder.getByLabel(/Como podemos te chamar/).fill('Alex');
       const initialMessage = 'Encontrei a mochila na recepção. Podemos combinar a entrega.';
       await finder.getByLabel('Mensagem para o dono', { exact: true }).fill(initialMessage);
@@ -53,7 +54,7 @@ for (const role of ['owner', 'finder'] as const) {
       await offlinePost;
       await expect(sendingPage.getByText('Não foi possível conectar. Verifique sua conexão e tente novamente.', { exact: true }).first()).toBeVisible();
       await expect(messageField).toHaveValue(draft);
-      await expect(sendingPage.getByRole('button', { name: 'Enviar', exact: true })).toBeEnabled();
+      await expect(sendingPage.getByRole('button', { name: 'Recuperar envio', exact: true })).toBeEnabled();
 
       // This independent HTTP client remains online and inspects the real isolated database.
       async function storedCopies() {
@@ -68,7 +69,7 @@ for (const role of ['owner', 'finder'] as const) {
       await sendingContext.setOffline(false);
       await expect(messageField).toHaveValue(draft);
       const successfulPost = sendingPage.waitForResponse(response => new URL(response.url()).pathname === messagePath && response.request().method() === 'POST');
-      await sendingPage.getByRole('button', { name: 'Enviar', exact: true }).click();
+      await sendingPage.getByRole('button', { name: 'Recuperar envio', exact: true }).click();
       expect((await successfulPost).status()).toBe(201);
       await expect(messageField).toHaveValue('');
       await expect(receivingPage.getByText(draft, { exact: true })).toBeVisible({ timeout: 20_000 });

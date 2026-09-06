@@ -4,7 +4,7 @@
 
 **Minha recomendação é tornar o caminho até uma etiqueta utilizável curto e a conversa confiável.** Primeiro, corrigir as falhas de envio e sessão encontradas na auditoria. Em seguida, reduzir a criação ao nome do objeto e a uma categoria, deixar as opções extras recolhidas e dar a quem encontrou acesso direto ao aviso e às conversas salvas.
 
-Esta entrega reúne diagnóstico e propostas. As mudanças descritas abaixo ainda não foram aplicadas ao aplicativo.
+Este documento preserva o diagnóstico e as propostas da auditoria. A implementação autorizada em seguida está registrada em [Implementação e validação](implementacao.md), com as mudanças aplicadas e a etapa externa ainda necessária.
 
 ## O que as três frentes encontraram
 

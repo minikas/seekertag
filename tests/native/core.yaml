@@ -2,7 +2,18 @@ appId: app.seekertag.mobile
 name: Native login, object, QR fallback and secure session
 ---
 - stopApp
-- launchApp
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          permissions:
+            camera: deny
 - tapOn:
     text: "Ahora no|Agora não|Not Now|Never"
     optional: true
@@ -32,29 +43,35 @@ name: Native login, object, QR fallback and secure session
     text: "Ahora no|Agora não|Not Now|Never"
     optional: true
 - extendedWaitUntil:
-    visible: "Adicionar objeto"
+    visible: "Minha conta"
     timeout: 20000
 - assertNotVisible: ".*KeyChainException.*"
 - takeScreenshot: native-dashboard
-- tapOn: "Adicionar objeto"
-- tapOn: "Ex.: Minha mochila verde"
+- tapOn: "Criar etiqueta"
+- tapOn: "Ex.: Minha mochila"
 - inputText: ${QA_OBJECT_NAME}
 - pressKey: Enter
-- tapOn: "Chaves"
-- scrollUntilVisible:
-    element: "Criar etiqueta"
-    direction: DOWN
-- tapOn: "Criar etiqueta"
 - extendedWaitUntil:
-    visible: "Sua etiqueta"
+    visible: "Etiqueta criada"
     timeout: 20000
 - assertVisible: ${QA_OBJECT_NAME}
 - takeScreenshot: native-created-qr
 - tapOn: "Fechar"
 - stopApp
-- launchApp
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          permissions:
+            camera: deny
 - extendedWaitUntil:
-    visible: "Adicionar objeto"
+    visible: "Minha conta"
     timeout: 20000
 - scrollUntilVisible:
     element: "Abrir ${QA_OBJECT_NAME}"
@@ -63,17 +80,34 @@ name: Native login, object, QR fallback and secure session
 - takeScreenshot: native-persisted-session
 - tapOn: "Escanear etiqueta"
 - tapOn: "https://…/found/sua-etiqueta"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - eraseText
 - inputText: ${QA_PUBLIC_URL}
-- pressKey: Enter
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element: "Abrir etiqueta"
+          direction: DOWN
+      - assertVisible: ".*${QA_PUBLIC_URL}"
+      - assertVisible: "Abrir etiqueta"
+      - takeScreenshot: native-reader-keyboard
+      - pressKey: Back
+      - assertVisible: "Ler etiqueta"
+      - assertVisible: ".*${QA_PUBLIC_URL}"
+      - tapOn: "Abrir etiqueta"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - pressKey: Enter
 - extendedWaitUntil:
     visible: ${QA_PUBLIC_OBJECT_NAME}
     timeout: 20000
-- scrollUntilVisible:
-    element: "Seu primeiro nome ou apelido"
-    direction: DOWN
-- tapOn: "Seu primeiro nome ou apelido"
-- inputText: "Native QA"
-- pressKey: Enter
 - scrollUntilVisible:
     element: ".*Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui."
     direction: DOWN
@@ -98,14 +132,29 @@ name: Native login, object, QR fallback and secure session
     timeout: 20000
 - takeScreenshot: native-finder-chat
 - stopApp
-- launchApp
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          permissions:
+            camera: deny
 - extendedWaitUntil:
-    visible: "Adicionar objeto"
+    visible: "Minha conta"
     timeout: 20000
-- tapOn: "Escanear etiqueta"
-- tapOn: "https://…/found/sua-etiqueta"
-- inputText: ${QA_PUBLIC_URL}
-- pressKey: Enter
+- scrollUntilVisible:
+    element: "Minhas conversas"
+    direction: DOWN
+- tapOn: "Minhas conversas"
+- scrollUntilVisible:
+    element: "Abrir conversa sobre ${QA_PUBLIC_OBJECT_NAME}"
+    direction: DOWN
+- tapOn: "Abrir conversa sobre ${QA_PUBLIC_OBJECT_NAME}"
 - extendedWaitUntil:
     visible: "Obrigado por ajudar."
     timeout: 20000

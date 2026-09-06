@@ -20,6 +20,10 @@ name: iOS native PDF share and honest hardware availability
     direction: DOWN
 - tapOn: "Abrir Chaves QA ios-.*"
 - scrollUntilVisible:
+    element: "Mais opções"
+    direction: DOWN
+- tapOn: "Mais opções"
+- scrollUntilVisible:
     element: "Gravar NFC"
     direction: DOWN
 - tapOn: "Gravar NFC"

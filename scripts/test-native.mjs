@@ -55,14 +55,14 @@ try {
   if (result.status !== 0) throw new Error(`Maestro falhou (${result.status}); veja ${output}/maestro.log.`);
   const { tags } = await request('/tags', owner.token);
   const { reports } = await request('/reports', fixture.token);
-  if (!tags.some(item => item.name === objectName && item.category === 'Chaves')) throw new Error('O objeto criado pela UI não está salvo na API.');
+  if (!tags.some(item => item.name === objectName && item.category === 'Outro')) throw new Error('O objeto criado pela UI não está salvo na API.');
   if (!reports.some(item => item.tagId === tag.id && item.lastMessage === message)) throw new Error('O aviso enviado pela UI não está salvo na API.');
   passed = true;
 } finally {
   if (existsSync(join(work, 'report.xml'))) writeFileSync(join(output, 'report.xml'), redact(readFileSync(join(work, 'report.xml'), 'utf8')));
   function screenshots(dir) { for (const entry of readdirSync(dir, { withFileTypes: true })) { const path = join(dir, entry.name); if (entry.isDirectory()) screenshots(path); else if (/^native-.*\.png$/.test(entry.name)) copyFileSync(path, join(output, entry.name)); } }
   screenshots(work);
-  writeFileSync(join(output, 'result.json'), JSON.stringify({ platform, device, apiOrigin: url.origin, run, passed, checks: ['login', 'create object in UI and verify API', 'generated QR display', 'owner session after process restart', 'manual label URL', 'finder report and verify API', 'finder access after process restart and rescan'], hardwareNotTested: ['optical QR scan', 'physical NFC write', 'wallet authorization'], finishedAt: new Date().toISOString() }, null, 2));
+  writeFileSync(join(output, 'result.json'), JSON.stringify({ platform, device, apiOrigin: url.origin, run, passed, checks: ['login', 'create object in UI and verify API', 'generated QR display', 'owner session after process restart', 'manual label URL', 'finder report and verify API', 'finder access after process restart through saved conversations'], hardwareNotTested: ['optical QR scan', 'physical NFC write', 'wallet authorization'], finishedAt: new Date().toISOString() }, null, 2));
   // Maestro's full command dump can contain synthetic credentials. Only keep
   // redacted reports and explicitly named screenshots, never that private dump.
   rmSync(work, { recursive: true, force: true });
