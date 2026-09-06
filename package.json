@@ -41,14 +41,20 @@
     "web": "expo start --web --port 8081",
     "dev": "concurrently -k -n API,EXPO \"npm --prefix server start\" \"expo start --web --port 8081\"",
     "typecheck": "tsc --noEmit",
-    "test": "npm --prefix server test",
-    "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
+    "test": "npm run test:unit && npm run test:api",
+    "test:e2e": "npm run build:test-web && playwright test -c tests/e2e/playwright.config.ts",
     "build:web": "expo export --platform web",
     "api": "npm --prefix server start",
     "dev:lan": "node scripts/start-lan.mjs",
     "serve": "node scripts/serve.mjs",
     "serve:lan": "node scripts/start-lan.mjs --built",
-    "build:android": "node scripts/build-preview.mjs"
+    "build:android": "node scripts/build-preview.mjs",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:api": "npm --prefix server test",
+    "build:test-web": "expo export --platform web --output-dir artifacts/test-web",
+    "test:all": "npm run typecheck && npm test && npm run test:e2e",
+    "build:ios:simulator": "node scripts/build-ios-simulator.mjs",
+    "test:native": "node scripts/test-native.mjs"
   },
   "private": true,
   "engines": {

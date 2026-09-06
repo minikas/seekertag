@@ -1,62 +1,9 @@
-import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-
-const web = process.env.WEB_URL || 'http://localhost:8081';
-
-function monitor(context: BrowserContext) {
-  const errors: string[] = [];
-  const failedRequests: string[] = [];
-  context.on('page', page => {
-    page.on('pageerror', error => errors.push(error.message));
-    page.on('console', message => {
-      if (message.type() === 'error') errors.push(message.text());
-    });
-    page.on('requestfailed', request => {
-      // Reloads legitimately cancel in-flight requests. Do not include headers or bodies.
-      if (request.failure()?.errorText !== 'net::ERR_ABORTED') {
-        failedRequests.push(`${request.method()} ${new URL(request.url()).pathname}: ${request.failure()?.errorText}`);
-      }
-    });
-    page.on('response', response => {
-      if (response.url().includes('/api/') && response.status() >= 400) {
-        failedRequests.push(`${response.status()} ${new URL(response.url()).pathname}`);
-      }
-    });
-  });
-  return { errors, failedRequests };
-}
-
-async function register(page: Page) {
-  const email = `qa-ui-${crypto.randomUUID()}@example.test`;
-  const password = crypto.randomUUID();
-  await page.goto(web);
-  if (!(await page.getByLabel('Seu nome', { exact: true }).isVisible())) {
-    await page.getByRole('button', { name: 'Criar conta', exact: true }).click();
-  }
-  await page.getByLabel('Seu nome', { exact: true }).fill('Marina QA');
-  await page.getByLabel('E-mail', { exact: true }).fill(email);
-  await page.getByLabel(/Senha/).first().fill(password);
-  await page.getByRole('button', { name: 'Criar conta', exact: true }).last().click();
-  await page.getByRole('button', { name: 'Já guardei meu código', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Adicionar objeto', exact: true }).first()).toBeVisible();
-  return { email, password };
-}
-
-async function createTag(page: Page, name: string, category = 'Mochila') {
-  await page.getByRole('button', { name: 'Adicionar objeto', exact: true }).first().click();
-  await page.getByLabel('Nome do objeto', { exact: true }).fill(name);
-  await page.getByRole('button', { name: category, exact: true }).click();
-  const response = page.waitForResponse(response => new URL(response.url()).pathname === '/api/tags' && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
-  const saved = await response;
-  expect(saved.ok()).toBeTruthy();
-  const tag = (await saved.json()).tag;
-  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
-  return tag;
-}
+import { test, expect } from '@playwright/test';
+import { web, apiUrl, monitor, register, createTag, projectContext } from './helpers';
 
 test('owner creates printable tag; anonymous finder and owner coordinate and confirm return', async ({ browser }, testInfo) => {
-  const ownerContext = await browser.newContext({ viewport: { width: 1440, height: 960 } });
-  const finderContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const ownerContext = await browser.newContext(projectContext(testInfo));
+  const finderContext = await browser.newContext({ ...projectContext(testInfo), viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const ownerHealth = monitor(ownerContext);
   const finderHealth = monitor(finderContext);
   const owner = await ownerContext.newPage();
@@ -80,6 +27,8 @@ test('owner creates printable tag; anonymous finder and owner coordinate and con
     await finder.goto(`${web}/found/${tag.code}`);
     await expect(finder.getByText(item, { exact: true }).first()).toBeVisible();
     await expect(finder.getByText(account.email, { exact: true })).toHaveCount(0);
+    await finder.getByRole('button', { name: 'Avisar o dono', exact: true }).click();
+    await expect(finder.getByText('Escreva uma mensagem para avisar onde encontrou o objeto.', { exact: true })).toBeVisible();
     await finder.getByLabel(/Como podemos te chamar/).fill('Ana');
     await finder.getByLabel('Mensagem para o dono', { exact: true }).fill('Encontrei sua mochila na recepção do café.');
     await finder.getByRole('button', { name: 'Avisar o dono', exact: true }).click();
@@ -132,8 +81,8 @@ test('owner creates printable tag; anonymous finder and owner coordinate and con
   }
 });
 
-test('small mobile viewport keeps core actions visible and registration persistent', async ({ browser }, testInfo) => {
-  const context = await browser.newContext({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true });
+test('compact viewport keeps core actions visible and registration persistent', async ({ browser }, testInfo) => {
+  const context = await browser.newContext({ ...projectContext(testInfo), viewport: testInfo.project.name === 'webkit-iphone' ? { width: 390, height: 844 } : { width: 360, height: 780 }, isMobile: true, hasTouch: true });
   const health = monitor(context);
   const page = await context.newPage();
   try {
@@ -160,8 +109,8 @@ test('small mobile viewport keeps core actions visible and registration persiste
 });
 
 test('tag management supports search, filters, editing, pause, resume and transfer through the UI', async ({ browser, request }, testInfo) => {
-  const ownerContext = await browser.newContext({ viewport: { width: 1366, height: 960 } });
-  const publicContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ownerContext = await browser.newContext(projectContext(testInfo));
+  const publicContext = await browser.newContext({ ...projectContext(testInfo), viewport: { width: 390, height: 844 } });
   const health = monitor(ownerContext);
   const owner = await ownerContext.newPage();
   const publicPage = await publicContext.newPage();
@@ -199,7 +148,7 @@ test('tag management supports search, filters, editing, pause, resume and transf
 
     const recipientEmail = `qa-recipient-${crypto.randomUUID()}@example.test`;
     const recipientPassword = crypto.randomUUID();
-    const recipientResponse = await request.post(`${process.env.API_URL || 'http://localhost:4318/api'}/auth/register`, { data: { name: 'Rafa', email: recipientEmail, password: recipientPassword } });
+    const recipientResponse = await request.post(`${apiUrl}/auth/register`, { data: { name: 'Rafa', email: recipientEmail, password: recipientPassword } });
     expect(recipientResponse.ok()).toBeTruthy();
     await owner.getByRole('button', { name: 'Transferir etiqueta para outra pessoa', exact: true }).click();
     await owner.getByLabel('E-mail de quem vai receber', { exact: true }).fill(recipientEmail);

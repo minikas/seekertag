@@ -1,6 +1,6 @@
 import { C } from '../ui';
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 type Props = { onScan: (url: string) => void; onClose: () => void };
@@ -24,6 +24,29 @@ export function QrScanner({ onScan, onClose }: Props) {
     }
     accepted.current = true;
     onScan(clean);
+  }
+
+  async function allowCamera() {
+    setError('');
+    if (Platform.OS === 'web' && !globalThis.isSecureContext) {
+      setError('A câmera no navegador precisa de HTTPS. Abra um endereço seguro ou cole o link da etiqueta abaixo.');
+      return;
+    }
+    if (Platform.OS === 'web' && !globalThis.navigator?.mediaDevices?.getUserMedia) {
+      setError('Este navegador não disponibiliza a câmera. Use outro navegador ou cole o link da etiqueta abaixo.');
+      return;
+    }
+    try {
+      if (!permission?.canAskAgain) {
+        if (Platform.OS === 'web') setError('Ative a câmera nas permissões deste navegador ou cole o link da etiqueta abaixo.');
+        else await Linking.openSettings();
+        return;
+      }
+      const result = await requestPermission();
+      if (!result.granted) setError('Câmera não autorizada. Permita o acesso nas configurações ou cole o link da etiqueta abaixo.');
+    } catch {
+      setError('Não foi possível acessar a câmera. Você pode colar o link abaixo.');
+    }
   }
 
   return (
@@ -51,10 +74,7 @@ export function QrScanner({ onScan, onClose }: Props) {
             <Text style={styles.cameraIcon}>⌗</Text>
             <Text style={styles.permissionTitle}>{cameraFailed ? 'Vamos tentar de outro jeito' : 'Sua câmera lê a etiqueta'}</Text>
             <Text style={styles.permissionDescription}>A câmera é usada apenas para ler o QR code. Você também pode colar o link abaixo.</Text>
-            {!cameraFailed && <Pressable accessibilityRole="button" style={styles.permissionButton} onPress={() => {
-              if (!permission.canAskAgain) { void Linking.openSettings().catch(() => setError('Ative a câmera nas permissões deste app ou navegador.')); }
-              else { void requestPermission().catch(() => setError('Não foi possível acessar a câmera. Você pode colar o link abaixo.')); }
-            }}><Text style={styles.permissionButtonText}>{permission.canAskAgain ? 'Permitir câmera' : 'Abrir configurações'}</Text></Pressable>}
+            {!cameraFailed && <Pressable accessibilityRole="button" style={styles.permissionButton} onPress={() => void allowCamera()}><Text style={styles.permissionButtonText}>{permission.canAskAgain ? 'Permitir câmera' : 'Abrir configurações'}</Text></Pressable>}
           </View>
         )}
       </View>

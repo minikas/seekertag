@@ -1,0 +1,113 @@
+appId: app.seekertag.mobile
+name: Native login, object, QR fallback and secure session
+---
+- stopApp
+- launchApp
+- tapOn:
+    text: "Ahora no|Agora não|Not Now|Never"
+    optional: true
+- runFlow:
+    when:
+      visible: "Minha conta"
+    commands:
+      - tapOn: "Minha conta"
+      - scrollUntilVisible:
+          element: "Sair da conta"
+          direction: DOWN
+      - tapOn: "Sair da conta"
+- scrollUntilVisible:
+    element: "Entrar"
+    direction: DOWN
+- tapOn: "Entrar"
+- tapOn: "voce@exemplo.com"
+- inputText: ${QA_EMAIL}
+- pressKey: Enter
+- scrollUntilVisible:
+    element: "Sua senha"
+    direction: DOWN
+- tapOn: "Sua senha"
+- inputText: ${QA_PASSWORD}
+- pressKey: Enter
+- tapOn:
+    text: "Ahora no|Agora não|Not Now|Never"
+    optional: true
+- extendedWaitUntil:
+    visible: "Adicionar objeto"
+    timeout: 20000
+- assertNotVisible: ".*KeyChainException.*"
+- takeScreenshot: native-dashboard
+- tapOn: "Adicionar objeto"
+- tapOn: "Ex.: Minha mochila verde"
+- inputText: ${QA_OBJECT_NAME}
+- pressKey: Enter
+- tapOn: "Chaves"
+- scrollUntilVisible:
+    element: "Criar etiqueta"
+    direction: DOWN
+- tapOn: "Criar etiqueta"
+- extendedWaitUntil:
+    visible: "Sua etiqueta"
+    timeout: 20000
+- assertVisible: ${QA_OBJECT_NAME}
+- takeScreenshot: native-created-qr
+- tapOn: "Fechar"
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Adicionar objeto"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Abrir ${QA_OBJECT_NAME}"
+    direction: DOWN
+- assertVisible: "Abrir ${QA_OBJECT_NAME}"
+- takeScreenshot: native-persisted-session
+- tapOn: "Escanear etiqueta"
+- tapOn: "https://…/found/sua-etiqueta"
+- inputText: ${QA_PUBLIC_URL}
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: ${QA_PUBLIC_OBJECT_NAME}
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Seu primeiro nome ou apelido"
+    direction: DOWN
+- tapOn: "Seu primeiro nome ou apelido"
+- inputText: "Native QA"
+- pressKey: Enter
+- scrollUntilVisible:
+    element: ".*Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui."
+    direction: DOWN
+- tapOn: ".*Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui."
+- inputText: ${QA_MESSAGE}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: ${QA_PUBLIC_OBJECT_NAME}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- scrollUntilVisible:
+    element: "Avisar o dono"
+    direction: DOWN
+- tapOn: "Avisar o dono"
+- extendedWaitUntil:
+    visible: "Obrigado por ajudar."
+    timeout: 20000
+- takeScreenshot: native-finder-chat
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Adicionar objeto"
+    timeout: 20000
+- tapOn: "Escanear etiqueta"
+- tapOn: "https://…/found/sua-etiqueta"
+- inputText: ${QA_PUBLIC_URL}
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Obrigado por ajudar."
+    timeout: 20000
+- assertVisible: ${QA_PUBLIC_OBJECT_NAME}
+- takeScreenshot: native-persisted-finder

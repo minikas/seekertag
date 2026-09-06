@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
 
-const api = process.env.API_URL || 'http://localhost:4318/api';
+const api = process.env.API_URL || 'http://127.0.0.1:4329/api';
 
 async function account(request: APIRequestContext, suffix: string) {
   const email = `qa-${suffix}-${crypto.randomUUID()}@example.test`;

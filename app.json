@@ -7,7 +7,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "app.seekertag.mobile",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Permita que o SeekerTag acesse o servidor de etiquetas na sua rede Wi-Fi.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +42,8 @@
         "expo-camera",
         {
           "cameraPermission": "Permita que o SeekerTag leia o QR da etiqueta.",
-          "recordAudioAndroid": false
+          "recordAudioAndroid": false,
+          "microphonePermission": false
         }
       ],
       "expo-secure-store",

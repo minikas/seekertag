@@ -1,0 +1,39 @@
+# Run after core.yaml on an iOS simulator. It has no NFC hardware or wallet.
+appId: app.seekertag.mobile
+name: iOS native PDF share and honest hardware availability
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Minha conta"
+    timeout: 20000
+- tapOn: "Minha conta"
+- scrollUntilVisible:
+    element: "Conectar carteira"
+    direction: DOWN
+- tapOn: "Conectar carteira"
+- assertVisible: "A conexão de carteira está disponível no Android. Você pode usar todas as etiquetas sem conectar uma carteira."
+- takeScreenshot: native-ios-wallet-unavailable
+- tapOn: "Meus objetos"
+- scrollUntilVisible:
+    element: "Abrir Chaves QA ios-.*"
+    direction: DOWN
+- tapOn: "Abrir Chaves QA ios-.*"
+- scrollUntilVisible:
+    element: "Gravar NFC"
+    direction: DOWN
+- tapOn: "Gravar NFC"
+- scrollUntilVisible:
+    element: "Este aparelho não tem NFC. Use a etiqueta com QR code."
+    direction: DOWN
+- assertVisible: "Este aparelho não tem NFC. Use a etiqueta com QR code."
+- takeScreenshot: native-ios-nfc-unavailable
+- scrollUntilVisible:
+    element: "Baixar etiquetas em PDF"
+    direction: UP
+    centerElement: true
+- tapOn: "Baixar etiquetas em PDF"
+- extendedWaitUntil:
+    visible: ".*(Guardar en Archivos|Save to Files|Salvar em Arquivos).*"
+    timeout: 20000
+- takeScreenshot: native-ios-pdf-share
