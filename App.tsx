@@ -1,20 +1,32 @@
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, Modal, Platform, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import Auth from './src/Auth';
+import Dashboard from './src/Dashboard';
+import Found from './src/Found';
+import { api, API_URL, ApiError, User } from './src/api';
+import { tokenStorage } from './src/platform/storage';
+import { QrScanner } from './src/platform/QrScanner';
+import { Brand, Button, C, Icon, IconName, Notice, Sheet, s } from './src/ui';
 
-export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+type Route = { code?: string; chatId?: string };
+function readRoute(url: string): Route { try { const parsed = new URL(url); const match = parsed.pathname.match(/\/(found|chat)\/([A-Za-z0-9_-]+)\/?$/); if(match) return match[1] === 'found' ? { code: match[2] } : { chatId: match[2] }; } catch {} return {}; }
+function Content() {
+  const [route, setRoute] = useState<Route>(() => Platform.OS === 'web' ? readRoute(globalThis.location.href) : {});
+  const [token, setToken] = useState<string | null>(null); const [user, setUser] = useState<User>(); const [loading, setLoading] = useState(true); const [scan, setScan] = useState(false); const [help, setHelp] = useState(false); const [recovery, setRecovery] = useState<string>(); const [error, setError] = useState('');
+  function navigate(path: string) { if(Platform.OS === 'web') globalThis.history.pushState(null, '', path); setRoute(readRoute(`https://seekertag.local${path}`)); setError(''); }
+  useEffect(() => { if(Platform.OS === 'web') { document.title = 'SeekerTag — O que é seu encontra o caminho de volta'; const pop = () => setRoute(readRoute(location.href)); globalThis.addEventListener('popstate', pop); return () => globalThis.removeEventListener('popstate', pop); } Linking.getInitialURL().then(url => { if(url) setRoute(readRoute(url)); }); const sub = Linking.addEventListener('url', e => setRoute(readRoute(e.url))); return () => sub.remove(); }, []);
+  useEffect(() => { let live = true; (async () => { try { const saved = await tokenStorage.get(); if(saved) { const { user } = await api<{ user: User }>('/auth/me', saved); if(live) { setToken(saved); setUser(user); } } } catch(e) { if(e instanceof ApiError && e.status === 401) await tokenStorage.clear(); else if(live) setError((e as Error).message); } finally { if(live) setLoading(false); } })(); return () => { live = false; }; }, []);
+  async function login(value: string, person: User, code?: string) { await tokenStorage.set(value); setToken(value); setUser(person); setError(''); setRecovery(code); }
+  async function logout() { try { await api('/auth/logout', token, {}); } catch(e) { if (!(e instanceof ApiError && e.status === 401)) throw e; } await tokenStorage.clear(); setToken(null); setUser(undefined); }
+  function scanResult(url: string) { setScan(false); const destination = readRoute(url); try { const scanned = new URL(url); const hosts = [new URL(API_URL).hostname]; if(Platform.OS === 'web') hosts.push(location.hostname); if(!destination.code || !hosts.includes(scanned.hostname)) throw new Error(); navigate(`/found/${destination.code}`); } catch { setError('Este QR não é uma etiqueta desta instalação do SeekerTag. Abra o link impresso na etiqueta.'); } }
+  return <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}><StatusBar style="dark" />
+    {!!error && <View style={{ padding: 12 }}><Notice error text={error} /></View>}
+    {route.code || route.chatId ? <Found code={route.code} chatId={route.chatId} goHome={() => navigate('/')} goChat={id => navigate(`/chat/${id}`)} /> : loading ? <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 24 }}><Brand /><ActivityIndicator color={C.purple} /></View> : token && user ? <Dashboard key={user.id} token={token} user={user} onLogout={logout} onScan={() => setScan(true)} onHelp={() => setHelp(true)} onExpired={() => { void tokenStorage.clear(); setToken(null); setUser(undefined); setError('Sua sessão terminou. Entre novamente para continuar.'); }} /> : <Auth onAuth={login} onScan={() => setScan(true)} />}
+    {scan && <Modal transparent animationType="fade" onRequestClose={() => setScan(false)}><View style={s.overlay}><ScrollView style={{ maxWidth: 560, width: '100%' }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled"><QrScanner onScan={scanResult} onClose={() => setScan(false)} /></ScrollView></View></Modal>}
+    {help && <Sheet title="O caminho de volta é simples." onClose={() => setHelp(false)}>{[{ icon: 'tag' as IconName, title: '1. Dê um nome ao que importa', text: 'Adicione seu objeto e crie uma etiqueta exclusiva.' }, { icon: 'maximize' as IconName, title: '2. Leve o QR com você', text: 'Imprima o PDF e prenda ao objeto. Se preferir, grave o mesmo link em uma etiqueta NFC passiva.' }, { icon: 'message-circle' as IconName, title: '3. Deixe a gentileza acontecer', text: 'Quem encontra abre o QR sem instalar o app e conversa com você, sem ver seus dados pessoais.' }, { icon: 'heart' as IconName, title: '4. Combine um reencontro', text: 'Escolham um lugar público para a devolução e confirme quando o objeto estiver com você.' }].map(step => <View key={step.title} style={[s.row, { alignItems: 'flex-start', gap: 15 }]}><View style={[s.circle, { width: 43, height: 43, borderRadius: 13 }]}><Icon name={step.icon} color={C.purple} size={19} /></View><View style={{ flex: 1, gap: 7 }}><Text style={s.h3}>{step.title}</Text><Text style={s.body}>{step.text}</Text></View></View>)}<Notice text="Etiquetas não rastreiam localização. Uma pessoa precisa encontrar e escanear o objeto para avisar você." /><Button onPress={() => setHelp(false)}>Entendi, vamos lá</Button></Sheet>}
+    {recovery && <Sheet title="Guarde sua chave de recuperação." subtitle="Ela permite recuperar a conta se você esquecer a senha." dismissible={false} onClose={() => {}}><Text style={s.body}>Salve este código em um gerenciador de senhas ou anote em um lugar seguro. Ele aparece apenas agora.</Text><Text selectable style={{ fontSize: 19, color: C.ink, backgroundColor: C.white, padding: 19, borderRadius: 12, lineHeight: 30 }}>{recovery}</Text><Button icon="check" onPress={() => setRecovery(undefined)}>Já guardei meu código</Button></Sheet>}
+  </SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() { return <SafeAreaProvider><Content /></SafeAreaProvider>; }

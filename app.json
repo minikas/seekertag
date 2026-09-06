@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "seekertag",
+    "name": "SeekerTag",
     "slug": "seekertag",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,15 +11,41 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#293D33",
+        "foregroundImage": "./assets/icon.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "app.seekertag.mobile"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "name": "SeekerTag",
+      "shortName": "SeekerTag",
+      "description": "Pequenas etiquetas. Grandes reencontros."
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permita que o SeekerTag leia o QR da etiqueta.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "Permita que o SeekerTag grave o link na sua etiqueta NFC."
+        }
+      ],
+      [
+        "./plugins/withAndroidCompatibility",
+        {
+          "allowCleartext": true
+        }
+      ]
+    ],
+    "scheme": "seekertag"
   }
 }

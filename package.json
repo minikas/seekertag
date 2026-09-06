@@ -3,20 +3,57 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo/metro-runtime": "~57.0.15",
+    "@expo/vector-icons": "^15.0.2",
+    "@solana-mobile/mobile-wallet-adapter-protocol": "^2.3.0",
+    "buffer": "^6.0.3",
     "expo": "~57.0.20",
+    "expo-camera": "~57.0.4",
+    "expo-constants": "~57.0.17",
+    "expo-crypto": "~57.0.2",
+    "expo-dev-client": "~57.0.18",
+    "expo-file-system": "~57.0.6",
+    "expo-secure-store": "~57.0.3",
+    "expo-sharing": "~57.0.18",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-nfc-manager": "^4.0.0-beta.7",
+    "react-native-qrcode-svg": "^6.3.22",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/react": "~19.2.2",
+    "concurrently": "^10.0.5",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web --port 8081",
+    "dev": "concurrently -k -n API,EXPO \"npm --prefix server start\" \"expo start --web --port 8081\"",
+    "typecheck": "tsc --noEmit",
+    "test": "npm --prefix server test",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
+    "build:web": "expo export --platform web",
+    "api": "npm --prefix server start",
+    "dev:lan": "node scripts/start-lan.mjs",
+    "serve": "node scripts/serve.mjs",
+    "serve:lan": "node scripts/start-lan.mjs --built",
+    "build:android": "node scripts/build-preview.mjs"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  }
 }

@@ -1,0 +1,17 @@
+{
+  "name": "seekertag-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pdfkit": "^0.17.2",
+    "qrcode": "^1.5.4"
+  }
+}

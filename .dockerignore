@@ -1,0 +1,16 @@
+node_modules
+server/node_modules
+server/data
+.git
+.expo
+android
+ios
+dist
+artifacts
+test-results
+playwright-report
+.playwright
+.playwright-cli
+qa
+*.log
+.env*
