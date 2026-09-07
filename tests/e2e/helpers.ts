@@ -79,7 +79,13 @@ export async function login(page: Page, email: string, password: string) {
 }
 
 export async function logout(page: Page) {
-  await page.getByRole('button', { name: 'Minha conta', exact: true }).click();
-  await page.getByRole('button', { name: 'Sair da conta', exact: true }).click();
+  const profile = page.getByRole('button', { name: /^Menu do perfil:/ });
+  if (await profile.isVisible()) {
+    await profile.click();
+    await page.getByRole('menuitem', { name: 'Sair', exact: true }).click();
+  } else {
+    await page.getByRole('button', { name: 'Minha conta', exact: true }).click();
+    await page.getByRole('button', { name: 'Sair da conta', exact: true }).click();
+  }
   await expect(page.getByLabel('Seu nome', { exact: true })).toBeVisible();
 }
