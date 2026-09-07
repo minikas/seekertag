@@ -12,7 +12,7 @@ test('login, logout and recovery UI retain objects and revoke the previous sessi
   await login(page, account.email, crypto.randomUUID());
   await expect(page.getByText('E-mail ou senha incorretos.', { exact: true })).toBeVisible();
   await page.getByLabel('Senha', { exact: true }).fill(account.password);
-  await page.getByRole('button', { name: 'Entrar na conta', exact: true }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Abrir Carteira azul', exact: true })).toBeVisible();
 
   const recoveryContext = await browser.newContext(projectContext(testInfo));
@@ -60,19 +60,17 @@ test('invalid account and tag fields explain errors and preserve a usable form',
   await page.getByLabel('Senha', { exact: true }).fill(crypto.randomUUID());
   await page.getByRole('button', { name: 'Criar conta', exact: true }).click();
   await page.getByRole('button', { name: 'Já guardei meu código', exact: true }).click();
+  await page.getByRole('button', { name: 'Adicionar objeto', exact: true }).click();
   await page.getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Criar etiqueta', exact: true }).getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
   await expect(page.getByText('Dê um nome ao objeto.', { exact: true })).toBeVisible();
   await page.getByLabel('Nome do objeto', { exact: true }).fill('Guarda-chuva');
-  await page.getByRole('button', { name: 'Mais opções', exact: true }).click();
   await page.getByLabel('Valor da recompensa (opcional)', { exact: true }).fill('-1');
-  await page.getByRole('dialog', { name: 'Criar etiqueta', exact: true }).getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
+  await page.getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
   await expect(page.getByText('Informe uma recompensa entre 0 e 100.000.', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Nome do objeto', { exact: true })).toHaveValue('Guarda-chuva');
   await page.getByLabel('Valor da recompensa (opcional)', { exact: true }).fill('12,50');
-  await page.getByRole('dialog', { name: 'Criar etiqueta', exact: true }).getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
+  await page.getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Baixar etiquetas em PDF', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Mais opções', exact: true }).click();
   await expect(page.getByText(/12,5 BRL de recompensa oferecida/)).toBeVisible();
   expect(runtimeErrors).toEqual([]);
 });

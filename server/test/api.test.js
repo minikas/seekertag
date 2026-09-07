@@ -4,11 +4,10 @@ import { mkdtempSync, rmSync, readFileSync, statSync, mkdirSync, writeFileSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
-import { randomBytes, randomUUID } from 'node:crypto';
-import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import jsQR from 'jsqr';
 import { PNG } from 'pngjs';
-import { PDFDocument as ParsedPDF, PDFName, PDFRawStream, decodePDFRawStream } from 'pdf-lib';
+import { PDFDocument as ParsedPDF } from 'pdf-lib';
 import { createApp } from '../app.js';
 
 async function harness(options = {}) {
@@ -40,31 +39,8 @@ async function harness(options = {}) {
     return result.data;
   }
   const close = async () => { await new Promise((resolve) => server.close(resolve)); app.locals.close(); };
-  return { app, base, request, register, tag, report, close };
+  return { app, request, register, tag, report, close };
 }
-
-// Forward to the real API, fully consume its committed response, then destroy
-// the client connection. This models response loss after a successful write.
-async function discardedPost(h, path, { token, body }, expected = 201) {
-  let upstreamStatus;
-  const proxy = createServer(async (req, res) => {
-    try {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(chunk);
-      const upstream = await fetch(h.base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: Buffer.concat(chunks) });
-      upstreamStatus = upstream.status;
-      await upstream.arrayBuffer();
-      res.destroy();
-    } catch (error) { res.destroy(error); }
-  });
-  proxy.listen(0, '127.0.0.1'); await once(proxy, 'listening');
-  try {
-    await assert.rejects(fetch(`http://127.0.0.1:${proxy.address().port}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), /fetch failed/);
-    assert.equal(upstreamStatus, expected, 'API completed the POST before its response was discarded');
-  } finally { await new Promise((resolve) => proxy.close(resolve)); }
-}
-
-const newOperationKey = () => randomBytes(32).toString('hex');
 
 test('complete return lifecycle relays messages, preserves privacy, and records exactly one recovery', async (t) => {
   const h = await harness(); t.after(h.close);
@@ -261,7 +237,7 @@ test('static Expo export serves app routes and assets while unknown API/non-GET 
   writeFileSync(join(dist, 'assets', 'app.js'), 'globalThis.seekerTagExport = true;');
   writeFileSync(join(dist, 'api', 'unknown'), 'API fallback must never serve this file');
   const h = await harness({ webDistPath: dist }); t.after(h.close);
-  for (const path of ['/', '/saved', '/saved/', '/owner-chat/thread-id', '/found/valid-public-code', '/found/code/', '/chat/90ca2a78-39f7-4f11-b716-a4e9b3d0809']) {
+  for (const path of ['/', '/found/valid-public-code', '/found/code/', '/chat/90ca2a78-39f7-4f11-b716-a4e9b3d0809']) {
     const page = await h.request(path, { root: true });
     assert.equal(page.status, 200, path); assert.match(page.headers.get('content-type'), /text\/html/);
     assert.match(page.bytes.toString(), /SeekerTag exported app/); assert.equal(page.headers.get('cache-control'), 'no-store');
@@ -274,7 +250,7 @@ test('static Expo export serves app routes and assets while unknown API/non-GET 
     assert.equal(missing.status, 404, path); assert.equal(missing.data.code, 'NOT_FOUND');
   }
   for (const method of ['POST', 'PATCH', 'DELETE', 'HEAD']) {
-    for (const path of ['/', '/saved', '/owner-chat/thread-id', '/found/valid-code', '/chat/thread-id']) assert.equal((await h.request(path, { root: true, method })).status, 404, `${method} ${path}`);
+    for (const path of ['/', '/found/valid-code', '/chat/thread-id']) assert.equal((await h.request(path, { root: true, method })).status, 404, `${method} ${path}`);
   }
   assert.equal((await h.request('/health')).data.ok, true);
 });
@@ -510,254 +486,4 @@ test('CORS preflight permits only configured origins and private exports require
   assert.equal(ownerExport.headers.get('referrer-policy'), 'no-referrer');
   assert.equal(ownerExport.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(ownerExport.headers.get('x-powered-by'), null);
-});
-
-test('lost committed POST responses replay one tag, one report/capability, and one message per role', async (t) => {
-  const h = await harness(); t.after(h.close);
-  const owner = await h.register(); const stranger = await h.register();
-  const tagBody = { name: 'Etiqueta repetível', operationKey: newOperationKey() };
-  await discardedPost(h, '/tags', { token: owner.token, body: tagBody });
-  const creates = await Promise.all([1, 2, 3].map(() => h.request('/tags', { method: 'POST', token: owner.token, body: tagBody })));
-  creates.forEach((result) => assert.equal(result.status, 201));
-  const tag = creates[0].data.tag;
-  assert.equal(new Set(creates.map((result) => result.data.tag.id)).size, 1);
-  assert.equal((await h.request('/tags', { token: owner.token })).data.tags.length, 1);
-  const path = `/public/tags/${tag.code}/reports`;
-  const reportBody = { finderName: 'Alex', message: 'Achei o objeto.', operationKey: newOperationKey() };
-  await discardedPost(h, path, { body: reportBody });
-  const reports = await Promise.all([1, 2, 3].map(() => h.request(path, { method: 'POST', body: reportBody })));
-  const found = reports[0].data;
-  reports.forEach((result) => { assert.equal(result.status, 201); assert.deepEqual(result.data, found); });
-  assert.equal((await h.request('/reports', { token: owner.token })).data.reports.length, 1);
-  const operations = [];
-  for (const [route, token, role] of [[`/reports/${found.report.id}/messages`, owner.token, 'owner'], [`/finder/reports/${found.report.id}/messages`, found.token, 'finder']]) {
-    const body = { body: `Mensagem ${role}`, operationKey: newOperationKey() };
-    await discardedPost(h, route, { token, body });
-    const replies = await Promise.all([1, 2].map(() => h.request(route, { method: 'POST', token, body })));
-    assert.equal(replies[0].status, 201); assert.deepEqual(replies[0].data, replies[1].data);
-    assert.equal(replies[0].data.message.role, role);
-    operations.push({ route, token, body, result: replies[0].data });
-  }
-  assert.equal((await h.request(`/reports/${found.report.id}`, { token: owner.token })).data.messages.length, 3);
-  await h.request(`/tags/${tag.id}`, { method: 'PATCH', token: owner.token, body: { status: 'paused' } });
-  const reportReplay = await h.request(path, { method: 'POST', body: reportBody });
-  assert.equal(reportReplay.status, 201); assert.equal(reportReplay.data.token, found.token);
-  assert.equal(reportReplay.data.report.id, found.report.id);
-  await h.request(`/reports/${found.report.id}/resolve`, { method: 'POST', token: owner.token });
-  for (const operation of operations) {
-    const replay = await h.request(operation.route, { method: 'POST', token: operation.token, body: operation.body });
-    assert.equal(replay.status, 201); assert.deepEqual(replay.data, operation.result);
-    const fresh = await h.request(operation.route, { method: 'POST', token: operation.token, body: { ...operation.body, operationKey: newOperationKey() } });
-    assert.equal(fresh.status, 409); assert.equal(fresh.data.code, 'REPORT_RESOLVED');
-  }
-  assert.equal((await h.request(operations[0].route, { method: 'POST', token: stranger.token, body: operations[0].body })).status, 404);
-  assert.equal((await h.request(operations[1].route, { method: 'POST', token: owner.token, body: operations[1].body })).status, 404);
-  await h.request('/auth/logout', { method: 'POST', token: owner.token });
-  assert.equal((await h.request('/tags', { method: 'POST', token: owner.token, body: tagBody })).status, 401);
-  assert.equal((await h.request(operations[0].route, { method: 'POST', token: owner.token, body: operations[0].body })).status, 401);
-});
-
-test('operation conflicts never mutate data, validation/failed writes reserve no keys, legacy clients still create independently', async (t) => {
-  const h = await harness(); t.after(h.close);
-  const owner = await h.register();
-  for (const operationKey of [null, 12, '', 'a'.repeat(63), 'g'.repeat(64), 'a'.repeat(65)]) {
-    const invalid = await h.request('/tags', { method: 'POST', token: owner.token, body: { name: 'Invalid', operationKey } });
-    assert.equal(invalid.status, 400); assert.equal(invalid.data.code, 'INVALID_OPERATION_KEY');
-  }
-  const key = newOperationKey();
-  const first = await h.request('/tags', { method: 'POST', token: owner.token, body: { name: 'Objeto', operationKey: key } });
-  const tag = first.data.tag;
-  const normalized = await h.request('/tags', { method: 'POST', token: owner.token, body: { operationKey: key.toUpperCase(), name: ' Objeto ', status: 'active', category: 'other' } });
-  assert.equal(normalized.status, 201); assert.equal(normalized.data.tag.id, tag.id);
-  const tagConflict = await h.request('/tags', { method: 'POST', token: owner.token, body: { name: 'Diferente', operationKey: key } });
-  assert.equal(tagConflict.status, 409); assert.equal(tagConflict.data.code, 'OPERATION_CONFLICT');
-  const reportKey = newOperationKey(); const path = `/public/tags/${tag.code}/reports`;
-  await h.request(`/tags/${tag.id}`, { method: 'PATCH', token: owner.token, body: { status: 'paused' } });
-  assert.equal((await h.request(path, { method: 'POST', body: { message: 'Mensagem', operationKey: reportKey } })).status, 410);
-  assert.equal(h.app.locals.db.prepare('SELECT COUNT(*) AS n FROM operations').get().n, 1);
-  await h.request(`/tags/${tag.id}`, { method: 'PATCH', token: owner.token, body: { status: 'active' } });
-  const found = (await h.request(path, { method: 'POST', body: { message: 'Mensagem', operationKey: reportKey } })).data;
-  assert.equal((await h.request(path, { method: 'POST', body: { message: 'Outro texto', operationKey: reportKey } })).data.code, 'OPERATION_CONFLICT');
-  const messageKey = newOperationKey();
-  for (const [route, token] of [[`/reports/${found.report.id}/messages`, owner.token], [`/finder/reports/${found.report.id}/messages`, found.token]]) {
-    assert.equal((await h.request(route, { method: 'POST', token, body: { body: 'Texto', operationKey: messageKey } })).status, 201);
-    assert.equal((await h.request(route, { method: 'POST', token, body: { body: 'Texto alterado', operationKey: messageKey } })).data.code, 'OPERATION_CONFLICT');
-  }
-  const legacy1 = await h.report(tag); const legacy2 = await h.report(tag);
-  assert.notEqual(legacy1.report.id, legacy2.report.id);
-  assert.equal((await h.request(`/reports/${found.report.id}`, { token: owner.token })).data.messages.length, 3);
-});
-
-test('operation replay survives restart without storing operation keys, finder capabilities, recovery codes or plaintext passwords', async (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'seekertag-idempotency-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const dbPath = join(directory, 'db.sqlite');
-  let h = await harness({ dbPath });
-  const owner = await h.register(); const target = await h.register();
-  const tagBody = { name: 'Persistente', operationKey: newOperationKey() };
-  const tag = (await h.request('/tags', { method: 'POST', token: owner.token, body: tagBody })).data.tag;
-  const reportBody = { message: 'Achei', operationKey: newOperationKey() };
-  const path = `/public/tags/${tag.code}/reports`;
-  const found = (await h.request(path, { method: 'POST', body: reportBody })).data;
-  const recoveryBody = { password: 'correct horse battery', operationKey: newOperationKey() };
-  const issued = await h.request('/account/recovery-code', { method: 'POST', token: owner.token, body: recoveryBody });
-  assert.equal(issued.status, 200);
-  await h.close();
-  const disk = readFileSync(dbPath);
-  for (const value of [owner.token, found.token, tagBody.operationKey, reportBody.operationKey, recoveryBody.operationKey, issued.data.recoveryCode, issued.data.recoveryCode.replaceAll('-', ''), recoveryBody.password]) assert.equal(disk.includes(Buffer.from(value)), false, 'raw credentials must not occur in database bytes');
-  h = await harness({ dbPath }); t.after(h.close);
-  assert.equal((await h.request('/tags', { method: 'POST', token: owner.token, body: tagBody })).data.tag.id, tag.id);
-  assert.deepEqual((await h.request(path, { method: 'POST', body: reportBody })).data, found);
-  assert.deepEqual((await h.request('/account/recovery-code', { method: 'POST', token: owner.token, body: recoveryBody })).data, issued.data);
-  await h.request(`/reports/${found.report.id}/close`, { method: 'POST', token: owner.token, body: { reason: 'no_return' } });
-  assert.equal((await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: target.user.email, password: recoveryBody.password } })).status, 200);
-  assert.equal((await h.request('/tags', { method: 'POST', token: owner.token, body: tagBody })).status, 404);
-  const replay = await h.request(path, { method: 'POST', body: reportBody });
-  assert.equal(replay.status, 201); assert.equal(replay.data.token, found.token); assert.equal(replay.data.report.tagName, 'Persistente');
-  assert.equal((await h.request('/reports', { token: target.token })).data.reports.length, 0);
-});
-
-test('a lost recovery response can be repaired by new-password login and repeatable authenticated recovery-code issuance', async (t) => {
-  const h = await harness(); t.after(h.close);
-  const owner = await h.register(); const newPassword = 'replacement password after recovery';
-  await discardedPost(h, '/auth/recover', { body: { email: owner.user.email, recoveryCode: owner.recoveryCode, password: newPassword } }, 200);
-  assert.equal((await h.request('/auth/me', { token: owner.token })).status, 401);
-  const loggedIn = await h.request('/auth/login', { method: 'POST', body: { email: owner.user.email, password: newPassword } });
-  assert.equal(loggedIn.status, 200);
-  const token = loggedIn.data.token;
-  const body = { password: newPassword, operationKey: newOperationKey() };
-  assert.equal((await h.request('/account/recovery-code', { method: 'POST', token, body: { password: newPassword } })).status, 400);
-  assert.equal((await h.request('/account/recovery-code', { method: 'POST', token, body: { ...body, password: 'incorrect password' } })).status, 401);
-  await discardedPost(h, '/account/recovery-code', { token, body }, 200);
-  const attempts = await Promise.all([1, 2].map(() => h.request('/account/recovery-code', { method: 'POST', token, body })));
-  assert.equal(attempts[0].status, 200); assert.deepEqual(attempts[0].data, attempts[1].data);
-  const replacement = await h.request('/account/recovery-code', { method: 'POST', token, body: { ...body, operationKey: newOperationKey() } });
-  assert.notEqual(replacement.data.recoveryCode, attempts[0].data.recoveryCode);
-  const stale = await h.request('/account/recovery-code', { method: 'POST', token, body });
-  assert.equal(stale.status, 409); assert.equal(stale.data.code, 'OPERATION_SUPERSEDED');
-  assert.equal((await h.request('/auth/recover', { method: 'POST', body: { email: owner.user.email, recoveryCode: attempts[0].data.recoveryCode, password: 'another replacement password' } })).status, 401);
-  assert.equal((await h.request('/auth/recover', { method: 'POST', body: { email: owner.user.email, recoveryCode: replacement.data.recoveryCode, password: 'another replacement password' } })).status, 200);
-  assert.equal((await h.request('/account/recovery-code', { method: 'POST', token, body })).status, 401);
-});
-
-test('recovery-code issuance cannot outlive concurrent logout or invalidate the existing recovery code', async (t) => {
-  const h = await harness(); t.after(h.close);
-  const owner = await h.register();
-  const attempt = h.request('/account/recovery-code', { method: 'POST', token: owner.token, body: { password: 'correct horse battery', operationKey: newOperationKey() } });
-  await h.request('/auth/logout', { method: 'POST', token: owner.token });
-  assert.equal((await attempt).status, 401);
-  assert.equal(h.app.locals.db.prepare('SELECT COUNT(*) AS n FROM operations').get().n, 0);
-  assert.equal((await h.request('/auth/recover', { method: 'POST', body: { email: owner.user.email, recoveryCode: owner.recoveryCode, password: 'new password remains valid' } })).status, 200);
-});
-
-test('prepared declaration is private and repeatable, unread cursors are owner-only and monotonic across races', async (t) => {
-  const h = await harness(); t.after(h.close);
-  const owner = await h.register(); const target = await h.register(); const tag = await h.tag(owner);
-  assert.equal(tag.preparedAt, null);
-  await h.request(`/tags/${tag.id}/qr.png`, { token: owner.token });
-  assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag.preparedAt, null);
-  assert.equal((await h.request(`/tags/${tag.id}`, { method: 'PATCH', token: owner.token, body: { prepared: 'true' } })).status, 400);
-  assert.equal((await h.request(`/tags/${tag.id}`, { method: 'PATCH', token: target.token, body: { prepared: true } })).status, 404);
-  const prepared = (await h.request(`/tags/${tag.id}`, { method: 'PATCH', token: owner.token, body: { prepared: true } })).data.tag;
-  assert.ok(prepared.preparedAt);
-  assert.equal((await h.request(`/tags/${tag.id}`, { method: 'PATCH', token: owner.token, body: { prepared: true } })).data.tag.preparedAt, prepared.preparedAt);
-  assert.equal((await h.request(`/public/tags/${tag.code}`)).data.tag.preparedAt, undefined);
-  const found = await h.report(tag); const other = await h.report(tag);
-  assert.equal(found.report.unreadCount, 1); assert.equal(found.report.lastMessageRole, 'finder');
-  const path = `/reports/${found.report.id}/read`;
-  assert.equal((await h.request(path, { method: 'POST', token: target.token, body: { lastMessageId: found.messages[0].id } })).status, 404);
-  assert.equal((await h.request(path, { method: 'POST', token: found.token, body: { lastMessageId: found.messages[0].id } })).status, 401);
-  for (const lastMessageId of [-1, '1', 1.5, Number.MAX_SAFE_INTEGER, other.messages[0].id]) assert.equal((await h.request(path, { method: 'POST', token: owner.token, body: { lastMessageId } })).status, 400);
-  const read = await h.request(path, { method: 'POST', token: owner.token, body: { lastMessageId: found.messages[0].id } });
-  assert.equal(read.data.report.unreadCount, 0);
-  const reply = await h.request(`/reports/${found.report.id}/messages`, { method: 'POST', token: owner.token, body: { body: 'Obrigado!' } });
-  let report = (await h.request(`/reports/${found.report.id}`, { token: owner.token })).data.report;
-  assert.equal(report.unreadCount, 0); assert.equal(report.lastMessageRole, 'owner'); assert.equal(report.lastMessageId, reply.data.message.id);
-  const message = (await h.request(`/finder/reports/${found.report.id}/messages`, { method: 'POST', token: found.token, body: { body: 'Até logo.' } })).data.message;
-  await Promise.all([0, found.messages[0].id].map((lastMessageId) => h.request(path, { method: 'POST', token: owner.token, body: { lastMessageId } })));
-  report = (await h.request(`/reports/${found.report.id}`, { token: owner.token })).data.report;
-  assert.equal(report.unreadCount, 1); assert.equal(report.lastMessageId, message.id);
-  await Promise.all([message.id, found.messages[0].id].map((lastMessageId) => h.request(path, { method: 'POST', token: owner.token, body: { lastMessageId } })));
-  assert.equal((await h.request(`/reports/${found.report.id}`, { token: owner.token })).data.report.unreadCount, 0);
-  await h.request(`/reports/${found.report.id}/resolve`, { method: 'POST', token: owner.token });
-  await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: target.user.email, password: 'correct horse battery' } });
-  assert.equal((await h.request(`/tags/${tag.id}`, { token: target.token })).data.tag.preparedAt, null);
-  assert.equal((await h.request(path, { method: 'POST', token: target.token, body: { lastMessageId: message.id } })).status, 404);
-});
-
-test('closing one report preserves other conversations and never invents a return, including close/resolve races', async (t) => {
-  const h = await harness(); t.after(h.close);
-  const owner = await h.register(); const stranger = await h.register(); const tag = await h.tag(owner, { status: 'lost' });
-  const a = await h.report(tag); const b = await h.report(tag);
-  const path = `/reports/${a.report.id}/close`;
-  assert.equal((await h.request(path, { method: 'POST', token: stranger.token, body: { reason: 'unwanted' } })).status, 404);
-  assert.equal((await h.request(path, { method: 'POST', token: a.token, body: { reason: 'unwanted' } })).status, 401);
-  assert.equal((await h.request(path, { method: 'POST', token: owner.token, body: { reason: 'returned' } })).status, 400);
-  const results = await Promise.all([1, 2].map(() => h.request(path, { method: 'POST', token: owner.token, body: { reason: 'mistake' } })));
-  assert.deepEqual(results[0].data, results[1].data);
-  assert.equal(results[0].data.report.closedReason, 'mistake'); assert.ok(results[0].data.report.closedAt);
-  assert.equal((await h.request(`/finder/reports/${a.report.id}`, { token: a.token })).data.report.closedReason, 'mistake');
-  assert.equal((await h.request(`/finder/reports/${a.report.id}/messages`, { method: 'POST', token: a.token, body: { body: 'No more' } })).status, 409);
-  assert.equal((await h.request(`/reports/${b.report.id}`, { token: owner.token })).data.report.status, 'open');
-  const unchanged = (await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag;
-  assert.equal(unchanged.status, 'lost'); assert.equal(unchanged.recoveryCount, 0); assert.equal(unchanged.returnedAt, null); assert.equal(unchanged.openReportCount, 1);
-  await h.request(`/reports/${a.report.id}/resolve`, { method: 'POST', token: owner.token });
-  assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag.recoveryCount, 0);
-  assert.equal((await h.request(path, { method: 'POST', token: owner.token, body: { reason: 'unwanted' } })).status, 409);
-  const race = await Promise.all([
-    h.request(`/reports/${b.report.id}/close`, { method: 'POST', token: owner.token, body: { reason: 'no_return' } }),
-    h.request(`/reports/${b.report.id}/resolve`, { method: 'POST', token: owner.token }),
-  ]);
-  assert.equal(race[1].status, 200);
-  const finalReport = (await h.request(`/reports/${b.report.id}`, { token: owner.token })).data.report;
-  const finalTag = (await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag;
-  assert.ok(['no_return', 'returned'].includes(finalReport.closedReason));
-  assert.equal(finalTag.recoveryCount, finalReport.closedReason === 'returned' ? 1 : 0);
-  assert.equal((await h.request(`/reports/${a.report.id}`, { token: owner.token })).data.report.closedReason, 'mistake');
-});
-
-test('additive migration preserves legacy objects, chats, sessions, recoveries, and remains safe on a second restart', async (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'seekertag-migration-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const dbPath = join(directory, 'db.sqlite');
-  let h = await harness({ dbPath });
-  const owner = await h.register(); const tag = await h.tag(owner); const found = await h.report(tag);
-  await h.request(`/reports/${found.report.id}/resolve`, { method: 'POST', token: owner.token });
-  // Produce the exact older schema by removing only this release's additions.
-  h.app.locals.db.exec('DROP TABLE operations; ALTER TABLE tags DROP COLUMN prepared_at; ALTER TABLE reports DROP COLUMN owner_read_message_id; ALTER TABLE reports DROP COLUMN closed_reason; ALTER TABLE reports DROP COLUMN closed_at;');
-  await h.close();
-  for (let restart = 0; restart < 2; restart++) {
-    h = await harness({ dbPath });
-    const migratedTag = (await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag;
-    assert.equal(migratedTag.description, tag.description); assert.equal(migratedTag.recoveryCount, 1); assert.equal(migratedTag.preparedAt, null);
-    const migrated = (await h.request(`/finder/reports/${found.report.id}`, { token: found.token })).data;
-    assert.deepEqual(migrated.messages, found.messages); assert.equal(migrated.report.closedReason, 'returned'); assert.ok(migrated.report.closedAt);
-    assert.equal((await h.request('/auth/me', { token: owner.token })).status, 200);
-    await h.close();
-  }
-  h = await harness({ dbPath }); t.after(h.close);
-  assert.equal((await h.request('/auth/recover', { method: 'POST', body: { email: owner.user.email, recoveryCode: owner.recoveryCode, password: 'old recovery remains valid' } })).status, 200);
-});
-
-test('every printable format is one A4 page with explicit dimensions and embedded QR decoding to the canonical URL', async (t) => {
-  const h = await harness({ publicUrl: 'https://tags.example.com' }); t.after(h.close);
-  const owner = await h.register(); const stranger = await h.register(); const tag = await h.tag(owner);
-  for (const [format, expectedImages, measure] of [['standard', 6, '88,2 x 73'], ['compact', 15, '50 x 40'], ['fold', 8, '90 x 100']]) {
-    const path = `/tags/${tag.id}/label.pdf?format=${format}`;
-    assert.equal((await h.request(path, { token: stranger.token })).status, 404);
-    const result = await h.request(path, { token: owner.token });
-    assert.equal(result.status, 200);
-    const pdf = await ParsedPDF.load(result.bytes);
-    assert.equal(pdf.getPageCount(), 1); assert.ok(pdf.getSubject().includes(measure));
-    const page = pdf.getPage(0); assert.ok(Math.abs(page.getWidth() - 595.28) < 0.1); assert.ok(Math.abs(page.getHeight() - 841.89) < 0.1);
-    const imageEntries = pdf.context.enumerateIndirectObjects().filter(([, object]) => object instanceof PDFRawStream && object.dict.get(PDFName.of('Subtype')) === PDFName.of('Image') && object.dict.get(PDFName.of('ColorSpace')) === PDFName.of('DeviceRGB'));
-    assert.equal(imageEntries.length, expectedImages);
-    const image = imageEntries[0][1]; const width = image.dict.get(PDFName.of('Width')).asNumber(); const height = image.dict.get(PDFName.of('Height')).asNumber();
-    const rgb = decodePDFRawStream(image).decode();
-    const rgba = new Uint8ClampedArray(width * height * 4);
-    for (let pixel = 0; pixel < width * height; pixel++) { rgba.set(rgb.subarray(pixel * 3, pixel * 3 + 3), pixel * 4); rgba[pixel * 4 + 3] = 255; }
-    assert.equal(jsQR(rgba, width, height)?.data, tag.publicUrl);
-  }
-  for (const suffix of ['?format=unknown', '?format=standard&format=compact']) assert.equal((await h.request(`/tags/${tag.id}/label.pdf${suffix}`, { token: owner.token })).status, 400);
-  assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag.preparedAt, null);
 });

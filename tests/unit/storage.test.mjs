@@ -91,36 +91,3 @@ test('logout and finder removal clear the relevant stores without affecting othe
   assert.equal(localStorage.getItem('seekertag.finder-report1'), null);
   assert.equal(sessionStorage.getItem('seekertag.finder-report1'), null);
 });
-
-test('stale session cleanup never removes a newer signed-in session', async () => {
-  await tokenStorage.set('old');
-  const saving = tokenStorage.set('new');
-  const staleCleanup = tokenStorage.clearIfMatches('old');
-  await saving;
-  assert.equal(await staleCleanup, false);
-  assert.equal(await tokenStorage.get(), 'new');
-  assert.equal(await tokenStorage.clearIfMatches('new'), true);
-  assert.equal(await tokenStorage.get(), null);
-});
-
-test('durable pending requests and drafts survive tab closure without capability TTL', async () => {
-  const pending = JSON.stringify({ operationKey: 'a'.repeat(64), payload: { body: 'draft' } });
-  await secureStorage.set('mutation-owner-message:user:report', pending);
-  await secureStorage.set('draft-owner-message:user:report', 'new draft');
-  assign('sessionStorage', new BrowserStorage());
-  assert.equal(await secureStorage.get('mutation-owner-message:user:report'), pending);
-  assert.equal(await secureStorage.get('draft-owner-message:user:report'), 'new draft');
-  assert.equal(await secureStorage.expiresAt('mutation-owner-message:user:report'), null);
-});
-
-test('blocked durable reads fail visibly instead of generating another request', async () => {
-  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('Storage blocked'); } });
-  await assert.rejects(secureStorage.get('mutation-owner-message:user:report'), /armazenamento/);
-});
-
-test('failed owner session removal never claims that logout completed', async () => {
-  await tokenStorage.set('owner-token');
-  sessionStorage.removeItem = () => { throw new Error('blocked'); };
-  await assert.rejects(tokenStorage.clearIfMatches('owner-token'), /remover a sessão/);
-  assert.equal(await tokenStorage.get(), 'owner-token');
-});

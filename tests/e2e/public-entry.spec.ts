@@ -26,21 +26,17 @@ test('unavailable camera still permits manual tag entry and browser back-forward
   await page.goto(web);
   await page.getByRole('button', { name: 'Encontrei um objeto', exact: true }).click();
   const permissionButton = page.getByRole('button', { name: /Permitir câmera|Abrir configurações/ });
+  await permissionButton.click();
   await expect(page.getByText(/Este navegador não disponibiliza a câmera/)).toBeVisible();
-  await expect(permissionButton).toHaveCount(0);
-  await page.getByRole('button', { name: 'Fechar leitor', exact: true }).click();
   await page.evaluate(() => Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false }));
-  await page.getByRole('button', { name: 'Encontrei um objeto', exact: true }).click();
+  await permissionButton.click();
   await expect(page.getByText(/A câmera no navegador precisa de HTTPS/)).toBeVisible();
-  await expect(permissionButton).toHaveCount(0);
-  await page.getByRole('button', { name: 'Fechar leitor', exact: true }).click();
   await page.evaluate(() => {
     Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
     Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
       getUserMedia: async () => { throw new DOMException('Permission denied', 'NotAllowedError'); },
     } });
   });
-  await page.getByRole('button', { name: 'Encontrei um objeto', exact: true }).click();
   await permissionButton.click();
   await expect(page.getByText(/Câmera não autorizada/)).toBeVisible();
   await page.getByLabel('Link da etiqueta', { exact: true }).fill(`https://unrelated.example/found/${tag.code}`);
@@ -74,7 +70,7 @@ test('unavailable camera still permits manual tag entry and browser back-forward
 
 test('chat URL without its browser capability explains how to contact the owner again', async ({ page }) => {
   await page.goto('/chat/00000000-0000-0000-0000-000000000000');
-  await expect(page.getByText(/Este acesso não está salvo neste aparelho/i)).toBeVisible();
+  await expect(page.getByText(/conversa está disponível no navegador/i)).toBeVisible();
   await expect(page.getByText(/escaneie a etiqueta/i)).toBeVisible();
   await expect(page.getByLabel('Mensagem', { exact: true })).toHaveCount(0);
 });

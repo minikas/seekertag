@@ -1,56 +1,37 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
-import { api, ApiError, User } from './api';
-import { Brand, Button, C, Field, Notice, s } from './ui';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { api, User } from './api';
+import { Brand, Button, C, Field, Icon, Notice, s } from './ui';
 
-export type AuthProps = {
-  onAuth: (token: string, user: User, recoveryCode?: string) => Promise<void>;
-  onScan: () => void;
-  savedConversations?: React.ReactNode;
-};
-
-export default function Auth({ onAuth, onScan, savedConversations }: AuthProps) {
+export default function Auth({ onAuth, onScan }: { onAuth: (token: string, user: User, recoveryCode?: string) => Promise<void>; onScan: () => void }) {
+  const { width } = useWindowDimensions();
+  const wide = width >= 850;
   const [mode, setMode] = useState<'register' | 'login' | 'recover'>('register');
-  const [name, setName] = useState(''); const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); const [code, setCode] = useState('');
-  const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
-
-  function changeMode(next: typeof mode) { setMode(next); setError(''); setPassword(''); setCode(''); }
+  const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [code, setCode] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   async function submit() {
-    if (busy) return;
     if (!email.trim() || !password || (mode === 'register' && !name.trim())) { setError('Preencha os campos para continuar.'); return; }
     if (mode !== 'login' && password.length < 10) { setError('Escolha uma senha com pelo menos 10 caracteres.'); return; }
     setBusy(true); setError('');
-    try {
-      const result = await api<{ token: string; user: User; recoveryCode?: string }>(`/auth/${mode}`, null, { email: email.trim(), password, ...(mode === 'register' ? { name: name.trim() } : {}), ...(mode === 'recover' ? { recoveryCode: code.trim() } : {}) });
-      await onAuth(result.token, result.user, result.recoveryCode);
-    } catch (e) { setError(mode === 'recover' && !(e instanceof ApiError) ? 'Não foi possível confirmar a recuperação. Tente entrar com a nova senha. Se funcionar, gere outro código em Minha conta; se não, use novamente o código que você guardou.' : (e as Error).message); } finally { setBusy(false); }
+    try { const result = await api<{ token: string; user: User; recoveryCode?: string }>(`/auth/${mode}`, null, { email: email.trim(), password, ...(mode === 'register' ? { name: name.trim() } : {}), ...(mode === 'recover' ? { recoveryCode: code.trim() } : {}) }); await onAuth(result.token, result.user, result.recoveryCode); }
+    catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
-
-  return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 24, paddingBottom: 36, alignItems: 'center' }}>
-      <View style={{ width: '100%', maxWidth: 420, gap: 20 }}>
-        <Brand />
-        <View style={{ gap: 8 }}>
-          <View style={s.row}>
-            <Button onPress={() => changeMode('register')} variant={mode === 'register' ? 'primary' : 'secondary'} style={{ flex: 1 }} disabled={busy}>Criar etiqueta</Button>
-            <Button onPress={() => changeMode('login')} variant={mode === 'login' ? 'primary' : 'secondary'} style={{ flex: 1 }} disabled={busy}>Entrar</Button>
-          </View>
-          <Button variant="secondary" icon="maximize" onPress={onScan}>Encontrei um objeto</Button>
-        </View>
-        {savedConversations}
-        <View style={{ gap: 14 }}>
-          <Text accessibilityRole="header" style={s.h2}>{mode === 'register' ? 'Criar conta' : mode === 'recover' ? 'Recuperar conta' : 'Entrar na conta'}</Text>
-          {mode === 'recover' && <Text style={s.body}>Use o código que você guardou ao criar sua conta.</Text>}
-          {!!error && <Notice error text={error} />}
-          {mode === 'register' && <Field label="Seu nome" value={name} onChangeText={setName} placeholder="Seu nome" autoComplete="name" maxLength={80} editable={!busy} />}
-          <Field label="E-mail" value={email} onChangeText={setEmail} placeholder="voce@exemplo.com" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" maxLength={254} editable={!busy} />
-          {mode === 'recover' && <Field label="Código de recuperação" value={code} onChangeText={setCode} autoCapitalize="none" autoCorrect={false} editable={!busy} />}
-          <Field label={mode === 'recover' ? 'Nova senha' : 'Senha'} value={password} onChangeText={setPassword} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 10 caracteres'} secureTextEntry autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onSubmitEditing={submit} maxLength={128} editable={!busy} />
-          <Button onPress={submit} busy={busy} icon="arrow-right">{mode === 'register' ? 'Criar conta' : mode === 'recover' ? 'Recuperar conta' : 'Entrar na conta'}</Button>
-          {mode === 'login' && <Button variant="ghost" onPress={() => changeMode('recover')}>Esqueci minha senha</Button>}
-        </View>
-      </View>
-    </ScrollView>
-  </KeyboardAvoidingView>;
+  return <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled"><View style={{ flex: 1, flexDirection: wide ? 'row' : 'column', minHeight: wide ? 760 : undefined }}>
+    <View style={{ backgroundColor: C.surface, flex: wide ? 1 : undefined, padding: wide ? 64 : 28, justifyContent: 'space-between', gap: wide ? 75 : 20 }}>
+      <Brand />
+      {wide ? <View style={{ gap: 25, maxWidth: 510 }}><Text style={{ fontSize: wide ? 62 : 39, lineHeight: wide ? 66 : 43, letterSpacing: -2.5, color: C.ink, fontWeight: '500' }}>O que é seu{ '\n' }encontra o{ '\n' }caminho de volta<Text style={{ color: C.purple }}>.</Text></Text><Text style={{ color: C.muted, fontSize: 16, lineHeight: 26, maxWidth: 355 }}>Um QR no seu objeto. Uma pessoa disposta a ajudar. Uma chance a mais de reencontro.</Text></View> : <Text style={{ color: C.muted, fontSize: 16, lineHeight: 24 }}>Um QR no objeto. Uma chance de reencontro.</Text>}
+      {wide && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24, paddingVertical: 14 }}><View style={{ width: 110, height: 145, backgroundColor: C.purple, borderRadius: 22, alignItems: 'center', justifyContent: 'center', gap: 15, transform: [{ rotate: '-9deg' }] }}><View style={{ width: 23, height: 7, borderRadius: 5, backgroundColor: C.onAccent }} /><Icon name="crosshair" size={49} color={C.onAccent} /></View><View style={{ gap: 9 }}><Text style={{ color: C.muted, lineHeight: 23 }}>Sem bateria. Sem rastreamento.{ '\n' }Seus contatos continuam privados.</Text></View></View>}
+    </View>
+    <View style={{ flex: 1, padding: wide ? 60 : 28, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: '100%', maxWidth: 380, gap: 23 }}>
+      <View style={{ gap: 10 }}><Text accessibilityRole="header" style={s.h1}>{mode === 'register' ? 'Vamos cuidar\ndo que é seu.' : mode === 'recover' ? 'De volta\nà sua conta.' : 'Bom ter você\npor aqui.'}</Text><Text style={s.body}>{mode === 'register' ? 'Crie sua conta e sua primeira etiqueta em poucos passos.' : mode === 'recover' ? 'Use o código que você guardou ao criar sua conta.' : 'Entre para acompanhar seus objetos e conversas.'}</Text></View>
+      {error ? <Notice error text={error} /> : null}
+      {mode === 'register' && <Field label="Seu nome" value={name} onChangeText={setName} placeholder="Como você gosta de ser chamado?" autoComplete="name" maxLength={80} />}
+      <Field label="E-mail" value={email} onChangeText={setEmail} placeholder="voce@exemplo.com" autoCapitalize="none" keyboardType="email-address" autoComplete="email" maxLength={254} />
+      {mode === 'recover' && <Field label="Código de recuperação" value={code} onChangeText={setCode} autoCapitalize="none" />}
+      <Field label={mode === 'recover' ? 'Nova senha' : 'Senha'} value={password} onChangeText={setPassword} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 10 caracteres'} secureTextEntry autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onSubmitEditing={submit} maxLength={128} />
+      <Button onPress={submit} busy={busy} icon="arrow-right">{mode === 'register' ? 'Criar conta' : mode === 'recover' ? 'Recuperar conta' : 'Entrar'}</Button>
+      <View style={[s.row, { justifyContent: 'center', flexWrap: 'wrap' }]}><Text style={s.small}>{mode === 'register' ? 'Já tem uma conta?' : 'Ainda não tem conta?'}</Text><Pressable accessibilityRole="button" onPress={() => { setMode(mode === 'register' ? 'login' : 'register'); setError(''); }} style={{ paddingVertical: 10 }}><Text style={{ color: C.purple, fontWeight: '600', fontSize: 13 }}>{mode === 'register' ? 'Entrar' : 'Criar conta'}</Text></Pressable></View>
+      {mode === 'login' && <Button variant="ghost" onPress={() => setMode('recover')}>Esqueci minha senha</Button>}
+      <View style={s.divider} /><Button variant="secondary" icon="maximize" onPress={onScan}>Encontrei um objeto</Button><Text style={[s.small, { textAlign: 'center' }]}>Quem encontra não precisa criar conta.{ '\n' }Basta abrir o QR da etiqueta para avisar o dono.</Text>
+    </View></View>
+  </View></ScrollView>;
 }

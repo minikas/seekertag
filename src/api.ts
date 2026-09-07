@@ -4,17 +4,17 @@ import Constants from 'expo-constants';
 const host = Platform.OS === 'web' ? globalThis.location?.hostname : Constants.expoConfig?.hostUri?.split(':')[0];
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'web' && globalThis.location?.port !== '8081' ? `${globalThis.location.origin}/api` : `${Platform.OS === 'web' ? globalThis.location?.protocol || 'http:' : 'http:'}//${host || '10.0.2.2'}:4318/api`);
 export type User = { id: string; name: string; email: string; createdAt: string };
-export type Tag = { id: string; code: string; name: string; category: string; color: string; description: string; publicMessage: string; status: 'active' | 'lost' | 'paused'; rewardAmount: number; rewardCurrency: string; publicUrl: string; preparedAt?: string | null; createdAt: string; updatedAt: string; returnedAt: string | null; recoveryCount: number; reportCount: number; openReportCount: number };
-export type Report = { id: string; tagId: string; tagName: string; tagCode: string; finderName: string; status: 'open' | 'resolved' | 'closed'; createdAt: string; updatedAt: string; lastMessage: string; messageCount: number; lastMessageId?: number | null; lastMessageRole?: 'owner' | 'finder' | null; unreadCount?: number; closedReason?: null | 'returned' | 'mistake' | 'no_return' | 'unwanted'; closedAt?: string | null };
+export type Tag = { id: string; code: string; name: string; category: string; color: string; description: string; publicMessage: string; status: 'active' | 'lost' | 'paused'; rewardAmount: number; rewardCurrency: string; publicUrl: string; createdAt: string; updatedAt: string; returnedAt: string | null; recoveryCount: number; reportCount: number; openReportCount: number };
+export type Report = { id: string; tagId: string; tagName: string; tagCode: string; finderName: string; status: 'open' | 'resolved'; createdAt: string; updatedAt: string; lastMessage: string; messageCount: number };
 export type Message = { id: number; role: 'owner' | 'finder'; body: string; createdAt: string };
-export class ApiError extends Error { constructor(message: string, public status: number, public code?: string) { super(message); } }
+export class ApiError extends Error { constructor(message: string, public status: number) { super(message); } }
 export async function api<T>(path: string, token?: string | null, body?: unknown, method?: string): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const response = await fetch(`${API_URL}${path}`, { method: method || (body === undefined ? 'GET' : 'POST'), headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal });
     const data = response.status === 204 ? undefined : await response.json();
-    if (!response.ok) throw new ApiError(data?.error || 'Não foi possível concluir. Tente novamente.', response.status, data?.code);
+    if (!response.ok) throw new ApiError(data?.error || 'Não foi possível concluir. Tente novamente.', response.status);
     return data;
   } catch (error) {
     if (error instanceof ApiError) throw error;

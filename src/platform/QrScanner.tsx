@@ -11,8 +11,6 @@ export function QrScanner({ onScan, onClose }: Props) {
   const [manualUrl, setManualUrl] = useState('');
   const [cameraFailed, setCameraFailed] = useState(false);
   const accepted = useRef(false);
-  const manualOnly = Platform.OS === 'web' && (!globalThis.isSecureContext || !globalThis.navigator?.mediaDevices?.getUserMedia);
-  const manualReason = !globalThis.isSecureContext ? 'A câmera no navegador precisa de HTTPS. Cole o link da etiqueta ou abra o QR pela câmera do celular.' : 'Este navegador não disponibiliza a câmera. Cole o link da etiqueta para continuar.';
 
   function accept(value: string) {
     if (accepted.current) return;
@@ -57,8 +55,8 @@ export function QrScanner({ onScan, onClose }: Props) {
         <View style={styles.heading}><Text style={styles.title}>Ler etiqueta</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel="Fechar leitor" onPress={onClose} style={styles.close}><Text style={styles.closeText}>✕</Text></Pressable>
       </View>
-      <Text style={styles.description}>{manualOnly ? manualReason : 'Aponte a câmera para o QR code ou cole o link da etiqueta.'}</Text>
-      {!manualOnly && <View style={styles.cameraBox}>
+      <Text style={styles.description}>Aponte a câmera para o QR code. A página do objeto abrirá aqui, sem precisar de uma conta.</Text>
+      <View style={styles.cameraBox}>
         {!permission ? <ActivityIndicator color={C.purple} accessibilityLabel="Verificando permissão da câmera" /> : permission.granted && !cameraFailed ? (
           <>
             <CameraView
@@ -79,10 +77,10 @@ export function QrScanner({ onScan, onClose }: Props) {
             {!cameraFailed && <Pressable accessibilityRole="button" style={styles.permissionButton} onPress={() => void allowCamera()}><Text style={styles.permissionButtonText}>{permission.canAskAgain ? 'Permitir câmera' : 'Abrir configurações'}</Text></Pressable>}
           </View>
         )}
-      </View>}
+      </View>
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <Text style={styles.label}>{manualOnly ? 'Link da etiqueta' : 'Ou cole o link da etiqueta'}</Text>
-      <TextInput accessibilityLabel="Link da etiqueta" autoCapitalize="none" autoCorrect={false} autoFocus={manualOnly} keyboardType="url" placeholder="https://…/found/sua-etiqueta" placeholderTextColor={C.muted} selectionColor={C.purple} keyboardAppearance="dark" value={manualUrl} onChangeText={setManualUrl} onSubmitEditing={() => accept(manualUrl)} style={styles.input} />
+      <Text style={styles.label}>Ou cole o link da etiqueta</Text>
+      <TextInput accessibilityLabel="Link da etiqueta" autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://…/found/sua-etiqueta" placeholderTextColor={C.muted} selectionColor={C.purple} keyboardAppearance="dark" value={manualUrl} onChangeText={setManualUrl} onSubmitEditing={() => accept(manualUrl)} style={styles.input} />
       <Pressable accessibilityRole="button" disabled={!manualUrl.trim()} onPress={() => accept(manualUrl)} style={[styles.button, !manualUrl.trim() && styles.disabled]}><Text style={styles.buttonText}>Abrir etiqueta</Text></Pressable>
     </View>
   );

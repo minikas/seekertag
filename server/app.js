@@ -1,13 +1,12 @@
 import express from 'express';
 import { DatabaseSync } from 'node:sqlite';
-import { createHash, createHmac, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { mkdirSync, chmodSync, realpathSync, statSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
-import { registerNotifications } from './notifications.js';
 
 const scrypt = promisify(scryptCallback);
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -16,19 +15,11 @@ const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const secret = () => randomBytes(32).toString('base64url');
 const recovery = () => randomBytes(20).toString('hex').toUpperCase().match(/.{1,5}/g).join('-');
 const normalizeRecovery = (value) => String(value || '').replaceAll('-', '').trim().toUpperCase();
-// Operation keys are client-generated secrets. Domain separation prevents their
-// digests in the database from becoming usable finder/recovery credentials.
-const derive = (domain, scope, key) => createHmac('sha256', Buffer.from(key, 'hex')).update(`SeekerTag/${domain}/v1\0${scope}`).digest();
 
 class HttpError extends Error {
   constructor(status, error, code = 'INVALID_REQUEST') { super(error); this.status = status; this.code = code; }
 }
 const fail = (status, message, code) => { throw new HttpError(status, message, code); };
-function operationKey(value, required = false) {
-  if (value === undefined && !required) return null;
-  if (typeof value !== 'string' || !/^[a-fA-F0-9]{64}$/.test(value)) fail(400, 'operationKey deve conter 64 caracteres hexadecimais.', 'INVALID_OPERATION_KEY');
-  return value.toLowerCase();
-}
 function string(value, name, max, { optional = false, min = 1, trim = true } = {}) {
   if (value == null && optional) return '';
   if (typeof value !== 'string') fail(400, `${name}: informe um texto válido.`);
@@ -53,7 +44,7 @@ async function passwordMatches(value, stored) {
 }
 const userView = (u) => ({ id: u.id, name: u.name, email: u.email, createdAt: u.created_at });
 
-export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:8081', corsOrigins = /** @type {string[]} */ ([]), rateLimits = true, webDistPath = /** @type {string | null} */ (null), notifications = {} } = {}) {
+export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:8081', corsOrigins = [], rateLimits = true, webDistPath = null } = {}) {
   const canonical = new URL(publicUrl);
   if (!['http:', 'https:'].includes(canonical.protocol) || canonical.username || canonical.password || canonical.search || canonical.hash || canonical.pathname !== '/') throw new Error('PUBLIC_URL must be an http(s) origin without credentials, query, or path.');
   const publicOrigin = canonical.origin;
@@ -101,11 +92,6 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       id INTEGER PRIMARY KEY AUTOINCREMENT, tag_id TEXT NOT NULL REFERENCES tags(id),
       owner_id TEXT NOT NULL REFERENCES users(id), type TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL
     ) STRICT;
-    CREATE TABLE IF NOT EXISTS operations (
-      scope TEXT NOT NULL, key_digest TEXT NOT NULL, payload_digest TEXT NOT NULL,
-      resource_id TEXT NOT NULL, created_at TEXT NOT NULL,
-      PRIMARY KEY(scope, key_digest)
-    ) STRICT;
     CREATE INDEX IF NOT EXISTS tags_owner ON tags(owner_id);
     CREATE INDEX IF NOT EXISTS reports_owner ON reports(owner_id, updated_at);
     CREATE INDEX IF NOT EXISTS reports_tag ON reports(tag_id, owner_id, status);
@@ -117,34 +103,6 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   const all = (sql, ...params) => db.prepare(sql).all(...params);
   const run = (sql, ...params) => db.prepare(sql).run(...params);
   const transaction = (fn) => { db.exec('BEGIN IMMEDIATE'); try { const result = fn(); db.exec('COMMIT'); return result; } catch (error) { db.exec('ROLLBACK'); throw error; } };
-  // Additive, transactional migrations work for both existing installations and
-  // fresh databases. Historical resolutions were all genuine returns.
-  transaction(() => {
-    const addColumn = (table, name, declaration) => {
-      if (!all(`PRAGMA table_info(${table})`).some((column) => column.name === name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${declaration}`);
-    };
-    addColumn('tags', 'prepared_at', 'TEXT');
-    addColumn('reports', 'owner_read_message_id', 'INTEGER NOT NULL DEFAULT 0');
-    addColumn('reports', 'closed_reason', 'TEXT');
-    addColumn('reports', 'closed_at', 'TEXT');
-    run("UPDATE reports SET closed_reason='returned',closed_at=updated_at WHERE status='resolved' AND closed_reason IS NULL");
-  });
-  function performOperation(key, scope, payload, create, read) {
-    return transaction(() => {
-      const keyDigest = key && derive('operation-key', scope, key).toString('hex');
-      // HMAC also prevents the payload digest from becoming a cheap password
-      // oracle for the authenticated recovery-code operation.
-      const payloadDigest = key && createHmac('sha256', Buffer.from(key, 'hex')).update(JSON.stringify(payload)).digest('hex');
-      const prior = key && get('SELECT * FROM operations WHERE scope=? AND key_digest=?', scope, keyDigest);
-      if (prior) {
-        if (prior.payload_digest !== payloadDigest) fail(409, 'Esta operação já foi usada com outros dados.', 'OPERATION_CONFLICT');
-        return read(prior.resource_id, true);
-      }
-      const id = create();
-      if (key) run('INSERT INTO operations(scope,key_digest,payload_digest,resource_id,created_at) VALUES(?,?,?,?,?)', scope, keyDigest, payloadDigest, String(id), now());
-      return read(String(id), false);
-    });
-  }
   const app = express();
   app.disable('x-powered-by');
   app.locals.db = db;
@@ -212,9 +170,6 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     if (!u) fail(401, 'Sua sessão expirou. Entre novamente.', 'UNAUTHORIZED');
     req.user = u; req.sessionHash = tokenHash; next();
   };
-  const notificationService = registerNotifications({ app, db, publicOrigin, requireOwner, limiter, options: notifications });
-  app.locals.notifications = notificationService;
-  app.locals.close = () => { notificationService.close(); db.close(); };
   const ownerTag = (req) => {
     const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', req.params.id, req.user.id);
     if (!tag) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
@@ -238,30 +193,28 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   };
   function tagView(t) {
     const counts = get("SELECT COUNT(*) AS total, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open FROM reports WHERE tag_id=? AND owner_id=?", t.id, t.owner_id);
-    return { id: t.id, code: t.code, name: t.name, category: t.category, color: t.color, description: t.description, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency, publicUrl: `${publicOrigin}/found/${t.code}`, createdAt: t.created_at, updatedAt: t.updated_at, returnedAt: t.returned_at, preparedAt: t.prepared_at, recoveryCount: t.recovery_count, reportCount: counts.total, openReportCount: counts.open || 0 };
+    return { id: t.id, code: t.code, name: t.name, category: t.category, color: t.color, description: t.description, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency, publicUrl: `${publicOrigin}/found/${t.code}`, createdAt: t.created_at, updatedAt: t.updated_at, returnedAt: t.returned_at, recoveryCount: t.recovery_count, reportCount: counts.total, openReportCount: counts.open || 0 };
   }
   const publicView = (t) => ({ code: t.code, name: t.name, category: t.category, color: t.color, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency });
   function reportView(r) {
-    const last = get('SELECT id,role,body FROM messages WHERE report_id=? ORDER BY id DESC LIMIT 1', r.id);
+    const last = get('SELECT body FROM messages WHERE report_id=? ORDER BY id DESC LIMIT 1', r.id);
     const count = get('SELECT COUNT(*) AS n FROM messages WHERE report_id=?', r.id).n;
-    const unreadCount = get("SELECT COUNT(*) AS n FROM messages WHERE report_id=? AND role='finder' AND id>?", r.id, r.owner_read_message_id).n;
-    return { id: r.id, tagId: r.tag_id, tagName: r.tag_name, tagCode: r.tag_code, finderName: r.finder_name, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at, lastMessage: last?.body || '', lastMessageId: last?.id ?? null, lastMessageRole: last?.role ?? null, messageCount: count, unreadCount, closedReason: r.closed_reason, closedAt: r.closed_at };
+    return { id: r.id, tagId: r.tag_id, tagName: r.tag_name, tagCode: r.tag_code, finderName: r.finder_name, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at, lastMessage: last?.body || '', messageCount: count };
   }
   const messageView = (m) => ({ id: m.id, role: m.role, body: m.body, createdAt: m.created_at });
   const messagesFor = (id) => all('SELECT * FROM messages WHERE report_id=? ORDER BY id', id).map(messageView);
-  function addMessage(report, role, body, key) {
-    return performOperation(key, `message:${role}:${report.id}`, { body }, () => {
-      const current = get('SELECT * FROM reports WHERE id=?', report.id);
-      if (current.status !== 'open') fail(409, 'Esta conversa está encerrada.', 'REPORT_RESOLVED');
-      const tag = get('SELECT * FROM tags WHERE id=?', report.tag_id);
-      if (tag.status === 'paused') fail(410, 'Esta etiqueta está pausada pelo dono.', 'TAG_PAUSED');
-      if (get('SELECT COUNT(*) AS n FROM messages WHERE report_id=?', report.id).n >= 1000) fail(409, 'Esta conversa atingiu o limite de mensagens.', 'MESSAGE_LIMIT');
-      const at = now();
+  function addMessage(report, role, body) {
+    if (report.status !== 'open') fail(409, 'A devolução já foi concluída. Esta conversa está encerrada.', 'REPORT_RESOLVED');
+    const tag = get('SELECT * FROM tags WHERE id=?', report.tag_id);
+    if (tag.status === 'paused') fail(410, 'Esta etiqueta está pausada pelo dono.', 'TAG_PAUSED');
+    if (get('SELECT COUNT(*) AS n FROM messages WHERE report_id=?', report.id).n >= 1000) fail(409, 'Esta conversa atingiu o limite de mensagens.', 'MESSAGE_LIMIT');
+    const at = now();
+    const id = transaction(() => {
       const result = run('INSERT INTO messages(report_id,role,body,created_at) VALUES(?,?,?,?)', report.id, role, body, at);
       run('UPDATE reports SET updated_at=? WHERE id=?', at, report.id);
-      if (role === 'finder') notificationService.enqueueMessage(report.id, Number(result.lastInsertRowid));
       return Number(result.lastInsertRowid);
-    }, (id) => messageView(get('SELECT * FROM messages WHERE id=? AND report_id=?', Number(id), report.id)));
+    });
+    return { id, role, body, createdAt: at };
   }
   function validateTag(body, previous) {
     const choose = (field, defaultValue) => body[field] !== undefined ? body[field] : defaultValue;
@@ -327,26 +280,6 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   });
   app.get('/api/auth/me', requireOwner, (req, res) => res.json({ user: userView(req.user) }));
   app.post('/api/auth/logout', requireOwner, (req, res) => { run('DELETE FROM sessions WHERE hash=?', req.sessionHash); res.sendStatus(204); });
-  app.post('/api/account/recovery-code', requireOwner, authLimit, async (req, res) => {
-    const pass = password(req.body.password);
-    const key = operationKey(req.body.operationKey, true);
-    if (!(await passwordMatches(pass, req.user.password_hash))) fail(401, 'Senha incorreta.', 'INVALID_CREDENTIALS');
-    const recoveryCode = derive('recovery-code', req.user.id, key).subarray(0, 20).toString('hex').toUpperCase().match(/.{1,5}/g).join('-');
-    const digest = hash(normalizeRecovery(recoveryCode));
-    const result = performOperation(key, `recovery-code:${req.user.id}`, { password: pass }, () => {
-      reauthorize();
-      run('UPDATE users SET recovery_hash=? WHERE id=?', digest, req.user.id);
-      return req.user.id;
-    }, () => {
-      reauthorize();
-      if (get('SELECT recovery_hash FROM users WHERE id=?', req.user.id).recovery_hash !== digest) fail(409, 'Uma emissão posterior substituiu este código. Emita um novo código.', 'OPERATION_SUPERSEDED');
-      return { recoveryCode };
-    });
-    function reauthorize() {
-      if (!get('SELECT hash FROM sessions WHERE hash=? AND user_id=? AND expires_at>?', req.sessionHash, req.user.id, Date.now()) || get('SELECT password_hash FROM users WHERE id=?', req.user.id)?.password_hash !== req.user.password_hash) fail(401, 'Entre novamente para continuar.', 'UNAUTHORIZED');
-    }
-    res.json(result);
-  });
   app.get('/api/account/export', requireOwner, (req, res) => {
     const reports = all('SELECT * FROM reports WHERE owner_id=? ORDER BY created_at', req.user.id);
     res.set('Content-Disposition', 'attachment; filename="seekertag-backup.json"');
@@ -355,32 +288,23 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
 
   app.get('/api/tags', requireOwner, (req, res) => res.json({ tags: all('SELECT * FROM tags WHERE owner_id=? ORDER BY created_at DESC, id DESC', req.user.id).map(tagView) }));
   app.post('/api/tags', requireOwner, ownerWriteLimit, (req, res) => {
+    if (get('SELECT COUNT(*) AS n FROM tags WHERE owner_id=?', req.user.id).n >= 500) fail(409, 'Você atingiu o limite de 500 etiquetas.', 'TAG_LIMIT');
     const v = validateTag(req.body);
-    const key = operationKey(req.body.operationKey);
-    const tag = performOperation(key, `tag:${req.user.id}`, v, () => {
-      if (get('SELECT COUNT(*) AS n FROM tags WHERE owner_id=?', req.user.id).n >= 500) fail(409, 'Você atingiu o limite de 500 etiquetas.', 'TAG_LIMIT');
-      const id = randomUUID(); const code = randomBytes(12).toString('base64url'); const at = now();
+    const id = randomUUID(); const code = randomBytes(12).toString('base64url'); const at = now();
+    transaction(() => {
       run('INSERT INTO tags(id,code,owner_id,name,category,color,description,public_message,status,reward_amount,reward_currency,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', id, code, req.user.id, v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, at);
       run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', id, req.user.id, 'created', v.status, at);
-      return id;
-    }, (id) => {
-      const current = get('SELECT * FROM tags WHERE id=? AND owner_id=?', id, req.user.id);
-      if (!current) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
-      return tagView(current);
     });
-    res.status(201).json({ tag });
+    res.status(201).json({ tag: tagView(get('SELECT * FROM tags WHERE id=?', id)) });
   });
   app.get('/api/tags/:id', requireOwner, (req, res) => res.json({ tag: tagView(ownerTag(req)) }));
   app.patch('/api/tags/:id', requireOwner, ownerWriteLimit, (req, res) => {
-    if (req.body.prepared !== undefined && typeof req.body.prepared !== 'boolean') fail(400, 'prepared deve ser verdadeiro ou falso.');
-    const tag = transaction(() => {
-      const t = ownerTag(req); const v = validateTag(req.body, t); const at = now();
-      const preparedAt = req.body.prepared === undefined ? t.prepared_at : req.body.prepared ? t.prepared_at || at : null;
-      run('UPDATE tags SET name=?,category=?,color=?,description=?,public_message=?,status=?,reward_amount=?,reward_currency=?,updated_at=?,prepared_at=? WHERE id=?', v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, preparedAt, t.id);
+    const t = ownerTag(req); const v = validateTag(req.body, t); const at = now();
+    transaction(() => {
+      run('UPDATE tags SET name=?,category=?,color=?,description=?,public_message=?,status=?,reward_amount=?,reward_currency=?,updated_at=? WHERE id=?', v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, t.id);
       if (t.status !== v.status) run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', t.id, req.user.id, 'status_changed', v.status, at);
-      return tagView(get('SELECT * FROM tags WHERE id=?', t.id));
     });
-    res.json({ tag });
+    res.json({ tag: tagView(get('SELECT * FROM tags WHERE id=?', t.id)) });
   });
   app.get('/api/tags/:id/history', requireOwner, (req, res) => {
     const tag = ownerTag(req);
@@ -401,7 +325,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       if (get('SELECT COUNT(*) AS n FROM tags WHERE owner_id=?', target.id).n >= 500) fail(409, 'A conta de destino atingiu o limite de etiquetas.', 'TAG_LIMIT');
       const at = now();
       // Public QR remains valid; clear private notes, pledges, and previous recovery metrics before handing over.
-      run("UPDATE tags SET owner_id=?,description='',public_message='',reward_amount=0,status='active',updated_at=?,returned_at=NULL,recovery_count=0,prepared_at=NULL WHERE id=?", target.id, at, tag.id);
+      run("UPDATE tags SET owner_id=?,description='',public_message='',reward_amount=0,status='active',updated_at=?,returned_at=NULL,recovery_count=0 WHERE id=?", target.id, at, tag.id);
       run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', tag.id, req.user.id, 'transferred_out', 'active', at);
       run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', tag.id, target.id, 'transferred_in', 'active', at);
     });
@@ -414,49 +338,20 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   });
   app.get('/api/tags/:id/label.pdf', requireOwner, async (req, res) => {
     const tag = ownerTag(req); const url = `${publicOrigin}/found/${tag.code}`;
-    const format = req.query.format ?? 'standard';
-    if (!['standard', 'compact', 'fold'].includes(format)) fail(400, 'Formato de etiqueta inválido.');
     const png = await QRCode.toBuffer(url, { width: 900, margin: 4, errorCorrectionLevel: 'M' });
-    const dimensions = { standard: '6 etiquetas de 88,2 x 73 mm', compact: '15 etiquetas de 50 x 40 mm', fold: '4 etiquetas de 90 x 100 mm; dobrada: 90 x 50 mm' };
-    const doc = new PDFDocument({ size: 'A4', margin: 40, info: { Title: `SeekerTag — ${tag.name}`, Author: 'SeekerTag', Subject: `${format}: ${dimensions[format]}. A4, escala 100%.` } });
+    const doc = new PDFDocument({ size: 'A4', margin: 40, info: { Title: `SeekerTag — ${tag.name}`, Author: 'SeekerTag' } });
     const chunks = [];
     const pdf = new Promise((resolve, reject) => { doc.on('data', (chunk) => chunks.push(chunk)); doc.on('end', () => resolve(Buffer.concat(chunks))); doc.on('error', reject); });
     doc.fillColor('#213528').fontSize(25).text('SeekerTag', 40, 36);
-    doc.fontSize(10).text(`${dimensions[format]}. Imprima em escala 100%.`, 40, 70);
+    doc.fontSize(11).text('Imprima em tamanho real. Recorte e prenda ao seu item.', 40, 70);
     doc.fontSize(9).fillColor('#5B655C').text('Teste o QR com outro celular antes de usar a etiqueta.', 40, 88);
-    const mm = (value) => value * 72 / 25.4;
-    const outline = (x, y, width, height) => doc.save().dash(3, { space: 3 }).lineWidth(0.6).strokeColor('#B4BEB2').roundedRect(x, y, width, height, 4).stroke().restore();
-    if (format === 'standard') {
-      for (let row = 0; row < 3; row++) for (let col = 0; col < 2; col++) {
-        const x = 40 + col * 261; const y = 120 + row * 220;
-        outline(x, y, 250, 207);
-        doc.fillColor('#213528').fontSize(15).text('Encontrou este item?', x + 12, y + 13, { width: 226, align: 'center' });
-        doc.fontSize(9).text('Escaneie para falar com o dono.', x + 12, y + 34, { width: 226, align: 'center' });
-        doc.image(png, x + 61, y + 52, { width: 128, height: 128 });
-        doc.fontSize(8).fillColor('#5B655C').text(`SeekerTag · ${tag.code}`, x + 10, y + 186, { width: 230, align: 'center' });
-      }
-    } else if (format === 'compact') {
-      for (let row = 0; row < 5; row++) for (let col = 0; col < 3; col++) {
-        const x = mm(26) + col * mm(54); const y = 120 + row * mm(44); const width = mm(50);
-        outline(x, y, width, mm(40));
-        doc.fillColor('#213528').fontSize(8).text('Encontrou? Escaneie o QR.', x + 4, y + 7, { width: width - 8, align: 'center' });
-        doc.image(png, x + mm(12), y + 21, { width: mm(26), height: mm(26) });
-        doc.fontSize(6).fillColor('#5B655C').text(`SeekerTag · ${tag.code}`, x + 3, y + 100, { width: width - 6, align: 'center' });
-      }
-    } else {
-      for (let row = 0; row < 2; row++) for (let col = 0; col < 2; col++) {
-        const x = mm(12) + col * mm(96); const y = 120 + row * mm(106); const width = mm(90); const half = mm(50);
-        outline(x, y, width, half * 2);
-        doc.save().dash(5, { space: 3 }).strokeColor('#859582').lineWidth(0.6).moveTo(x, y + half).lineTo(x + width, y + half).stroke().restore();
-        for (let side = 0; side < 2; side++) {
-          const top = y + side * half;
-          doc.fillColor('#213528').fontSize(11).text('Encontrou este item?', x + 8, top + 7, { width: width - 16, align: 'center' });
-          doc.fontSize(7).text('Escaneie para falar com o dono.', x + 8, top + 22, { width: width - 16, align: 'center' });
-          doc.image(png, x + (width - mm(30)) / 2, top + 34, { width: mm(30), height: mm(30) });
-          doc.fontSize(7).fillColor('#5B655C').text(`SeekerTag · ${tag.code}`, x + 6, top + 124, { width: width - 12, align: 'center' });
-        }
-      }
-      doc.fontSize(8).fillColor('#5B655C').text('Recorte a borda externa. Dobre na linha central e prenda ao item.', 40, 730, { width: 515 });
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 2; col++) {
+      const x = 40 + col * 261; const y = 120 + row * 220;
+      doc.save().dash(3, { space: 3 }).lineWidth(0.6).strokeColor('#B4BEB2').roundedRect(x, y, 250, 207, 9).stroke().restore();
+      doc.fillColor('#213528').fontSize(15).text('Encontrou este item?', x + 12, y + 13, { width: 226, align: 'center' });
+      doc.fontSize(9).text('Escaneie para falar com o dono.', x + 12, y + 34, { width: 226, align: 'center' });
+      doc.image(png, x + 61, y + 52, { width: 128, height: 128 });
+      doc.fontSize(8).fillColor('#5B655C').text(`SeekerTag · ${tag.code}`, x + 10, y + 186, { width: 230, align: 'center' });
     }
     doc.end();
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="seekertag-${tag.code}.pdf"` }).send(await pdf);
@@ -464,62 +359,31 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
 
   app.get('/api/public/tags/:code', (req, res) => res.json({ tag: publicView(publicTag(req.params.code)) }));
   app.post('/api/public/tags/:code/reports', reportLimit, (req, res) => {
-    const key = operationKey(req.body.operationKey);
+    const tag = publicTag(req.params.code);
     const finderName = string(req.body.finderName ?? '', 'Como devemos chamar você', 60, { min: 0 }) || 'Pessoa que encontrou';
     const message = string(req.body.message, 'Mensagem', 2000);
-    const scope = `public-report:${req.params.code}`;
-    const token = key ? derive('finder-capability', scope, key).toString('base64url') : secret();
-    const result = performOperation(key, scope, { finderName, message }, () => {
-      const tag = publicTag(req.params.code);
-      if (get("SELECT COUNT(*) AS n FROM reports WHERE tag_id=? AND status='open'", tag.id).n >= 100) fail(429, 'Esta etiqueta recebeu muitos avisos. Tente novamente mais tarde.', 'REPORT_LIMIT');
-      const id = randomUUID(); const at = now();
+    if (get("SELECT COUNT(*) AS n FROM reports WHERE tag_id=? AND status='open'", tag.id).n >= 100) fail(429, 'Esta etiqueta recebeu muitos avisos. Tente novamente mais tarde.', 'REPORT_LIMIT');
+    const id = randomUUID(); const token = secret(); const at = now();
+    transaction(() => {
       run("INSERT INTO reports(id,tag_id,owner_id,tag_name,tag_code,finder_name,capability_hash,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'open',?,?)", id, tag.id, tag.owner_id, tag.name, tag.code, finderName, hash(token), at, at);
-      const inserted = run("INSERT INTO messages(report_id,role,body,created_at) VALUES(?,'finder',?,?)", id, message, at);
-      notificationService.enqueueMessage(id, Number(inserted.lastInsertRowid));
-      return id;
-    }, (id) => ({ report: reportView(get('SELECT * FROM reports WHERE id=? AND capability_hash=?', id, hash(token))), token, messages: messagesFor(id) }));
-    res.status(201).json(result);
+      run("INSERT INTO messages(report_id,role,body,created_at) VALUES(?,'finder',?,?)", id, message, at);
+    });
+    res.status(201).json({ report: reportView(get('SELECT * FROM reports WHERE id=?', id)), token, messages: messagesFor(id) });
   });
   app.get('/api/reports', requireOwner, (req, res) => res.json({ reports: all('SELECT * FROM reports WHERE owner_id=? ORDER BY updated_at DESC, id DESC', req.user.id).map(reportView) }));
   app.get('/api/reports/:id', requireOwner, (req, res) => { const r = ownerReport(req); res.json({ report: reportView(r), messages: messagesFor(r.id) }); });
-  app.post('/api/reports/:id/messages', requireOwner, messageLimit, (req, res) => res.status(201).json({ message: addMessage(ownerReport(req), 'owner', string(req.body.body, 'Mensagem', 2000), operationKey(req.body.operationKey)) }));
-  app.post('/api/reports/:id/read', requireOwner, ownerWriteLimit, (req, res) => {
-    const id = req.body.lastMessageId;
-    if (!Number.isSafeInteger(id) || id < 0) fail(400, 'lastMessageId deve ser um inteiro não negativo.');
-    const report = transaction(() => {
-      const r = ownerReport(req);
-      if (id !== 0 && !get('SELECT id FROM messages WHERE report_id=? AND id=?', r.id, id)) fail(400, 'A mensagem não pertence a esta conversa.');
-      run('UPDATE reports SET owner_read_message_id=MAX(owner_read_message_id,?) WHERE id=?', id, r.id);
-      return reportView(get('SELECT * FROM reports WHERE id=?', r.id));
-    });
-    res.json({ report });
-  });
-  app.post('/api/reports/:id/close', requireOwner, ownerWriteLimit, (req, res) => {
-    const reason = req.body.reason;
-    if (!['mistake', 'no_return', 'unwanted'].includes(reason)) fail(400, 'Motivo de encerramento inválido.');
-    const report = transaction(() => {
-      const r = ownerReport(req);
-      if (r.status === 'open') {
-        const at = now();
-        run("UPDATE reports SET status='resolved',closed_reason=?,closed_at=?,updated_at=? WHERE id=?", reason, at, at, r.id);
-      } else if (r.closed_reason !== reason) fail(409, 'Esta conversa já foi encerrada com outro motivo.', 'REPORT_RESOLVED');
-      return reportView(get('SELECT * FROM reports WHERE id=?', r.id));
-    });
-    res.json({ report });
-  });
+  app.post('/api/reports/:id/messages', requireOwner, messageLimit, (req, res) => res.status(201).json({ message: addMessage(ownerReport(req), 'owner', string(req.body.body, 'Mensagem', 2000)) }));
   app.post('/api/reports/:id/resolve', requireOwner, ownerWriteLimit, (req, res) => {
-    const result = transaction(() => {
-      const report = ownerReport(req);
-      if (report.status !== 'open') return reportView(report);
+    const report = ownerReport(req);
+    if (report.status === 'open') transaction(() => {
       const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', report.tag_id, req.user.id);
       if (!tag) fail(409, 'A etiqueta foi transferida.', 'TAG_TRANSFERRED');
       const at = now();
-      run("UPDATE reports SET status='resolved',closed_reason='returned',closed_at=?,updated_at=? WHERE tag_id=? AND owner_id=? AND status='open'", at, at, tag.id, req.user.id);
+      run("UPDATE reports SET status='resolved',updated_at=? WHERE tag_id=? AND owner_id=? AND status='open'", at, tag.id, req.user.id);
       run("UPDATE tags SET status='active',updated_at=?,returned_at=?,recovery_count=recovery_count+1 WHERE id=?", at, at, tag.id);
       run("INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,'returned','active',?)", tag.id, req.user.id, at);
-      return reportView(get('SELECT * FROM reports WHERE id=?', report.id));
     });
-    res.json({ report: result });
+    res.json({ report: reportView(get('SELECT * FROM reports WHERE id=?', report.id)) });
   });
   app.get('/api/finder/reports/:id', requireFinder, (req, res) => {
     const r = req.finderReport; const tag = get('SELECT * FROM tags WHERE id=?', r.tag_id);
@@ -527,7 +391,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const tagData = tag.owner_id === r.owner_id ? publicView(tag) : { code: r.tag_code, name: r.tag_name, category: 'other', color: '#B9C79B', publicMessage: '', status: 'active', rewardAmount: 0, rewardCurrency: 'BRL' };
     res.json({ report: reportView(r), messages: messagesFor(r.id), tag: tagData });
   });
-  app.post('/api/finder/reports/:id/messages', requireFinder, messageLimit, (req, res) => res.status(201).json({ message: addMessage(req.finderReport, 'finder', string(req.body.body, 'Mensagem', 2000), operationKey(req.body.operationKey)) }));
+  app.post('/api/finder/reports/:id/messages', requireFinder, messageLimit, (req, res) => res.status(201).json({ message: addMessage(req.finderReport, 'finder', string(req.body.body, 'Mensagem', 2000)) }));
   const notFound = (_req, res) => res.status(404).json({ error: 'Recurso não encontrado.', code: 'NOT_FOUND' });
   // Keep all unknown API routes as JSON, even when a web export is present.
   app.use('/api', notFound);
@@ -554,7 +418,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     });
     app.use((req, res, next) => {
       // Only actual client routes receive the SPA shell; missing assets remain 404.
-      if (req.method !== 'GET' || !/^\/(?:$|saved\/?$|(?:found|chat|owner-chat)\/[A-Za-z0-9_-]+\/?$)/.test(req.path)) return next();
+      if (req.method !== 'GET' || !/^\/(?:$|(?:found|chat)\/[A-Za-z0-9_-]+\/?$)/.test(req.path)) return next();
       return res.sendFile(webIndex, { cacheControl: false }, (error) => { if (error) next(error); });
     });
   }

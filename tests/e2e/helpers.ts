@@ -38,20 +38,19 @@ export async function register(page: Page) {
   await page.getByRole('button', { name: 'Criar conta', exact: true }).last().click();
   const account = await (await registration).json();
   await page.getByRole('button', { name: 'Já guardei meu código', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Criar etiqueta', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Adicionar objeto', exact: true }).first()).toBeVisible();
   return { email, password, recoveryCode: account.recoveryCode as string };
 }
 
 export async function createTag(page: Page, name: string, category = 'Mochila') {
-  await page.getByRole('button', { name: 'Criar etiqueta', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Adicionar objeto', exact: true }).first().click();
   await page.getByLabel('Nome do objeto', { exact: true }).fill(name);
   await page.getByRole('button', { name: category, exact: true }).click();
   const response = page.waitForResponse(response => new URL(response.url()).pathname === '/api/tags' && response.request().method() === 'POST');
-  await page.getByRole('dialog', { name: 'Criar etiqueta', exact: true }).getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
+  await page.getByRole('button', { name: 'Criar etiqueta', exact: true }).click();
   const saved = await response;
   expect(saved.ok()).toBeTruthy();
   const tag = (await saved.json()).tag;
-  await expect(page.getByRole('button', { name: 'Baixar etiquetas em PDF', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   return tag;
 }
@@ -76,7 +75,7 @@ export async function login(page: Page, email: string, password: string) {
   }
   await page.getByLabel('E-mail', { exact: true }).fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Entrar na conta', exact: true }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 }
 
 export async function logout(page: Page) {

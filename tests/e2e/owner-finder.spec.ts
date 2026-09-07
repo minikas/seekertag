@@ -19,7 +19,6 @@ test('owner creates printable tag; anonymous finder and owner coordinate and con
     const download = await downloadEvent;
     expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
     await download.saveAs(testInfo.outputPath('printed-label.pdf'));
-    await owner.getByRole('button', { name: 'Mais opções', exact: true }).click();
     await owner.getByRole('button', { name: 'Marcar como perdido', exact: true }).click();
     await expect(owner.getByText('Perdido', { exact: true }).first()).toBeVisible();
     await owner.getByRole('button', { name: 'Fechar', exact: true }).click();
@@ -30,22 +29,15 @@ test('owner creates printable tag; anonymous finder and owner coordinate and con
     await expect(finder.getByText(account.email, { exact: true })).toHaveCount(0);
     await finder.getByRole('button', { name: 'Avisar o dono', exact: true }).click();
     await expect(finder.getByText('Escreva uma mensagem para avisar onde encontrou o objeto.', { exact: true })).toBeVisible();
-    await finder.getByRole('button', { name: 'Adicionar meu nome (opcional)', exact: true }).click();
     await finder.getByLabel(/Como podemos te chamar/).fill('Ana');
     await finder.getByLabel('Mensagem para o dono', { exact: true }).fill('Encontrei sua mochila na recepção do café.');
-    const loadedConversation = finder.waitForResponse(response => /\/api\/finder\/reports\/[^/]+$/.test(response.url()) && response.status() === 200);
     await finder.getByRole('button', { name: 'Avisar o dono', exact: true }).click();
-    await (await loadedConversation).finished();
-    // The public form textarea can still contain the same text immediately after URL replacement.
-    // Wait for the loaded conversation and editable composer before testing a full reload.
-    await expect(finder.getByLabel('Mensagem', { exact: true })).toBeEditable();
-    await expect(finder.getByTestId('conversation-history').getByText('Encontrei sua mochila na recepção do café.', { exact: true })).toBeVisible();
+    await expect(finder.getByText('Encontrei sua mochila na recepção do café.', { exact: true })).toBeVisible();
     await expect(finder).toHaveURL(/\/chat\/[^/?#]+$/);
     const privateConversationUrl = finder.url();
     expect(new URL(privateConversationUrl).search).toBe('');
     await finder.reload();
-    await expect(finder.getByLabel('Mensagem', { exact: true })).toBeEditable();
-    await expect(finder.getByTestId('conversation-history').getByText('Encontrei sua mochila na recepção do café.', { exact: true })).toBeVisible();
+    await expect(finder.getByText('Encontrei sua mochila na recepção do café.', { exact: true })).toBeVisible();
     await finder.close();
     finder = await finderContext.newPage();
     await finder.goto(privateConversationUrl);
@@ -131,17 +123,13 @@ test('tag management supports search, filters, editing, pause, resume and transf
     await expect(owner.getByRole('button', { name: 'Abrir Chaves do escritório', exact: true })).toHaveCount(0);
     await owner.getByLabel('Buscar objetos', { exact: true }).fill('');
     await owner.getByRole('button', { name: 'Perdidos', exact: true }).click();
-    await expect(owner.getByText('Nenhum objeto encontrado', { exact: true })).toBeVisible();
+    await expect(owner.getByText('Nenhum objeto por aqui.', { exact: true })).toBeVisible();
     await owner.getByRole('button', { name: 'Todos', exact: true }).click();
     await owner.getByRole('button', { name: 'Abrir Mala azul', exact: true }).click();
-    await owner.getByRole('button', { name: 'Mais opções', exact: true }).click();
     await owner.getByRole('button', { name: 'Editar objeto', exact: true }).click();
     await owner.getByLabel('Nome do objeto', { exact: true }).fill('Mala azul de viagem');
-    await owner.getByRole('button', { name: 'Mais opções', exact: true }).click();
     await owner.getByLabel('Anotação particular (opcional)', { exact: true }).fill('Detalhe particular: zíper lateral');
     await owner.getByRole('button', { name: 'Salvar alterações', exact: true }).click();
-    await expect(owner.getByRole('button', { name: 'Baixar etiquetas em PDF', exact: true })).toBeVisible();
-    await owner.getByRole('button', { name: 'Mais opções', exact: true }).click();
     await expect(owner.getByText('Detalhe particular: zíper lateral', { exact: true })).toBeVisible();
     await owner.getByRole('button', { name: 'Pausar etiqueta', exact: true }).click();
     await expect(owner.getByRole('button', { name: 'Reativar etiqueta', exact: true })).toBeVisible();
@@ -162,7 +150,6 @@ test('tag management supports search, filters, editing, pause, resume and transf
     const recipientPassword = crypto.randomUUID();
     const recipientResponse = await request.post(`${apiUrl}/auth/register`, { data: { name: 'Rafa', email: recipientEmail, password: recipientPassword } });
     expect(recipientResponse.ok()).toBeTruthy();
-    await owner.getByRole('button', { name: 'Mais opções', exact: true }).click();
     await owner.getByRole('button', { name: 'Transferir etiqueta para outra pessoa', exact: true }).click();
     await owner.getByLabel('E-mail de quem vai receber', { exact: true }).fill(recipientEmail);
     await owner.getByLabel('Sua senha atual', { exact: true }).fill(account.password);
@@ -179,7 +166,7 @@ test('tag management supports search, filters, editing, pause, resume and transf
     await recipient.getByRole('button', { name: 'Entrar', exact: true }).click();
     await recipient.getByLabel('E-mail', { exact: true }).fill(recipientEmail);
     await recipient.getByLabel('Senha', { exact: true }).fill(recipientPassword);
-    await recipient.getByRole('button', { name: 'Entrar na conta', exact: true }).click();
+    await recipient.getByRole('button', { name: 'Entrar', exact: true }).click();
     await expect(recipient.getByRole('button', { name: 'Abrir Mala azul de viagem', exact: true })).toBeVisible();
     await recipient.screenshot({ path: testInfo.outputPath('transferred-item-recipient.png'), fullPage: true, animations: 'disabled' });
     expect(health.errors).toEqual([]);
