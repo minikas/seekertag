@@ -6,11 +6,11 @@ import { conversationCount } from './i18n';
 import Pressable from './HapticPressable';
 import { Icon, IconName, useUI } from './ui';
 
-export default function TagRow({ tag, onPress }: { tag: Tag; onPress: () => void }) {
+export default function TagRow({ tag, onPress, last = false }: { tag: Tag; onPress: () => void; last?: boolean }) {
   const { C, s, t, locale } = useUI();
   const status = tag.status === 'lost' ? { label: t('Perdido'), color: C.amber } : tag.status === 'paused' ? { label: t('Pausado'), color: C.muted } : { label: t('Protegido'), color: C.green };
   return <Pressable accessibilityRole="button" accessibilityLabel={t('Abrir {name}', { name: tag.name })} onPress={onPress}
-    style={({ pressed }) => [styles.row, { borderBottomColor: C.line }, pressed && { opacity: 0.65 }]}>
+    style={({ pressed }) => [styles.row, { borderBottomColor: C.line }, last && { borderBottomWidth: 0 }, pressed && { opacity: 0.65 }]}>
     <View style={[styles.icon, { backgroundColor: tag.color }]}><Icon name={(tag.categoryIcon || 'box') as IconName} color={categoryInk(tag.color)} size={23} /></View>
     <View style={styles.content}>
       <Text numberOfLines={2} style={s.h3}>{tag.name}</Text>

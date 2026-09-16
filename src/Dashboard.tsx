@@ -4,6 +4,7 @@ import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-nativ
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import TagRow from './TagRow';
 import ObjectsScreen from './ObjectsScreen';
+import { TagFilter } from './tag-search.model';
 import { conversationCount } from './i18n';
 import { AppState, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
@@ -25,7 +26,7 @@ const tabs: { key: Tab; label: string; icon: IconName }[] = [
 export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, onExpired }: { token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; onExpired: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
-  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [browsing, setBrowsing] = useState(false); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [browsing, setBrowsing] = useState<TagFilter | null>(null); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
   const scroll = useRef<KeyboardAwareScrollViewRef>(null);
   const [headerHeight, setHeaderHeight] = useState(72);
   const header = useScrollHeader(headerHeight);
@@ -42,10 +43,10 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const switchTab = (key: Tab) => { setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
 
-  const stats = [
-    { label: t("Protegidos"), value: tags.filter(t => t.status === 'active').length },
-    { label: t("Perdidos"), value: tags.filter(t => t.status === 'lost').length },
-    { label: t("Reencontros"), value: tags.reduce((n, t) => n + t.recoveryCount, 0) },
+  const stats: { label: string; value: number; filter: TagFilter }[] = [
+    { label: t("Protegidos"), value: tags.filter(t => t.status === 'active').length, filter: 'active' },
+    { label: t("Perdidos"), value: tags.filter(t => t.status === 'lost').length, filter: 'lost' },
+    { label: t("Reencontrados"), value: tags.filter(t => t.recoveryCount > 0).length, filter: 'recovered' },
   ];
 
   return <View style={styles.page}>
@@ -55,25 +56,25 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
       {!!error && <Notice error text={error} />}
       {tab === 'items' ? <>
         <Text accessibilityRole="header" style={s.h1}>{t("Meus objetos")}</Text>
-        <View style={styles.stats}>{stats.map(stat => <View key={stat.label} style={styles.stat}>
+        <View style={styles.stats}>{stats.map(stat => <Pressable key={stat.filter} accessibilityRole="button" accessibilityLabel={stat.label} onPress={() => setBrowsing(stat.filter)} style={({ pressed }) => [styles.stat, pressed && styles.pressed]}>
           <Text style={styles.statValue}>{stat.value.toLocaleString(locale)}</Text><Text style={styles.statLabel}>{stat.label}</Text>
-        </View>)}</View>
+        </Pressable>)}</View>
         <Button onPress={() => setForm('new')} icon="plus">{t("Adicionar objeto")}</Button>
         {openReports.length > 0 && <Pressable accessibilityRole="button" onPress={() => switchTab('messages')} style={({ pressed }) => [styles.alert, pressed && styles.pressed]}>
           <View style={[s.circle, { backgroundColor: C.soft }]}><Icon name="message-circle" color={C.accent} /></View>
           <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Tem um reencontro a caminho")}</Text><Text style={s.small}>{conversationCount(t, openReports.length, locale)}</Text></View><Icon name="chevron-right" color={C.muted} />
         </Pressable>}
         {tags.length > 0 ? <View>
-          <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Etiquetas")}</Text><Pressable accessibilityRole="button" accessibilityLabel={t("Ver todos")} onPress={() => setBrowsing(true)} style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}><Text style={s.body}>{t("Ver todos")}</Text><Icon name="chevron-right" size={20} color={C.muted} /></Pressable></View>
-          {homeTags.map(tag => <TagRow key={tag.id} tag={tag} onPress={() => setSelected(tag)} />)}
+          <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Etiquetas")}</Text><Pressable accessibilityRole="button" accessibilityLabel={t("Ver todos")} onPress={() => setBrowsing('all')} style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}><Text style={s.body}>{t("Ver todos")}</Text><Icon name="chevron-right" size={20} color={C.muted} /></Pressable></View>
+          {homeTags.map((tag, index) => <TagRow key={tag.id} tag={tag} last={index === homeTags.length - 1} onPress={() => setSelected(tag)} />)}
         </View> : <View style={s.empty}>
           <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="tag" size={32} /></View>
           <Text style={[s.h2, styles.center]}>{t("Sua primeira etiqueta")}</Text>
           <Text style={[s.body, styles.center]}>{t("Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.")}</Text>
         </View>}
-
+        <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}><View style={s.settingsIcon}><Icon name="help-circle" size={20} /></View><Text style={[s.body, { flex: 1, color: C.ink }]}>{t("Como funciona")}</Text><Icon name="chevron-right" color={C.muted} size={20} /></Pressable>
       </> : <>
-        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>{t("Conversas")}</Text><Text style={s.body}>{t("O próximo reencontro começa aqui.")}</Text></View>
+        {reports.length > 0 && <Text accessibilityRole="header" style={s.h1}>{t("Conversas")}</Text>}
         {chat ? <View style={{ gap: 24 }}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>{t("Todas as conversas")}</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length > 0 ? <View>{reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={t("Conversa sobre {name}", { name: report.tagName })} onPress={() => setChat(report.id)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
           <View style={s.circle}><Icon name={report.status === 'resolved' ? 'check' : 'message-circle'} color={report.status === 'resolved' ? C.green : C.ink} /></View>
           <View style={{ flex: 1, gap: 6 }}><Text numberOfLines={2} style={s.h3}>{report.tagName}</Text><Text style={s.small}>{report.finderName} · {report.status === 'resolved' ? t("Devolvido") : t("Em conversa")}</Text><Text numberOfLines={1} style={s.body}>{report.lastMessage}</Text><Text style={s.small}>{formatDate(report.updatedAt, locale)}</Text></View><Icon name="chevron-right" color={C.muted} size={22} />
@@ -87,7 +88,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
         <Icon name={tabItem.icon} color={tab === tabItem.key ? C.onPrimary : C.ink} size={28} />{tabItem.key === 'messages' && openReports.length > 0 && <View style={styles.badge} />}
       </View>
     </Pressable>)}</View>
-    {browsing && <ObjectsScreen tags={tags} onSelect={setSelected} onClose={() => setBrowsing(false)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} suspended={!!form} />}
+    {browsing && <ObjectsScreen initialFilter={browsing} tags={tags} onSelect={setSelected} onClose={() => setBrowsing(null)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} suspended={!!form} />}
     {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} />}
     {form && <TagForm onCategoriesChanged={() => void refresh(true)} token={token} tag={form === 'new' ? undefined : form} onClose={() => setForm(null)} onSaved={tag => { saveTag(tag); setForm(null); }} />}
     {selected && !form && <TagDetails tag={selected} token={token} user={user} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={tag => setForm(tag)} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
@@ -101,6 +102,7 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   stats: { flexDirection: 'row', gap: 16 }, stat: { flex: 1, gap: 5 }, statValue: { color: C.ink, fontSize: 28, fontWeight: '500', lineHeight: 34 }, statLabel: { color: C.muted, fontSize: 14, lineHeight: 21 },
   viewAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 12 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, minHeight: 106, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
+  helpRow: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 64, paddingVertical: 12 },
   alert: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 }, pressed: { opacity: 0.65 },
   navigation: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 12, paddingBottom: 8 }, tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 56 },
   tabIcon: { width: 72, height: 52, alignItems: 'center', justifyContent: 'center' },

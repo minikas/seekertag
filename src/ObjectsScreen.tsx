@@ -7,22 +7,23 @@ import Pressable from './HapticPressable';
 import { objectCount } from './i18n';
 import ScreenBottomSheet from './ScreenBottomSheet';
 import TagRow from './TagRow';
-import { searchTags, TagFilter } from './tag-search.model';
+import { matchesTagFilter, searchTags, TagFilter } from './tag-search.model';
 import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
 
 const filters: { key: TagFilter; name: string; icon: IconName }[] = [
   { key: 'all', name: 'Todos', icon: 'grid' },
   { key: 'active', name: 'Protegidos', icon: 'shield' },
   { key: 'lost', name: 'Perdidos', icon: 'search' },
+  { key: 'recovered', name: 'Reencontrados', icon: 'heart' },
   { key: 'paused', name: 'Pausados', icon: 'pause-circle' },
 ];
 
-type Props = { tags: Tag[]; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean };
+type Props = { tags: Tag[]; initialFilter: TagFilter; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean };
 
-export default function ObjectsScreen({ tags, onSelect, onClose, refreshing, onRefresh, error, covered, suspended }: Props) {
+export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, refreshing, onRefresh, error, covered, suspended }: Props) {
   const { C, s, t, locale } = useUI();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<TagFilter>('all');
+  const [filter, setFilter] = useState<TagFilter>(initialFilter);
   const [filterOpen, setFilterOpen] = useState(false);
   const list = useRef<FlatList<Tag>>(null);
   const scrollOffset = useRef(0);
@@ -70,7 +71,7 @@ export default function ObjectsScreen({ tags, onSelect, onClose, refreshing, onR
             contentOffset={{ x: 0, y: scrollOffset.current }} onScroll={event => { scrollOffset.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={32}
             keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" initialNumToRender={12}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} />}
-            renderItem={({ item }) => <TagRow tag={item} onPress={() => { Keyboard.dismiss(); onSelect(item); }} />}
+            renderItem={({ item, index }) => <TagRow tag={item} last={index === filtered.length - 1} onPress={() => { Keyboard.dismiss(); onSelect(item); }} />}
             ListEmptyComponent={<View style={s.empty}>
               <View style={s.circle}><Icon name="search" size={28} color={C.muted} /></View>
               <Text style={[s.h2, styles.center]}>{t('Nenhum objeto por aqui')}</Text>
@@ -83,7 +84,7 @@ export default function ObjectsScreen({ tags, onSelect, onClose, refreshing, onR
             onPress={() => { setFilter(option.key); setFilterOpen(false); resetScroll(); }} style={({ pressed }) => [styles.filterRow, { borderBottomColor: C.line }, pressed && styles.pressed]}>
             <View style={s.settingsIcon}><Icon name={option.icon} size={20} /></View>
             <Text style={[s.body, { flex: 1, color: C.ink }]}>{t(option.name)}</Text>
-            <Text style={s.small}>{(option.key === 'all' ? tags.length : tags.filter(tag => tag.status === option.key).length).toLocaleString(locale)}</Text>
+            <Text style={s.small}>{tags.filter(tag => matchesTagFilter(tag, option.key)).length.toLocaleString(locale)}</Text>
             <View style={[styles.radio, { borderColor: C.line, backgroundColor: filter === option.key ? C.primary : 'transparent' }]}>
               {filter === option.key && <Icon name="check" size={16} color={C.onPrimary} />}
             </View>

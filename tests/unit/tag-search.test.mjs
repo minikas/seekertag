@@ -39,3 +39,9 @@ test('filtering retains the original order and objects without mutating the coll
   assert.equal(result[0], frozen[0]);
   assert.equal(frozen.length, 3);
 });
+
+test('recovered items are identified by return history, not simply by active status', () => {
+  const items = tags.map((tag, index) => ({ ...tag, recoveryCount: index === 1 ? 2 : 0 }));
+  assert.deepEqual(ids(searchTags(items, '', 'recovered', pt, 'pt-BR')), ['b']);
+  assert.deepEqual(ids(searchTags(items, 'camera', 'recovered', pt, 'pt-BR')), []);
+});
