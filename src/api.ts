@@ -4,7 +4,8 @@ const host = Constants.expoConfig?.hostUri?.split(':')[0];
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || `http://${host || '10.0.2.2'}:4318/api`).replace(/\/$/, '');
 export type Provider = 'solana' | 'google' | 'apple';
 export type User = { id: string; name: string; email: string | null; createdAt: string; hasPassword: boolean; providers: Provider[]; walletAddress: string | null };
-export type Tag = { id: string; code: string; name: string; category: string; color: string; description: string; publicMessage: string; status: 'active' | 'lost' | 'paused'; rewardAmount: number; rewardCurrency: string; publicUrl: string; createdAt: string; updatedAt: string; returnedAt: string | null; recoveryCount: number; reportCount: number; openReportCount: number };
+export type Category = { id: string; name: string; icon: string; color: string; defaultKey: string | null; tagCount: number };
+export type Tag = { id: string; code: string; name: string; category: string; categoryId: string | null; categoryIcon: string; categoryDefaultKey: string | null; color: string; description: string; publicMessage: string; status: 'active' | 'lost' | 'paused'; rewardAmount: number; rewardCurrency: string; publicUrl: string; createdAt: string; updatedAt: string; returnedAt: string | null; recoveryCount: number; reportCount: number; openReportCount: number };
 export type Report = { id: string; tagId: string; tagName: string; tagCode: string; finderName: string; status: 'open' | 'resolved'; createdAt: string; updatedAt: string; lastMessage: string; messageCount: number };
 export type Message = { id: number; role: 'owner' | 'finder'; body: string; createdAt: string };
 export class ApiError extends Error { constructor(message: string, public status: number) { super(message); } }

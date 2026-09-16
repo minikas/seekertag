@@ -8,8 +8,8 @@ let authToken: string | null = null;
 
 export function forgetWalletAuthorization() { authToken = null; }
 
-export async function signInWithWallet(mode: AuthMode, token?: string): Promise<AuthResult | null> {
-  const { challengeId, payload } = await api<{ challengeId: string; payload: SignInPayload }>('/auth/wallet/challenge', token, { mode });
+export async function signInWithWallet(mode: AuthMode, token?: string, language = 'pt'): Promise<AuthResult | null> {
+  const { challengeId, payload } = await api<{ challengeId: string; payload: SignInPayload }>('/auth/wallet/challenge', token, { mode, language });
   const { transact } = await import('@solana-mobile/mobile-wallet-adapter-protocol');
   let result;
   try {

@@ -1,9 +1,13 @@
+import { useThemedStyles } from './PreferencesProvider';
+import { Colors } from './theme';
 import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { tagCategoryLabel, categoryInk } from './category.model';
+import { conversationCount } from './i18n';
 import { AppState, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
 import { api, ApiError, Report, Tag, User } from './api';
-import { Button, C, categoryInfo, Field, formatDate, Icon, IconName, Notice, Pill, s } from './ui';
+import { Button, Field, formatDate, Icon, IconName, Notice, Pill, useUI } from './ui';
 import TagForm from './TagForm';
 import TagDetails from './TagDetails';
 import Conversation from './Conversation';
@@ -19,11 +23,13 @@ const tabs: { key: Tab; label: string; icon: IconName }[] = [
 const filters = [{ key: 'all', name: 'Todos' }, { key: 'active', name: 'Protegidos' }, { key: 'lost', name: 'Perdidos' }, { key: 'paused', name: 'Pausados' }];
 
 export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, onExpired }: { token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; onExpired: () => void }) {
+  const { C, s, t, locale } = useUI();
+  const styles = useThemedStyles(makeStyles);
   const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [search, setSearch] = useState(''); const [filter, setFilter] = useState('all'); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
   const scroll = useRef<KeyboardAwareScrollViewRef>(null);
   const [headerHeight, setHeaderHeight] = useState(72);
   const header = useScrollHeader(headerHeight);
-  const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); } }, [token]);
+  const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setSelected(current => current ? items.tags.find(tag => tag.id === current.id) : current); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); } }, [token]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     // Do not refresh and rerender the covered dashboard while editing a form.
@@ -32,74 +38,74 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     return () => clearInterval(timer);
   }, [refresh, form, selected, account]);
   const openReports = reports.filter(r => r.status === 'open');
-  const filtered = tags.filter(t => (filter === 'all' || t.status === filter) && `${t.name} ${t.category}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
+  const filtered = tags.filter(tag => (filter === 'all' || tag.status === filter) && `${tag.name} ${tagCategoryLabel(tag, t)}`.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)));
   const switchTab = (key: Tab) => { setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
 
   const stats = [
-    { label: 'Protegidos', value: tags.filter(t => t.status === 'active').length, icon: 'shield' as IconName, color: C.green },
-    { label: 'Perdidos', value: tags.filter(t => t.status === 'lost').length, icon: 'search' as IconName, color: C.amber },
-    { label: 'Reencontros', value: tags.reduce((n, t) => n + t.recoveryCount, 0), icon: 'heart' as IconName, color: C.accent },
+    { label: t("Protegidos"), value: tags.filter(t => t.status === 'active').length, icon: 'shield' as IconName, color: C.green },
+    { label: t("Perdidos"), value: tags.filter(t => t.status === 'lost').length, icon: 'search' as IconName, color: C.amber },
+    { label: t("Reencontros"), value: tags.reduce((n, t) => n + t.recoveryCount, 0), icon: 'heart' as IconName, color: C.accent },
   ];
 
   return <View style={styles.page}>
-    <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)} animatedProps={header.accessibilityProps} style={[styles.topBar, header.style]}><Button variant="ghost" icon="user" label="Minha conta" onPress={() => setAccount(true)} style={{ backgroundColor: C.surface, borderRadius: 18 }} /><Text style={{ color: C.ink, fontSize: 20, fontWeight: '500' }}>SeekerTag</Text><Button variant="ghost" icon="maximize" onPress={onScan} label="Escanear etiqueta" /></Animated.View>
+    <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)} animatedProps={header.accessibilityProps} style={[styles.topBar, header.style]}><Button variant="ghost" icon="user" label={t("Minha conta")} onPress={() => setAccount(true)} style={{ backgroundColor: C.surface, borderRadius: 18 }} /><Text style={{ color: C.ink, fontSize: 20, fontWeight: '500' }}>SeekerTag</Text><Button variant="ghost" icon="maximize" onPress={onScan} label={t("Escanear etiqueta")} /></Animated.View>
     <KeyboardAwareScrollView bottomOffset={24} ref={scroll} onScroll={header.onScroll} scrollEventThrottle={16} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} progressViewOffset={headerHeight} />} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight }]}>
       <View style={styles.content}>
       {!!error && <Notice error text={error} />}
       {tab === 'items' ? <>
-        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>Meus objetos</Text><Text style={s.body}>Tudo o que importa, por perto.</Text></View>
+        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>{t("Meus objetos")}</Text><Text style={s.body}>{t("Tudo o que importa, por perto.")}</Text></View>
         <View style={styles.stats}>{stats.map(stat => <View key={stat.label} style={styles.stat}>
-          <Icon name={stat.icon} size={22} color={stat.color} /><Text style={styles.statValue}>{stat.value}</Text><Text style={styles.statLabel}>{stat.label}</Text>
+          <Icon name={stat.icon} size={22} color={stat.color} /><Text style={styles.statValue}>{stat.value}</Text><Text style={styles.statLabel}>{t(stat.label)}</Text>
         </View>)}</View>
-        <Button onPress={() => setForm('new')} icon="plus">Adicionar objeto</Button>
+        <Button onPress={() => setForm('new')} icon="plus">{t("Adicionar objeto")}</Button>
         {openReports.length > 0 && <Pressable accessibilityRole="button" onPress={() => switchTab('messages')} style={({ pressed }) => [styles.alert, pressed && styles.pressed]}>
           <View style={[s.circle, { backgroundColor: C.soft }]}><Icon name="message-circle" color={C.accent} /></View>
-          <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>Tem um reencontro a caminho</Text><Text style={s.small}>{openReports.length} conversa(s) em aberto</Text></View><Icon name="chevron-right" color={C.muted} />
+          <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Tem um reencontro a caminho")}</Text><Text style={s.small}>{conversationCount(t, openReports.length, locale)}</Text></View><Icon name="chevron-right" color={C.muted} />
         </Pressable>}
         {tags.length > 0 && <View style={{ gap: 18 }}>
-          <Field hideLabel label="Buscar objetos" placeholder="Buscar por nome ou categoria" value={search} onChangeText={setSearch} returnKeyType="search" />
+          <Field hideLabel label={t("Buscar objetos")} placeholder={t("Buscar por nome ou categoria")} value={search} onChangeText={setSearch} returnKeyType="search" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-            {filters.map(f => <Pressable key={f.key} accessibilityRole="button" accessibilityState={{ selected: filter === f.key }} onPress={() => setFilter(f.key)} style={({ pressed }) => [styles.filter, { backgroundColor: filter === f.key ? C.primary : C.secondary }, pressed && styles.pressed]}><Text style={{ color: filter === f.key ? C.onPrimary : C.ink, fontSize: 16, fontWeight: '500' }}>{f.name}</Text></Pressable>)}
+            {filters.map(f => <Pressable key={f.key} accessibilityRole="button" accessibilityState={{ selected: filter === f.key }} onPress={() => setFilter(f.key)} style={({ pressed }) => [styles.filter, { backgroundColor: filter === f.key ? C.primary : C.secondary }, pressed && styles.pressed]}><Text style={{ color: filter === f.key ? C.onPrimary : C.ink, fontSize: 16, fontWeight: '500' }}>{t(f.name)}</Text></Pressable>)}
           </ScrollView>
         </View>}
         {filtered.length > 0 ? <View>
-          <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>Etiquetas</Text><Text style={s.small}>{filtered.length} {filtered.length === 1 ? 'objeto' : 'objetos'}</Text></View>
-          {filtered.map(tag => { const cat = categoryInfo(tag.category); return <Pressable key={tag.id} accessibilityRole="button" accessibilityLabel={`Abrir ${tag.name}`} onPress={() => setSelected(tag)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
-            <View style={[s.circle, { backgroundColor: cat.color }]}><Icon name={cat.icon} size={26} /></View>
-            <View style={{ flex: 1, gap: 8 }}><Text numberOfLines={2} style={s.h3}>{tag.name}</Text><View style={[s.row, { flexWrap: 'wrap', gap: 8 }]}><Text style={s.small}>{tag.category}</Text><Pill status={tag.status} /></View>{tag.openReportCount > 0 && <Text style={[s.small, { color: C.accent }]}>{tag.openReportCount} conversa(s) em aberto</Text>}</View>
+          <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Etiquetas")}</Text><Text style={s.small}>{filtered.length} {filtered.length === 1 ? t("objeto") : t("objetos")}</Text></View>
+          {filtered.map(tag => { const cat = { color: tag.color, icon: (tag.categoryIcon || 'box') as IconName }; return <Pressable key={tag.id} accessibilityRole="button" accessibilityLabel={t("Abrir {name}", { name: tag.name })} onPress={() => setSelected(tag)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
+            <View style={[s.circle, { backgroundColor: cat.color }]}><Icon name={cat.icon} color={categoryInk(cat.color)} size={26} /></View>
+            <View style={{ flex: 1, gap: 8 }}><Text numberOfLines={2} style={s.h3}>{tag.name}</Text><View style={[s.row, { flexWrap: 'wrap', gap: 8 }]}><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text><Pill status={tag.status} /></View>{tag.openReportCount > 0 && <Text style={[s.small, { color: C.accent }]}>{conversationCount(t, tag.openReportCount, locale)}</Text>}</View>
             <Icon name="chevron-right" color={C.muted} size={22} />
           </Pressable>; })}
         </View> : <View style={s.empty}>
           <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name={search ? 'search' : 'tag'} size={32} /></View>
-          <Text style={[s.h2, styles.center]}>{tags.length ? 'Nenhum objeto por aqui' : 'Sua primeira etiqueta'}</Text>
-          <Text style={[s.body, styles.center]}>{tags.length ? 'Tente outro nome ou filtro para encontrar seu objeto.' : 'Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.'}</Text>
+          <Text style={[s.h2, styles.center]}>{tags.length ? t("Nenhum objeto por aqui") : t("Sua primeira etiqueta")}</Text>
+          <Text style={[s.body, styles.center]}>{tags.length ? t("Tente outro nome ou filtro para encontrar seu objeto.") : t("Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.")}</Text>
         </View>}
-        <Pressable accessibilityRole="button" accessibilityLabel="Como funciona" onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
-          <View style={s.circle}><Icon name="help-circle" /></View><View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>Como funciona</Text><Text style={s.small}>Uma etiqueta. Um caminho de volta.</Text></View><Icon name="chevron-right" color={C.muted} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
+          <View style={s.circle}><Icon name="help-circle" /></View><View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Como funciona")}</Text><Text style={s.small}>{t("Uma etiqueta. Um caminho de volta.")}</Text></View><Icon name="chevron-right" color={C.muted} />
         </Pressable>
       </> : <>
-        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>Conversas</Text><Text style={s.body}>O próximo reencontro começa aqui.</Text></View>
-        {chat ? <View style={{ gap: 24 }}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>Todas as conversas</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length > 0 ? <View>{reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={`Conversa sobre ${report.tagName}`} onPress={() => setChat(report.id)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
+        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>{t("Conversas")}</Text><Text style={s.body}>{t("O próximo reencontro começa aqui.")}</Text></View>
+        {chat ? <View style={{ gap: 24 }}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>{t("Todas as conversas")}</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length > 0 ? <View>{reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={t("Conversa sobre {name}", { name: report.tagName })} onPress={() => setChat(report.id)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
           <View style={s.circle}><Icon name={report.status === 'resolved' ? 'check' : 'message-circle'} color={report.status === 'resolved' ? C.green : C.ink} /></View>
-          <View style={{ flex: 1, gap: 6 }}><Text numberOfLines={2} style={s.h3}>{report.tagName}</Text><Text style={s.small}>{report.finderName} · {report.status === 'resolved' ? 'Devolvido' : 'Em conversa'}</Text><Text numberOfLines={1} style={s.body}>{report.lastMessage}</Text><Text style={s.small}>{formatDate(report.updatedAt)}</Text></View><Icon name="chevron-right" color={C.muted} size={22} />
-        </Pressable>)}</View> : <View style={s.empty}><View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="message-circle" size={32} /></View><Text style={[s.h2, styles.center]}>Tudo tranquilo por aqui</Text><Text style={[s.body, styles.center]}>Quando alguém escanear sua etiqueta e enviar um aviso, a conversa aparece aqui.</Text></View>}
+          <View style={{ flex: 1, gap: 6 }}><Text numberOfLines={2} style={s.h3}>{report.tagName}</Text><Text style={s.small}>{report.finderName} · {report.status === 'resolved' ? t("Devolvido") : t("Em conversa")}</Text><Text numberOfLines={1} style={s.body}>{report.lastMessage}</Text><Text style={s.small}>{formatDate(report.updatedAt, locale)}</Text></View><Icon name="chevron-right" color={C.muted} size={22} />
+        </Pressable>)}</View> : <View style={s.empty}><View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="message-circle" size={32} /></View><Text style={[s.h2, styles.center]}>{t("Tudo tranquilo por aqui")}</Text><Text style={[s.body, styles.center]}>{t("Quando alguém escanear sua etiqueta e enviar um aviso, a conversa aparece aqui.")}</Text></View>}
       </>}
       </View>
     </KeyboardAwareScrollView>
-    <View style={styles.navigation}>{tabs.map(t => <Pressable key={t.key} accessibilityRole="tab" accessibilityLabel={t.label} accessibilityState={{ selected: tab === t.key }} onPress={() => switchTab(t.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
+    <View style={styles.navigation}>{tabs.map(tabItem => <Pressable key={tabItem.key} accessibilityRole="tab" accessibilityLabel={t(tabItem.label)} accessibilityState={{ selected: tab === tabItem.key }} onPress={() => switchTab(tabItem.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
       <View style={styles.tabIcon}>
-        {tab === t.key && <View pointerEvents="none" style={styles.tabSelection} />}
-        <Icon name={t.icon} color={tab === t.key ? C.onPrimary : C.ink} size={28} />{t.key === 'messages' && openReports.length > 0 && <View style={styles.badge} />}
+        {tab === tabItem.key && <View pointerEvents="none" style={styles.tabSelection} />}
+        <Icon name={tabItem.icon} color={tab === tabItem.key ? C.onPrimary : C.ink} size={28} />{tabItem.key === 'messages' && openReports.length > 0 && <View style={styles.badge} />}
       </View>
     </Pressable>)}</View>
-    {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} />}
-    {form && <TagForm token={token} tag={form === 'new' ? undefined : form} onClose={() => setForm(null)} onSaved={tag => { saveTag(tag); setForm(null); }} />}
+    {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} />}
+    {form && <TagForm onCategoriesChanged={() => void refresh(true)} token={token} tag={form === 'new' ? undefined : form} onClose={() => setForm(null)} onSaved={tag => { saveTag(tag); setForm(null); }} />}
     {selected && !form && <TagDetails tag={selected} token={token} user={user} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={tag => setForm(tag)} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
   </View>;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Colors) => StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' }, topBar: { position: 'absolute', top: 0, width: '100%', maxWidth: 720, alignSelf: 'center', zIndex: 2, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   scrollContent: { width: '100%', maxWidth: 720, alignSelf: 'center' },
   content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32, gap: 26 }, intro: { gap: 8 }, center: { textAlign: 'center' },

@@ -1,7 +1,9 @@
+import { useThemedStyles } from './PreferencesProvider';
+import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Pressable from './HapticPressable';
-import { C, Icon, s } from './ui';
+import { Icon, useUI } from './ui';
 
 export default function ProfileMenu({ name, busy, onAccount, onLogout }: {
   name: string;
@@ -9,6 +11,8 @@ export default function ProfileMenu({ name, busy, onAccount, onLogout }: {
   onAccount: () => void;
   onLogout: () => void;
 }) {
+  const { C, s, t, locale } = useUI();
+  const styles = useThemedStyles(makeStyles);
   const trigger = useRef<View>(null);
   const { width, height } = useWindowDimensions();
   const [anchor, setAnchor] = useState<{ left: number; bottom: number; width: number } | null>(null);
@@ -26,7 +30,7 @@ export default function ProfileMenu({ name, busy, onAccount, onLogout }: {
     <Pressable
       ref={trigger}
       accessibilityRole="button"
-      accessibilityLabel={`Menu do perfil: ${name}`}
+      accessibilityLabel={t("Menu do perfil: {name}", { name })}
       accessibilityState={{ expanded: open, disabled: busy }}
       disabled={busy}
       onPress={toggle}
@@ -40,19 +44,19 @@ export default function ProfileMenu({ name, busy, onAccount, onLogout }: {
     </Pressable>
     <Modal visible={open} transparent animationType="none" onRequestClose={() => setAnchor(null)}>
       <Pressable accessible={false} focusable={false} onPress={() => setAnchor(null)} style={StyleSheet.absoluteFill} />
-      {anchor && <View accessibilityRole="menu" accessibilityLabel="Perfil" style={{ position: 'absolute', ...anchor, padding: 6, backgroundColor: C.popover, borderWidth: 1, borderColor: C.line, borderRadius: 12 }}>
-        <Pressable accessibilityRole="menuitem" accessibilityLabel="Minha conta" onPress={() => { setAnchor(null); onAccount(); }} style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
-          <Icon name="user" size={18} color={C.muted} /><Text style={styles.label}>Minha conta</Text>
+      {anchor && <View accessibilityRole="menu" accessibilityLabel={t("Perfil")} style={{ position: 'absolute', ...anchor, padding: 6, backgroundColor: C.popover, borderWidth: 1, borderColor: C.line, borderRadius: 12 }}>
+        <Pressable accessibilityRole="menuitem" accessibilityLabel={t("Minha conta")} onPress={() => { setAnchor(null); onAccount(); }} style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
+          <Icon name="user" size={18} color={C.muted} /><Text style={styles.label}>{t("Minha conta")}</Text>
         </Pressable>
-        <Pressable accessibilityRole="menuitem" accessibilityLabel="Sair" disabled={busy} onPress={() => { setAnchor(null); onLogout(); }} style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
-          <Icon name="log-out" size={18} color={C.muted} /><Text style={styles.label}>Sair</Text>
+        <Pressable accessibilityRole="menuitem" accessibilityLabel={t("Sair")} disabled={busy} onPress={() => { setAnchor(null); onLogout(); }} style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
+          <Icon name="log-out" size={18} color={C.muted} /><Text style={styles.label}>{t("Sair")}</Text>
         </Pressable>
       </View>}
     </Modal>
   </>;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Colors) => StyleSheet.create({
   item: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44, paddingHorizontal: 12, borderRadius: 7 },
   pressed: { backgroundColor: C.raised },
   label: { color: C.ink, fontSize: 13 },

@@ -15,6 +15,7 @@
     "expo-dev-client": "~57.0.18",
     "expo-file-system": "~57.0.6",
     "expo-haptics": "~57.0.3",
+    "expo-localization": "~57.0.2",
     "expo-navigation-bar": "~57.0.2",
     "expo-secure-store": "~57.0.3",
     "expo-sharing": "~57.0.18",
@@ -39,6 +40,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "postinstall": "node scripts/patch-android-statusbar.cjs",
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "dev": "concurrently -k -n API,EXPO \"npm --prefix server start\" \"expo start --dev-client --lan\"",

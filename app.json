@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0D1615",
@@ -19,7 +19,7 @@
         "./plugins/withAndroidCompatibility",
         {
           "allowCleartext": true,
-          "darkSplash": true
+          "darkSplash": false
         }
       ],
       [
@@ -35,20 +35,20 @@
       [
         "expo-status-bar",
         {
-          "style": "light"
+          "style": "auto"
         }
       ],
       [
         "expo-navigation-bar",
         {
-          "style": "light",
+          "style": "auto",
           "enforceContrast": false
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0D1615",
+          "backgroundColor": "#F5F8F7",
           "image": "./assets/icon.png",
           "imageWidth": 120,
           "resizeMode": "contain",
@@ -58,10 +58,11 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-localization"
     ],
     "scheme": "seekertag",
-    "backgroundColor": "#0D1615",
+    "backgroundColor": "#F5F8F7",
     "platforms": [
       "android"
     ]

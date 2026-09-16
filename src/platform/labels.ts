@@ -40,6 +40,6 @@ export async function downloadLabel(request: LabelDownload): Promise<boolean> {
 export async function shareLabel(request: LabelDownload): Promise<void> {
   if (!(await Sharing.isAvailableAsync())) throw new Error('O compartilhamento de arquivos não está disponível neste aparelho.');
   const file = await fetchLabel(request);
-  await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: 'Compartilhar ou imprimir etiqueta' });
+  await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: request.dialogTitle || 'Compartilhar ou imprimir etiqueta' });
   // The receiving app may still be reading this file after the chooser closes.
 }
