@@ -10,13 +10,13 @@ const compiled = ts.transpileModule(readFileSync(new URL('../../src/platform/nfc
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const url = 'https://seekertag.example/t/test-tag';
-function harness({ status, discovery, canCancel = () => true } = {}) {
+function harness({ status, discovery, canCancel = () => true, onCancel } = {}) {
   const cancellations = [], writes = [];
   let requests = 0;
   const manager = {
     isSupported: async () => true, start: async () => {}, isEnabled: async () => true,
     requestTechnology: async () => { requests++; await discovery?.promise; },
-    cancelTechnologyRequest: async options => { cancellations.push(options); if (canCancel()) discovery?.reject(new Error('cancelled')); },
+    cancelTechnologyRequest: async options => { cancellations.push(options); if (canCancel()) discovery?.reject(new Error('cancelled')); await onCancel?.(cancellations.length); },
     ndefHandler: { getNdefStatus: async () => status ? status.promise : { status: 1, capacity: 1000 }, writeNdefMessage: async bytes => { writes.push(bytes); } },
   };
   const module = { exports: {} };
@@ -81,4 +81,20 @@ test('cancellation also stops a native discovery request that finishes registeri
     assert.ok(Date.now() - started < 500, 'Cancellation should catch late native registration, without waiting for the discovery timeout.');
     assert.equal(h.writes.length, 0);
   } finally { clearTimeout(deadline); }
+});
+
+
+test('cancellation retries stop before final cleanup so they cannot cancel a later session', async () => {
+  const discovery = deferred(), cleanup = deferred();
+  const h = harness({ discovery, onCancel: count => count === 2 ? cleanup.promise : undefined });
+  const write = assert.rejects(h.writeTagUrl(url), /cancelada/);
+  await tick();
+  const cancellation = h.cancelNfcWrite();
+  try {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(h.cancellations.length, 2, 'Only the cancellation and final cleanup may run.');
+  } finally {
+    cleanup.resolve();
+    await Promise.all([write, cancellation]);
+  }
 });

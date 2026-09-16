@@ -4,6 +4,7 @@ type NfcModule = typeof import('react-native-nfc-manager');
 type WriteOperation = {
   module: NfcModule | null;
   cancelled: boolean;
+  finishing: boolean;
   cancellation?: Promise<void>;
   stopping?: Promise<void>;
   finished: Promise<void>;
@@ -14,7 +15,7 @@ export async function writeTagUrl(value: string): Promise<void> {
   const url = validateTagUrl(value);
   if (activeWrite) throw new Error('Já existe uma gravação NFC em andamento.');
   let finish!: () => void;
-  const operation: WriteOperation = { module: null, cancelled: false, finished: new Promise(resolve => { finish = resolve; }) };
+  const operation: WriteOperation = { module: null, cancelled: false, finishing: false, finished: new Promise(resolve => { finish = resolve; }) };
   activeWrite = operation;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let timedOut = false;
@@ -53,6 +54,7 @@ export async function writeTagUrl(value: string): Promise<void> {
     if (error instanceof Error && /^(Este aparelho|Ative|Esta etiqueta|A gravação NFC)/.test(error.message)) throw error;
     throw new Error('Não foi possível gravar. Mantenha uma etiqueta NDEF regravável perto do aparelho e tente novamente.');
   } finally {
+    operation.finishing = true;
     if (timeout) clearTimeout(timeout);
     // Keep the session locked through cleanup, including cancellation during setup.
     await operation.cancellation;
@@ -69,7 +71,7 @@ export async function cancelNfcWrite(): Promise<void> {
   if (!operation.stopping) operation.stopping = (async () => {
     // requestTechnology registers Android discovery asynchronously. A cancellation
     // during that registration can arrive before the native request exists.
-    while (activeWrite === operation) {
+    while (activeWrite === operation && !operation.finishing) {
       operation.cancellation = operation.module?.default.cancelTechnologyRequest({ delayMsAndroid: 0 }).catch(() => {});
       await operation.cancellation;
       if (activeWrite !== operation) break;
@@ -78,6 +80,7 @@ export async function cancelNfcWrite(): Promise<void> {
         void operation.finished.then(() => { clearTimeout(retry); resolve(); });
       });
     }
+    await operation.finished;
   })();
   await operation.stopping;
 }
