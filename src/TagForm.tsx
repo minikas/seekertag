@@ -91,10 +91,9 @@ export default function TagForm({ token, tag, onClose, onSaved }: { token: strin
   const handle = useCallback((props: BottomSheetHandleProps) => <View>
     <BottomSheetHandle {...props} indicatorStyle={styles.handle} />
     <View style={styles.header}>
-      <View style={{ flex: 1, gap: 6 }}><Text accessibilityRole="header" style={s.h2}>{tag ? 'Editar objeto' : 'Adicionar objeto'}</Text></View>
-      <Button variant="ghost" onPress={close} disabled={busy} icon="x" label="Fechar" />
+      <Text accessibilityRole="header" style={s.h2}>{tag ? 'Editar objeto' : 'Adicionar objeto'}</Text>
     </View>
-  </View>, [busy, close, !!tag]);
+  </View>, [!!tag]);
 
   return <BottomSheetModal
     ref={sheet}
@@ -134,9 +133,9 @@ export default function TagForm({ token, tag, onClose, onSaved }: { token: strin
       <Field inSheet testID="object-message" label="Mensagem na etiqueta" multiline scrollEnabled style={{ maxHeight: 160 }} value={publicMessage} onChangeText={setPublicMessage} maxLength={500} help="Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço." editable={!busy} />
       <View style={s.divider} />
       <View style={{ gap: 13 }}>
-        <View style={s.row}><Icon name="gift" color={C.accent} /><Text style={[s.h3, { flex: 1 }]}>Recompensa opcional</Text></View>
+        <View style={s.row}><Icon name="gift" color={C.accent} /><Text style={[s.h3, { flex: 1 }]}>Recompensa (Opcional)</Text></View>
         <Text style={s.small}>Você pode oferecer uma recompensa e combinar o pagamento na conversa. Este valor é uma promessa: nenhum dinheiro é depositado ou transferido pelo app.</Text>
-        <Field inSheet testID="object-reward" label="Valor da recompensa (opcional)" value={reward} onChangeText={setReward} keyboardType="decimal-pad" placeholder="0,00" maxLength={12} editable={!busy} />
+        <Field inSheet testID="object-reward" label="Valor da recompensa" value={reward} onChangeText={setReward} keyboardType="decimal-pad" placeholder="0,00" maxLength={12} editable={!busy} />
         <View style={s.row}>{['BRL', 'USDC', 'SKR'].map(c => <Button key={c} variant={c === currency ? 'primary' : 'secondary'} onPress={() => setCurrency(c)} disabled={busy}>{c === 'BRL' ? 'R$' : c}</Button>)}</View>
       </View>
     </KeyboardAwareSheetScrollView>

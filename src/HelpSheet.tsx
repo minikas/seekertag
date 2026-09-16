@@ -26,7 +26,7 @@ export default function HelpSheet({ onClose }: { onClose: () => void }) {
   const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.6} pressBehavior="close" accessibilityLabel="Fechar ajuda" />, []);
   return <BottomSheetModal ref={sheet} name="how-it-works" enableDynamicSizing enablePanDownToClose topInset={insets.top + 8} maxDynamicContentSize={height - insets.top - 32} backdropComponent={backdrop} backgroundStyle={styles.background} handleIndicatorStyle={styles.handle} onDismiss={() => { if (mounted.current) onClose(); }}>
     <BottomSheetScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-      <View style={s.between}><Text accessibilityRole="header" style={s.h2}>Como funciona</Text><Button variant="ghost" icon="x" label="Fechar ajuda" onPress={close} /></View>
+      <Text accessibilityRole="header" style={s.h2}>Como funciona</Text>
       {steps.map(step => <View key={step.title} style={styles.step}><View style={s.settingsIcon}><Icon name={step.icon} size={20} /></View><View style={{ flex: 1, gap: 6 }}><Text style={s.h3}>{step.title}</Text><Text style={s.body}>{step.text}</Text></View></View>)}
       <Text style={[s.small, { textAlign: 'center' }]}>Seus contatos ficam privados. As etiquetas não têm GPS.</Text>
       <Button onPress={close}>Entendi</Button>

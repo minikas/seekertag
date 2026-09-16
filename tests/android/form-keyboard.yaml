@@ -15,7 +15,7 @@ name: Form focus stays visible and dismissing the keyboard preserves the section
 - assertVisible: "25"
 - takeScreenshot: reward-keyboard
 # An unhandled tap in the form dismisses the IME, just as a user taps outside.
-- tapOn: "Recompensa opcional"
+- tapOn: "Recompensa \\(Opcional\\)"
 - assertVisible: "25"
 - assertNotVisible: "Nome do objeto"
 - takeScreenshot: reward-keyboard-dismissed
@@ -45,5 +45,5 @@ name: Form focus stays visible and dismissing the keyboard preserves the section
 - hideKeyboard
 - assertVisible: "25"
 - assertNotVisible: "Nome do objeto"
-- tapOn: "Fechar"
+- back
 - assertVisible: "Adicionar objeto"
