@@ -29,6 +29,8 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const [category, setCategory] = useState(tag?.categoryId || '');
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [managingCategories, setManagingCategories] = useState(false);
+  const categoryScreenOpen = useRef(false);
+  const lastSheetIndex = useRef(0);
   const [description, setDescription] = useState(tag?.description || '');
   const [publicMessage, setPublicMessage] = useState(tag?.publicMessage || t("Obrigado por cuidar do que é importante para mim. Me envie uma mensagem para combinarmos a devolução."));
   const [reward, setReward] = useState(tag?.rewardAmount ? String(tag.rewardAmount) : '');
@@ -55,6 +57,8 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   }, []);
 
   useEffect(() => {
+    if (managingCategories) return;
+    categoryScreenOpen.current = false;
     mounted.current = true;
     const modal = sheet.current;
     modal?.present();
@@ -64,10 +68,10 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       return true;
     });
     return () => { mounted.current = false; back.remove(); modal?.dismiss(); };
-  }, [close]);
+  }, [close, managingCategories]);
 
   function finishDismiss() {
-    if (!mounted.current) return;
+    if (!mounted.current || categoryScreenOpen.current) return;
     Keyboard.dismiss();
     if (savedTag.current) onSaved(savedTag.current);
     else onClose();
@@ -115,10 +119,15 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     </View>
   </View>, [!!tag, s, styles, t]);
 
-  return <><BottomSheetModal
+  // Keep the draft in this component while presenting only one keyboard surface.
+  // An Android Modal over an interactive sheet can change its hidden keyboard offset.
+  if (managingCategories) return <Categories token={token} onClose={() => setManagingCategories(false)} onChanged={next => { applyCategories(next); onCategoriesChanged(); }} />;
+
+  return <BottomSheetModal
     ref={sheet}
     name="object-form"
-    index={0}
+    index={lastSheetIndex.current}
+    onChange={index => { if (index >= 0) lastSheetIndex.current = index; }}
     snapPoints={snapPoints}
     enableDynamicSizing={false}
     enablePanDownToClose={!busy}
@@ -148,7 +157,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       enableFooterMarginAdjustment
     >
       <Field inSheet testID="object-name" label={t("Nome do objeto")} placeholder={t("Ex.: Minha mochila verde")} value={name} onChangeText={setName} maxLength={80} editable={!busy} />
-      <View style={{ gap: 12 }}><Text style={s.label}>{t("Categoria")}</Text><View style={styles.categories}>{categories.map(c => <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={categoryLabel(c, t)} accessibilityState={{ selected: c.id === category, disabled: busy }} disabled={busy} onPress={() => setCategory(c.id)} style={({ pressed }) => [styles.category, { backgroundColor: c.id === category ? C.primary : C.secondary, opacity: pressed || busy ? 0.65 : 1 }]}><Icon name={c.icon as IconName} size={20} color={c.id === category ? C.onPrimary : C.ink} /><Text style={{ color: c.id === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{categoryLabel(c, t)}</Text></Pressable>)}</View><Button variant="ghost" icon="edit-2" onPress={() => { Keyboard.dismiss(); setManagingCategories(true); }} disabled={busy}>{t("Gerenciar categorias")}</Button></View>
+      <View style={{ gap: 12 }}><Text style={s.label}>{t("Categoria")}</Text><View style={styles.categories}>{categories.map(c => <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={categoryLabel(c, t)} accessibilityState={{ selected: c.id === category, disabled: busy }} disabled={busy} onPress={() => setCategory(c.id)} style={({ pressed }) => [styles.category, { backgroundColor: c.id === category ? C.primary : C.secondary, opacity: pressed || busy ? 0.65 : 1 }]}><Icon name={c.icon as IconName} size={20} color={c.id === category ? C.onPrimary : C.ink} /><Text style={{ color: c.id === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{categoryLabel(c, t)}</Text></Pressable>)}</View><Button variant="ghost" icon="edit-2" onPress={() => { categoryScreenOpen.current = true; Keyboard.dismiss(); setManagingCategories(true); }} disabled={busy}>{t("Gerenciar categorias")}</Button></View>
       <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={description} onChangeText={setDescription} maxLength={500} help={t("Só você vê esta anotação.")} editable={!busy} />
       <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={publicMessage} onChangeText={setPublicMessage} maxLength={500} help={t("Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço.")} editable={!busy} />
       <View style={s.divider} />
@@ -159,7 +168,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         <View style={s.row}>{['BRL', 'USDC', 'SKR'].map(c => <Button key={c} variant={c === currency ? 'primary' : 'secondary'} onPress={() => setCurrency(c)} disabled={busy}>{c === 'BRL' ? 'R$' : c}</Button>)}</View>
       </View>
     </KeyboardAwareSheetScrollView>
-  </BottomSheetModal>{managingCategories && <Categories token={token} onClose={() => setManagingCategories(false)} onChanged={next => { applyCategories(next); onCategoriesChanged(); }} />}</>;
+  </BottomSheetModal>;
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({
