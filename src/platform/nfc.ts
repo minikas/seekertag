@@ -1,29 +1,51 @@
 import { validateTagUrl } from './nfc.url';
 
-type WebNdefReader = { write(message: { records: { recordType: 'url'; data: string }[] }, options: { signal: AbortSignal; overwrite: boolean }): Promise<void> };
-type WebNfcGlobal = typeof globalThis & { NDEFReader?: new () => WebNdefReader };
-let activeWrite: AbortController | null = null;
+type NfcModule = typeof import('react-native-nfc-manager');
+type WriteOperation = { module: NfcModule | null; cancelled: boolean };
+let activeWrite: WriteOperation | null = null;
 
 export async function writeTagUrl(value: string): Promise<void> {
   const url = validateTagUrl(value);
-  const Reader = (globalThis as WebNfcGlobal).NDEFReader;
-  if (!Reader || !globalThis.isSecureContext) {
-    throw new Error('Este navegador não grava NFC. Use o app Android em um aparelho com NFC ou imprima o QR code.');
-  }
   if (activeWrite) throw new Error('Já existe uma gravação NFC em andamento.');
-  const controller = new AbortController();
-  activeWrite = controller;
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const operation: WriteOperation = { module: null, cancelled: false };
+  activeWrite = operation;
+  let module: NfcModule;
+  try { module = await import('react-native-nfc-manager'); }
+  catch { activeWrite = null; throw new Error('A gravação NFC precisa do aplicativo SeekerTag instalado. Por enquanto, você pode usar a etiqueta com QR code.'); }
+  const manager = module.default;
+  operation.module = module;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
   try {
-    await new Reader().write({ records: [{ recordType: 'url', data: url }] }, { signal: controller.signal, overwrite: true });
+    if (!(await manager.isSupported())) throw new Error('Este aparelho não tem NFC. Use a etiqueta com QR code.');
+    await manager.start();
+    if (!(await manager.isEnabled())) throw new Error('Ative o NFC nas configurações do aparelho e tente novamente.');
+    if (operation.cancelled) throw new Error('Gravação cancelada.');
+    timeout = setTimeout(() => {
+      timedOut = true;
+      void manager.cancelTechnologyRequest().catch(() => {});
+    }, 30_000);
+    await manager.requestTechnology(module.NfcTech.Ndef, { alertMessage: 'Aproxime uma etiqueta NFC regravável do aparelho.' });
+    if (operation.cancelled) throw new Error('Gravação cancelada.');
+    const bytes = module.Ndef.encodeMessage([module.Ndef.uriRecord(url)]);
+    const status = await manager.ndefHandler.getNdefStatus();
+    if (status.status === module.NdefStatus.NotSupported) throw new Error('Esta etiqueta não aceita o formato NDEF. Use uma etiqueta NDEF regravável.');
+    if (status.status === module.NdefStatus.ReadOnly) throw new Error('Esta etiqueta está protegida contra gravação. Use uma etiqueta regravável.');
+    if (status.capacity < bytes.length) throw new Error('Esta etiqueta tem pouca memória para o link. Use uma etiqueta com mais capacidade.');
+    await manager.ndefHandler.writeNdefMessage(bytes);
   } catch (error) {
-    if (controller.signal.aborted) throw new Error('Gravação encerrada. Aproxime a etiqueta e tente novamente.');
-    if (error instanceof Error && error.name === 'NotAllowedError') throw new Error('Permita o acesso ao NFC no navegador para gravar a etiqueta.');
-    throw new Error('Não foi possível gravar. Ative o NFC e aproxime uma etiqueta NDEF regravável.');
+    if (timedOut) throw new Error('Tempo esgotado. Aproxime a etiqueta NFC e tente novamente.');
+    if (operation.cancelled) throw new Error('Gravação cancelada.');
+    if (error instanceof Error && /^(Este aparelho|Ative|Esta etiqueta)/.test(error.message)) throw error;
+    throw new Error('Não foi possível gravar. Mantenha uma etiqueta NDEF regravável perto do aparelho e tente novamente.');
   } finally {
-    clearTimeout(timeout);
-    if (activeWrite === controller) activeWrite = null;
+    if (timeout) clearTimeout(timeout);
+    await manager.cancelTechnologyRequest().catch(() => {});
+    if (activeWrite === operation) activeWrite = null;
   }
 }
 
-export async function cancelNfcWrite(): Promise<void> { activeWrite?.abort(); }
+export async function cancelNfcWrite(): Promise<void> {
+  if (activeWrite) activeWrite.cancelled = true;
+  await activeWrite?.module?.default.cancelTechnologyRequest().catch(() => {});
+}

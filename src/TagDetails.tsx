@@ -1,22 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { api, API_URL, Tag } from './api';
+import * as Clipboard from 'expo-clipboard';
+import { nativeTagUrl } from './links';
+import { api, API_URL, Tag, User } from './api';
+import { authenticate, providerNames } from './platform/auth';
 import { Button, C, categoryInfo, Field, formatDate, Icon, Notice, Pill, Sheet, s } from './ui';
-import { downloadLabel } from './platform/labels';
+import { downloadLabel, shareLabel } from './platform/labels';
 import { cancelNfcWrite, writeTagUrl } from './platform/nfc';
 
 type Props = {
   tag: Tag;
   token: string;
+  user: User;
   onClose: () => void;
   onUpdated: (tag: Tag) => void;
   onEdit: (tag: Tag) => void;
   onTransferred: () => void;
 };
-type Action = 'status' | 'download' | 'share' | 'transfer' | 'nfc' | null;
+type Action = 'status' | 'download' | 'sharePdf' | 'copy' | 'share' | 'transfer' | 'nfc' | null;
 
-export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onTransferred }: Props) {
+export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdit, onTransferred }: Props) {
   const [busy, setBusy] = useState<Action>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -73,30 +77,35 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
 
   function download() {
     void run('download', async () => {
-      await downloadLabel({ url: `${API_URL}/tags/${tag.id}/label.pdf`, token, fileName: `SeekerTag-${tag.code}.pdf` });
-      return () => setNotice(Platform.OS === 'web' ? 'PDF baixado. Imprima em tamanho real e teste o QR antes de prender ao objeto.' : 'PDF pronto para salvar, compartilhar ou imprimir.');
+      const saved = await downloadLabel({ url: `${API_URL}/tags/${tag.id}/label.pdf`, token, fileName: `SeekerTag-${tag.code}.pdf` });
+      return () => setNotice(saved ? 'PDF salvo na pasta escolhida. Imprima em tamanho real e teste o QR.' : 'Download cancelado.');
+    });
+  }
+
+  function sharePdf() {
+    void run('sharePdf', async () => {
+      await shareLabel({ url: `${API_URL}/tags/${tag.id}/label.pdf`, token, fileName: `SeekerTag-${tag.code}.pdf` });
+      return () => {};
+    });
+  }
+
+  function copyLink() {
+    void run('copy', async () => {
+      await Clipboard.setStringAsync(tag.publicUrl);
+      return () => setNotice('Link da etiqueta copiado.');
     });
   }
 
   function shareLink() {
     void run('share', async () => {
-      if (Platform.OS === 'web') {
-        if (!globalThis.navigator?.clipboard?.writeText) throw new Error('Não foi possível copiar automaticamente. Selecione e copie o link no campo abaixo.');
-        await globalThis.navigator.clipboard.writeText(tag.publicUrl);
-        return () => setNotice('Link da etiqueta copiado.');
-      }
       await Share.share({ title: `SeekerTag · ${tag.name}`, message: tag.publicUrl, url: tag.publicUrl });
       return () => {};
     });
   }
 
-  function openPublicPage() {
+  function openVisitor() {
     setError('');
-    if (Platform.OS === 'web') {
-      const opened = globalThis.window.open(tag.publicUrl, '_blank', 'noopener,noreferrer');
-      // noopener intentionally makes window.open return null in several browsers.
-      void opened;
-    } else void Linking.openURL(tag.publicUrl).catch(() => setError('Não foi possível abrir o navegador. Copie ou compartilhe o link da etiqueta.'));
+    void Linking.openURL(nativeTagUrl(tag.publicUrl)).catch(() => setError('Não foi possível abrir a etiqueta. Use o leitor do aplicativo.'));
   }
 
   function writeNfc() {
@@ -114,10 +123,19 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
   }
 
   function transfer() {
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Informe o e-mail da conta que vai receber a etiqueta.'); return; }
-    if (password.length < 10) { setError('Confirme sua senha atual para transferir a etiqueta.'); return; }
+    if (!email.trim()) { setError('Informe o e-mail, a carteira ou o ID da conta que vai receber a etiqueta.'); return; }
+    if (user.hasPassword && password.length < 10) { setError('Confirme sua senha atual para transferir a etiqueta.'); return; }
     void run('transfer', async () => {
-      await api<{ ok: true }>(`/tags/${tag.id}/transfer`, token, { email: email.trim().toLowerCase(), password });
+      let proof: string | undefined;
+      if (!user.hasPassword) {
+        const provider = user.providers[0];
+        if (!provider) throw new Error('Entre novamente para confirmar sua identidade.');
+        const result = await authenticate(provider, 'reauth', token);
+        if (!result) return () => {};
+        if (!result.proof) throw new Error('Não foi possível confirmar sua identidade.');
+        proof = result.proof;
+      }
+      await api<{ ok: true }>(`/tags/${tag.id}/transfer`, token, { recipient: email.trim(), ...(proof ? { proof } : { password }) });
       return () => { setPassword(''); onTransferred(); };
     });
   }
@@ -131,7 +149,7 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
     <View style={styles.qrCard}>
       <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={190} backgroundColor="white" color="#252925" ecl="M" quietZone={10} /></View>
       <Text style={styles.qrTitle}>Encontrou? Escaneie para devolver.</Text>
-      <View style={s.row}><Icon name="shield" size={13} color={C.purple} /><Text style={s.small}>Seu e-mail e sua anotação ficam privados.</Text></View>
+      <View style={s.row}><Icon name="shield" size={13} color={C.accent} /><Text style={s.small}>Seu e-mail e sua anotação ficam privados.</Text></View>
     </View>
 
     {localOnly ? <View style={styles.localNote}><Icon name="info" size={17} color={C.amber} /><Text style={[s.small, { color: C.amber, flex: 1 }]}>Este link funciona apenas neste computador. Antes de usar a etiqueta em outro celular, defina um endereço acessível pela rede ou pela internet.</Text></View> : null}
@@ -139,17 +157,19 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
 
     <View style={{ gap: 10 }}>
       <Button onPress={download} busy={busy === 'download'} disabled={!!busy} icon="download">Baixar etiquetas em PDF</Button>
+      <Button variant="secondary" onPress={sharePdf} busy={busy === 'sharePdf'} disabled={!!busy} icon="share-2">Compartilhar PDF</Button>
       <View style={styles.buttonRow}>
         <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy} icon="wifi">Gravar NFC</Button>
-        <Button style={styles.halfButton} variant="secondary" onPress={openPublicPage} disabled={!!busy} icon="external-link">Ver página pública</Button>
+        <Button style={styles.halfButton} variant="secondary" onPress={openVisitor} disabled={!!busy} icon="external-link">Ver como visitante</Button>
       </View>
-      {busy === 'nfc' ? <View style={styles.nfcProgress}><View style={[s.row, { alignItems: 'flex-start' }]}><ActivityIndicator color={C.purple} /><View style={{ flex: 1, gap: 4 }}><Text style={s.label}>Aproxime a etiqueta NFC</Text><Text style={s.small}>Mantenha uma etiqueta NDEF regravável encostada no aparelho. O link existente será substituído.</Text></View></View><Button variant="ghost" onPress={() => void cancelNfc()} icon="x">Cancelar gravação</Button></View> : null}
+      {busy === 'nfc' ? <View style={styles.nfcProgress}><View style={[s.row, { alignItems: 'flex-start' }]}><ActivityIndicator color={C.accent} /><View style={{ flex: 1, gap: 4 }}><Text style={s.label}>Aproxime a etiqueta NFC</Text><Text style={s.small}>Mantenha uma etiqueta NDEF regravável encostada no aparelho. O link existente será substituído.</Text></View></View><Button variant="ghost" onPress={() => void cancelNfc()} icon="x">Cancelar gravação</Button></View> : null}
       <Text style={[s.small, { textAlign: 'center' }]}>Imprima, recorte e prenda ao item. NFC é opcional.</Text>
     </View>
 
     <View style={{ gap: 10 }}>
-      <Field label="Link da etiqueta" value={tag.publicUrl} editable={false} selectTextOnFocus autoCapitalize="none" style={{ fontSize: 12 }} />
-      <Button variant="secondary" icon={Platform.OS === 'web' ? 'copy' : 'share-2'} onPress={shareLink} busy={busy === 'share'} disabled={!!busy}>{Platform.OS === 'web' ? 'Copiar link' : 'Compartilhar link'}</Button>
+      <Field label="Link da etiqueta" value={tag.publicUrl} editable={false} selectTextOnFocus autoCapitalize="none" style={{ fontSize: 15 }} />
+      <Button variant="secondary" icon="copy" onPress={copyLink} busy={busy === 'copy'} disabled={!!busy}>Copiar link</Button>
+      <Button variant="secondary" icon="share-2" onPress={shareLink} busy={busy === 'share'} disabled={!!busy}>Compartilhar link</Button>
     </View>
 
     {error && !transferOpen ? <Notice text={error} error /> : null}
@@ -164,7 +184,7 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
         {tag.status !== 'paused' ? <Button style={styles.halfButton} variant="ghost" icon="pause-circle" onPress={() => changeStatus('paused')} disabled={!!busy}>Pausar etiqueta</Button> : null}
       </View>
       {tag.description ? <View style={styles.privateNote}><View style={s.row}><Icon name="lock" size={14} color={C.muted} /><Text style={s.label}>Sua anotação particular</Text></View><Text style={s.body}>{tag.description}</Text></View> : null}
-      {tag.rewardAmount > 0 ? <View style={styles.privateNote}><View style={s.row}><Icon name="gift" size={15} color={C.purple} /><Text style={s.label}>{tag.rewardAmount.toLocaleString('pt-BR')} {tag.rewardCurrency} de recompensa oferecida</Text></View><Text style={s.small}>Promessa do dono. O pagamento é combinado na conversa; nenhum valor foi depositado pelo app.</Text></View> : null}
+      {tag.rewardAmount > 0 ? <View style={styles.privateNote}><View style={s.row}><Icon name="gift" size={15} color={C.accent} /><Text style={s.label}>{tag.rewardAmount.toLocaleString('pt-BR')} {tag.rewardCurrency} de recompensa oferecida</Text></View><Text style={s.small}>Promessa do dono. O pagamento é combinado na conversa; nenhum valor foi depositado pelo app.</Text></View> : null}
     </View>
 
     <View style={s.divider} />
@@ -173,8 +193,8 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
       <Text style={s.body}>A etiqueta sairá da sua conta e o mesmo QR passará para a pessoa abaixo. Ela precisa ter uma conta SeekerTag.</Text>
       <Text style={s.small}>Suas conversas antigas continuam privadas. Anotação, mensagem pública e recompensa serão apagadas da etiqueta. Para recebê-la de volta, a nova pessoa precisa transferi-la para você.</Text>
       {tag.openReportCount > 0 ? <Notice error text="Conclua as conversas abertas deste objeto antes de transferir a etiqueta." /> : null}
-      <Field label="E-mail de quem vai receber" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} maxLength={254} editable={!busy} placeholder="pessoa@exemplo.com" />
-      <Field label="Sua senha atual" value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" maxLength={128} editable={!busy} onSubmitEditing={transfer} />
+      <Field label="E-mail, carteira ou ID de quem vai receber" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} maxLength={254} editable={!busy} placeholder="E-mail, endereço Solana ou ID da conta" />
+      {user.hasPassword ? <Field label="Sua senha atual" value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" maxLength={128} editable={!busy} onSubmitEditing={transfer} /> : <Text style={s.small}>Você confirmará sua identidade com {providerNames[user.providers[0]] || 'seu acesso vinculado'} antes da transferência.</Text>}
       {error ? <Notice text={error} error /> : null}
       <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || tag.openReportCount > 0}>Confirmar transferência</Button>
       <Button variant="ghost" onPress={() => { setTransferOpen(false); setPassword(''); setError(''); }} disabled={!!busy}>Cancelar</Button>
@@ -183,14 +203,14 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
 }
 
 const styles = StyleSheet.create({
-  itemIcon: { width: 48, height: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  qrCard: { padding: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, borderRadius: 18, alignItems: 'center', gap: 10 },
-  qrPaper: { backgroundColor: 'white', padding: 5 },
-  qrTitle: { color: C.ink, fontSize: 15, fontWeight: '600', textAlign: 'center' },
-  localNote: { flexDirection: 'row', gap: 10, padding: 13, borderRadius: 12, backgroundColor: C.amberSoft, alignItems: 'flex-start' },
+  itemIcon: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  qrCard: { paddingVertical: 28, alignItems: 'center', gap: 20 },
+  qrPaper: { backgroundColor: 'white', padding: 8 },
+  qrTitle: { color: C.ink, fontSize: 20, fontWeight: '500', textAlign: 'center', lineHeight: 27 },
+  localNote: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 18, backgroundColor: C.amberSoft, alignItems: 'flex-start' },
   buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   halfButton: { flex: 1, minWidth: 165, paddingHorizontal: 12 },
-  nfcProgress: { padding: 15, backgroundColor: C.soft, borderRadius: 13, gap: 8 },
-  privateNote: { padding: 15, borderRadius: 13, backgroundColor: C.raised, gap: 8 },
-  transfer: { padding: 17, borderWidth: 1, borderColor: C.redLine, borderRadius: 15, gap: 14, backgroundColor: C.redSoft },
+  nfcProgress: { padding: 20, backgroundColor: C.soft, borderRadius: 22, gap: 12 },
+  privateNote: { padding: 20, borderRadius: 22, backgroundColor: C.surface, gap: 12 },
+  transfer: { padding: 20, borderWidth: 1, borderColor: C.redLine, borderRadius: 24, gap: 18, backgroundColor: C.redSoft },
 });

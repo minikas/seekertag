@@ -1,37 +1,56 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import { api, User } from './api';
-import { Brand, Button, C, Field, Icon, Notice, s } from './ui';
+import React, { useEffect, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import Pressable from './HapticPressable';
+import { api, Provider, User } from './api';
+import { authenticate, AuthAvailability } from './platform/auth';
+import EmailAuth from './EmailAuth';
+import ProviderButton from './ProviderButton';
+import { Brand, Button, C, Icon, Notice, s } from './ui';
 
 export default function Auth({ onAuth, onScan }: { onAuth: (token: string, user: User, recoveryCode?: string) => Promise<void>; onScan: () => void }) {
-  const { width } = useWindowDimensions();
-  const wide = width >= 850;
-  const [mode, setMode] = useState<'register' | 'login' | 'recover'>('register');
-  const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [code, setCode] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
-  async function submit() {
-    if (!email.trim() || !password || (mode === 'register' && !name.trim())) { setError('Preencha os campos para continuar.'); return; }
-    if (mode !== 'login' && password.length < 10) { setError('Escolha uma senha com pelo menos 10 caracteres.'); return; }
-    setBusy(true); setError('');
-    try { const result = await api<{ token: string; user: User; recoveryCode?: string }>(`/auth/${mode}`, null, { email: email.trim(), password, ...(mode === 'register' ? { name: name.trim() } : {}), ...(mode === 'recover' ? { recoveryCode: code.trim() } : {}) }); await onAuth(result.token, result.user, result.recoveryCode); }
-    catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  const [email, setEmail] = useState(false);
+  const [availability, setAvailability] = useState<AuthAvailability>();
+  const [busy, setBusy] = useState<Provider | null>(null);
+  const [error, setError] = useState('');
+  const active = useRef(false);
+  useEffect(() => { let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) setError('Não foi possível verificar os acessos disponíveis. Tente novamente.'); }); return () => { live = false; }; }, []);
+  async function login(provider: Provider) {
+    if (active.current) return;
+    active.current = true; setBusy(provider); setError('');
+    try {
+      const result = await authenticate(provider);
+      if (result?.token && result.user) await onAuth(result.token, result.user);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível entrar. Tente novamente.'); }
+    finally { active.current = false; setBusy(null); }
   }
-  return <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled"><View style={{ flex: 1, flexDirection: wide ? 'row' : 'column', minHeight: wide ? 760 : undefined }}>
-    <View style={{ backgroundColor: C.surface, flex: wide ? 1 : undefined, padding: wide ? 64 : 28, justifyContent: 'space-between', gap: wide ? 75 : 20 }}>
+  if (email) return <View style={{ flex: 1 }}><Button variant="ghost" icon="arrow-left" onPress={() => setEmail(false)} style={{ alignSelf: 'flex-start', margin: 12 }}>Todas as formas de entrar</Button><EmailAuth onAuth={onAuth} onScan={onScan} /></View>;
+  return <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+    <View style={styles.content}>
       <Brand />
-      {wide ? <View style={{ gap: 25, maxWidth: 510 }}><Text style={{ fontSize: wide ? 62 : 39, lineHeight: wide ? 66 : 43, letterSpacing: -2.5, color: C.ink, fontWeight: '500' }}>O que é seu{ '\n' }encontra o{ '\n' }caminho de volta<Text style={{ color: C.purple }}>.</Text></Text><Text style={{ color: C.muted, fontSize: 16, lineHeight: 26, maxWidth: 355 }}>Um QR no seu objeto. Uma pessoa disposta a ajudar. Uma chance a mais de reencontro.</Text></View> : <Text style={{ color: C.muted, fontSize: 16, lineHeight: 24 }}>Um QR no objeto. Uma chance de reencontro.</Text>}
-      {wide && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24, paddingVertical: 14 }}><View style={{ width: 110, height: 145, backgroundColor: C.purple, borderRadius: 22, alignItems: 'center', justifyContent: 'center', gap: 15, transform: [{ rotate: '-9deg' }] }}><View style={{ width: 23, height: 7, borderRadius: 5, backgroundColor: C.onAccent }} /><Icon name="crosshair" size={49} color={C.onAccent} /></View><View style={{ gap: 9 }}><Text style={{ color: C.muted, lineHeight: 23 }}>Sem bateria. Sem rastreamento.{ '\n' }Seus contatos continuam privados.</Text></View></View>}
+      <View style={styles.hero}>
+        <Text accessibilityRole="header" style={styles.title}>O que é seu,{ '\n' }sempre perto<Text style={{ color: C.accent }}>.</Text></Text>
+        <Text style={[s.body, { maxWidth: 330 }]}>Entre para cuidar dos seus objetos e facilitar o próximo reencontro.</Text>
+      </View>
+      <View style={styles.methods}>
+        <ProviderButton provider="solana" label="Continuar com Seeker / Solana" busy={busy === 'solana'} disabled={!!busy && busy !== 'solana'} onPress={() => void login('solana')} />
+        <View style={[s.row, { justifyContent: 'center' }]}><Icon name="shield" size={13} color={C.muted} /><Text style={s.small}>Uma assinatura. Sem senha e sem taxas.</Text></View>
+        <View style={styles.divider}><View style={styles.line} /><Text style={s.small}>ou continue com</Text><View style={styles.line} /></View>
+        <ProviderButton provider="google" label="Continuar com Google" busy={busy === 'google'} disabled={!availability || (!!busy && busy !== 'google')} unavailable={availability?.google === false} onPress={() => void login('google')} />
+        <ProviderButton provider="apple" label="Continuar com Apple" busy={busy === 'apple'} disabled={!availability || (!!busy && busy !== 'apple')} unavailable={availability?.apple === false} onPress={() => void login('apple')} />
+      </View>
+      {!!error && <Notice error text={error} />}
+      <Text style={[s.small, styles.center]}>Sua conta é criada no primeiro acesso.{ '\n' }Depois, é só usar a mesma forma de entrar.</Text>
+      <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => setEmail(true)} style={styles.email}><Text style={styles.emailLabel}>Entrar com e-mail</Text><Icon name="arrow-up-right" size={14} color={C.muted} /></Pressable>
+      <View style={styles.finder}>
+        <Button variant="secondary" icon="maximize" onPress={onScan} disabled={!!busy}>Encontrei um objeto</Button>
+        <Text style={[s.small, styles.center]}>Abra a etiqueta e avise o dono.{ '\n' }Você não precisa de uma conta.</Text>
+      </View>
     </View>
-    <View style={{ flex: 1, padding: wide ? 60 : 28, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: '100%', maxWidth: 380, gap: 23 }}>
-      <View style={{ gap: 10 }}><Text accessibilityRole="header" style={s.h1}>{mode === 'register' ? 'Vamos cuidar\ndo que é seu.' : mode === 'recover' ? 'De volta\nà sua conta.' : 'Bom ter você\npor aqui.'}</Text><Text style={s.body}>{mode === 'register' ? 'Crie sua conta e sua primeira etiqueta em poucos passos.' : mode === 'recover' ? 'Use o código que você guardou ao criar sua conta.' : 'Entre para acompanhar seus objetos e conversas.'}</Text></View>
-      {error ? <Notice error text={error} /> : null}
-      {mode === 'register' && <Field label="Seu nome" value={name} onChangeText={setName} placeholder="Como você gosta de ser chamado?" autoComplete="name" maxLength={80} />}
-      <Field label="E-mail" value={email} onChangeText={setEmail} placeholder="voce@exemplo.com" autoCapitalize="none" keyboardType="email-address" autoComplete="email" maxLength={254} />
-      {mode === 'recover' && <Field label="Código de recuperação" value={code} onChangeText={setCode} autoCapitalize="none" />}
-      <Field label={mode === 'recover' ? 'Nova senha' : 'Senha'} value={password} onChangeText={setPassword} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 10 caracteres'} secureTextEntry autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onSubmitEditing={submit} maxLength={128} />
-      <Button onPress={submit} busy={busy} icon="arrow-right">{mode === 'register' ? 'Criar conta' : mode === 'recover' ? 'Recuperar conta' : 'Entrar'}</Button>
-      <View style={[s.row, { justifyContent: 'center', flexWrap: 'wrap' }]}><Text style={s.small}>{mode === 'register' ? 'Já tem uma conta?' : 'Ainda não tem conta?'}</Text><Pressable accessibilityRole="button" onPress={() => { setMode(mode === 'register' ? 'login' : 'register'); setError(''); }} style={{ paddingVertical: 10 }}><Text style={{ color: C.purple, fontWeight: '600', fontSize: 13 }}>{mode === 'register' ? 'Entrar' : 'Criar conta'}</Text></Pressable></View>
-      {mode === 'login' && <Button variant="ghost" onPress={() => setMode('recover')}>Esqueci minha senha</Button>}
-      <View style={s.divider} /><Button variant="secondary" icon="maximize" onPress={onScan}>Encontrei um objeto</Button><Text style={[s.small, { textAlign: 'center' }]}>Quem encontra não precisa criar conta.{ '\n' }Basta abrir o QR da etiqueta para avisar o dono.</Text>
-    </View></View>
-  </View></ScrollView>;
+  </ScrollView>;
 }
+const styles = StyleSheet.create({
+  page: { flexGrow: 1, backgroundColor: C.bg, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 28, alignItems: 'center' },
+  content: { width: '100%', maxWidth: 440, flexGrow: 1, gap: 24 }, hero: { gap: 18, paddingTop: 24, paddingBottom: 12 },
+  title: { color: C.ink, fontSize: 40, lineHeight: 47, letterSpacing: -0.8, fontWeight: '700' }, methods: { gap: 14 }, divider: { flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 9 }, line: { flex: 1, height: 1, backgroundColor: C.line },
+  center: { textAlign: 'center' }, email: { minHeight: 48, flexDirection: 'row', gap: 8, justifyContent: 'center', alignItems: 'center' }, emailLabel: { color: C.ink, fontSize: 16 }, finder: { gap: 14, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 24, marginTop: 'auto' },
+});

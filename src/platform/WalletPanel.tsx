@@ -1,34 +1,59 @@
-import { C } from '../ui';
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { connectWallet, disconnectWallet } from './wallet';
-import { WalletConnection } from './wallet.types';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Pressable from '../HapticPressable';
+import * as Clipboard from 'expo-clipboard';
+import { api, Provider, User } from '../api';
+import ProviderButton, { ProviderMark } from '../ProviderButton';
+import { C, Icon, Notice, s } from '../ui';
+import { authenticate, AuthAvailability, providerNames } from './auth';
 
-export function WalletPanel() {
-  const [connection, setConnection] = useState<WalletConnection | null>(null);
-  const [busy, setBusy] = useState(false);
+export function WalletPanel({ token, user, onUserUpdated }: { token: string; user: User; onUserUpdated: (user: User) => void }) {
+  const [availability, setAvailability] = useState<AuthAvailability>();
+  const [busy, setBusy] = useState<Provider | null>(null);
   const [error, setError] = useState('');
-
-  async function toggle() {
-    if (busy) return;
-    setBusy(true); setError('');
+  const [copied, setCopied] = useState(false);
+  const active = useRef(false);
+  const copyReset = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyReset.current) clearTimeout(copyReset.current); }, []);
+  useEffect(() => { setCopied(false); }, [user.walletAddress]);
+  useEffect(() => { let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) setError('Não foi possível carregar as formas de acesso.'); }); return () => { live = false; }; }, []);
+  async function link(provider: Provider) {
+    if (active.current) return;
+    active.current = true; setBusy(provider); setError('');
     try {
-      if (connection) { await disconnectWallet(); setConnection(null); }
-      else { setConnection(await connectWallet()); }
-    } catch (issue) { setError(issue instanceof Error ? issue.message : 'Não foi possível acessar a carteira.'); }
-    finally { setBusy(false); }
+      const result = await authenticate(provider, 'link', token);
+      if (result?.user) onUserUpdated(result.user);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível vincular este acesso.'); }
+    finally { active.current = false; setBusy(null); }
   }
-
-  return <View style={styles.card}>
-    <View style={styles.row}><View style={styles.icon}><Text style={styles.iconText}>◎</Text></View><View style={styles.heading}><Text style={styles.title}>Sua carteira Solana</Text></View></View>
-    <Text style={styles.body}>{connection ? 'Carteira conectada neste dispositivo. Essa conexão não comprova a propriedade de objetos e não altera sua conta SeekerTag.' : 'Use sua carteira no Android ou no navegador compatível. Suas etiquetas e conversas funcionam sem ela.'}</Text>
-    {connection && <View style={styles.addressBox}><Text style={styles.walletName}>{connection.label}</Text><Text selectable style={styles.address}>{connection.address}</Text></View>}
-    {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-    <Pressable accessibilityRole="button" disabled={busy} onPress={() => void toggle()} style={[styles.button, busy && { opacity: 0.6 }]}>{busy ? <ActivityIndicator color={C.purple} /> : <Text style={styles.buttonText}>{connection ? 'Desconectar carteira' : 'Conectar carteira'}</Text>}</Pressable>
-    <Text style={styles.note}>Nenhuma transferência é solicitada. As chaves continuam na sua carteira.</Text>
+  async function copyAddress() {
+    if (!user.walletAddress) return;
+    try {
+      await Clipboard.setStringAsync(user.walletAddress);
+      setCopied(true); setError('');
+      if (copyReset.current) clearTimeout(copyReset.current);
+      copyReset.current = setTimeout(() => setCopied(false), 2500);
+    } catch { setError('Não foi possível copiar o endereço. Tente novamente.'); }
+  }
+  return <View style={{ gap: 22 }}>
+    <Text style={s.body}>Escolha como acessar sua conta.</Text>
+    {(['solana', 'google', 'apple'] as Provider[]).map(provider => user.providers.includes(provider) ? <View key={provider} style={styles.linkedCard}>
+      <View style={styles.row}><View style={s.settingsIcon}><ProviderMark provider={provider} color={C.ink} /></View><View style={{ flex: 1, gap: 4 }}><Text style={styles.title}>{providerNames[provider]}</Text><Text style={s.small}>Vinculado à sua conta</Text></View><Icon name="check-circle" color={C.green} size={20} /></View>
+      {provider === 'solana' && !!user.walletAddress && <>
+        <View style={s.divider} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Copiar endereço da carteira" accessibilityHint="Copia o endereço público completo da sua carteira Solana." onPress={() => void copyAddress()} style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
+          <View style={s.settingsIcon}><Icon name={copied ? 'check' : 'copy'} size={20} /></View><View style={{ flex: 1, gap: 5 }}><Text style={styles.title} accessibilityLiveRegion="polite">{copied ? 'Endereço copiado' : 'Endereço público'}</Text><Text style={s.small}>{user.walletAddress.slice(0, 4)}…{user.walletAddress.slice(-4)}</Text></View>
+        </Pressable>
+      </>}
+    </View> : <ProviderButton key={provider} provider={provider} align="left" label={`Vincular ${providerNames[provider]}`} onPress={() => void link(provider)} busy={busy === provider} disabled={!!busy && busy !== provider || (provider !== 'solana' && !availability)} unavailable={provider !== 'solana' && availability?.[provider] === false} />)}
+    {user.hasPassword && <View style={s.row}><Icon name="check-circle" color={C.accent} size={18} /><Text style={s.label}>E-mail e senha</Text></View>}
+    {!!error && <Notice error text={error} />}
+    <Text style={s.small}>A carteira pede apenas uma assinatura, sem taxas.</Text>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, padding: 22, borderRadius: 20, gap: 15 }, row: { flexDirection: 'row', gap: 12, alignItems: 'center' }, icon: { width: 46, height: 46, backgroundColor: C.soft, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, iconText: { fontSize: 30, color: C.purple }, heading: { flex: 1, gap: 5 }, title: { color: C.ink, fontSize: 18, fontWeight: '700' }, body: { color: C.muted, fontSize: 14, lineHeight: 21 }, button: { minHeight: 48, borderWidth: 1, borderColor: C.line, backgroundColor: C.soft, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }, buttonText: { color: C.purple, fontSize: 14, fontWeight: '700' }, note: { fontSize: 11, color: C.muted, lineHeight: 17 }, error: { fontSize: 13, color: C.red, lineHeight: 20 }, addressBox: { padding: 14, backgroundColor: C.raised, borderRadius: 12, gap: 6 }, walletName: { fontSize: 12, color: C.purple, fontWeight: '700' }, address: { color: C.ink, fontSize: 12, lineHeight: 18 },
+  linkedCard: { backgroundColor: C.surface, borderRadius: 24, padding: 18, gap: 20 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 48 },
+  title: { color: C.ink, fontSize: 18, lineHeight: 25 },
 });

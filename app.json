@@ -6,29 +6,13 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "app.seekertag.mobile",
-      "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Permita que o SeekerTag acesse o servidor de etiquetas na sua rede Wi-Fi.",
-        "NSAppTransportSecurity": {
-          "NSAllowsLocalNetworking": true
-        }
-      }
-    },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#090910",
+        "backgroundColor": "#0D1615",
         "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.seekertag.mobile"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png",
-      "name": "SeekerTag",
-      "shortName": "SeekerTag",
-      "description": "Etiquetas QR e conversas privadas para devolver objetos."
     },
     "plugins": [
       [
@@ -41,19 +25,12 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Permita que o SeekerTag leia o QR da etiqueta.",
-          "recordAudioAndroid": false,
-          "microphonePermission": false
+          "recordAudioAndroid": false
         }
       ],
       "expo-secure-store",
       "expo-sharing",
-      [
-        "react-native-nfc-manager",
-        {
-          "nfcPermission": "Permita que o SeekerTag grave o link na sua etiqueta NFC."
-        }
-      ],
+      "react-native-nfc-manager",
       "expo-system-ui",
       [
         "expo-status-bar",
@@ -71,18 +48,22 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#090910",
+          "backgroundColor": "#0D1615",
           "image": "./assets/icon.png",
           "imageWidth": 120,
           "resizeMode": "contain",
           "dark": {
-            "backgroundColor": "#090910",
+            "backgroundColor": "#0D1615",
             "image": "./assets/icon.png"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "scheme": "seekertag",
-    "backgroundColor": "#090910"
+    "backgroundColor": "#0D1615",
+    "platforms": [
+      "android"
+    ]
   }
 }

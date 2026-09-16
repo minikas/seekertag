@@ -1,49 +1,109 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Pressable from './HapticPressable';
 import { api, ApiError, Report, Tag, User } from './api';
-import { Brand, Button, C, categoryInfo, Field, formatDate, Icon, IconName, Notice, s } from './ui';
+import { Button, C, categoryInfo, Field, formatDate, Icon, IconName, Notice, Pill, s } from './ui';
 import TagForm from './TagForm';
 import TagDetails from './TagDetails';
 import Conversation from './Conversation';
-import ProfileMenu from './ProfileMenu';
-import { WalletPanel } from './platform/WalletPanel';
+import Account from './Account';
+import Animated from 'react-native-reanimated';
+import { useScrollHeader } from './useScrollHeader';
 
-type Tab = 'items' | 'messages' | 'settings';
-export default function Dashboard({ token, user, onLogout, onScan, onHelp, onExpired }: { token: string; user: User; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; onExpired: () => void }) {
-  const { width } = useWindowDimensions(); const wide = width >= 950; const compact = width < 650;
-  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [search, setSearch] = useState(''); const [filter, setFilter] = useState('all'); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [busy, setBusy] = useState(false);
-  const refresh = useCallback(async (silent = false) => { if(!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setReports(inbox.reports); setError(''); } catch(e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); } }, [token]);
+type Tab = 'items' | 'messages';
+const tabs: { key: Tab; label: string; icon: IconName }[] = [
+  { key: 'items', label: 'Meus objetos', icon: 'home' },
+  { key: 'messages', label: 'Conversas', icon: 'message-circle' },
+];
+const filters = [{ key: 'all', name: 'Todos' }, { key: 'active', name: 'Protegidos' }, { key: 'lost', name: 'Perdidos' }, { key: 'paused', name: 'Pausados' }];
+
+export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, onExpired }: { token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; onExpired: () => void }) {
+  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [search, setSearch] = useState(''); const [filter, setFilter] = useState('all'); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
+  const scroll = useRef<KeyboardAwareScrollViewRef>(null);
+  const [headerHeight, setHeaderHeight] = useState(72);
+  const header = useScrollHeader(headerHeight);
+  const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); } }, [token]);
   useEffect(() => { void refresh(); const timer = setInterval(() => void refresh(true), 6000); return () => clearInterval(timer); }, [refresh]);
   const openReports = reports.filter(r => r.status === 'open');
   const filtered = tags.filter(t => (filter === 'all' || t.status === filter) && `${t.name} ${t.category}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
-  const tabs: { key: Tab; label: string; icon: IconName }[] = [{ key: 'items', label: 'Meus objetos', icon: 'grid' }, { key: 'messages', label: 'Conversas', icon: 'message-circle' }, { key: 'settings', label: 'Minha conta', icon: 'user' }];
-  const switchTab = (key: Tab) => { setTab(key); setChat(undefined); };
+  const switchTab = (key: Tab) => { setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
-  async function logout() { setBusy(true); try { await onLogout(); } catch(e) { setError((e as Error).message); } finally { setBusy(false); } }
-  return <View style={{ flex: 1, flexDirection: 'row' }}>
-    {wide && <View style={{ width: 235, backgroundColor: C.surface, borderRightWidth: 1, borderColor: C.line, padding: 26, paddingTop: 36 }}><Brand /><View style={{ gap: 7, marginTop: 58 }}>{tabs.filter(t => t.key !== 'settings').map(t => <Pressable key={t.key} accessibilityRole="button" accessibilityLabel={t.label} accessibilityState={{ selected: tab === t.key }} onPress={() => switchTab(t.key)} style={{ minHeight: 49, padding: 13, flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: tab === t.key ? C.soft : 'transparent', borderRadius: 12 }}><Icon name={t.icon} color={tab === t.key ? C.purple : C.muted} size={18} /><Text style={{ color: tab === t.key ? C.purple : C.muted, fontSize: 13, fontWeight: tab === t.key ? '600' : '400' }}>{t.label}</Text>{t.key === 'messages' && openReports.length > 0 && <View style={{ backgroundColor: C.purple, borderRadius: 9, padding: 3 }}><Text style={{ color: C.onAccent, fontSize: 10 }}>{openReports.length}</Text></View>}</Pressable>)}</View><View style={{ flex: 1 }} /><Pressable accessibilityRole="button" accessibilityLabel="Como funciona" onPress={onHelp} style={({ pressed }) => ({ minHeight: 49, padding: 13, flexDirection: 'row', gap: 12, alignItems: 'center', borderRadius: 12, backgroundColor: pressed ? C.raised : 'transparent' })}><Icon name="help-circle" size={18} color={C.muted} /><Text style={{ color: C.muted, fontSize: 13 }}>Como funciona</Text></Pressable><ProfileMenu name={user.name} busy={busy} onAccount={() => switchTab('settings')} onLogout={() => void logout()} /></View>}
-    <View style={{ flex: 1 }}><View style={[s.between, { paddingHorizontal: compact ? 22 : 42, paddingVertical: 22, borderBottomWidth: 1, borderColor: C.line }]}>{wide ? <View style={s.row}><Text style={s.small}>Seu espaço</Text><Text style={{ color: C.muted }}>/</Text><Text style={{ color: C.ink, fontSize: 12 }}>{tabs.find(t => t.key === tab)?.label}</Text></View> : <Brand />}<Button variant="ghost" icon="maximize" onPress={onScan} label="Escanear etiqueta">{compact ? '' : 'Escanear etiqueta'}</Button></View>
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={C.purple} />} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: compact ? 22 : 42, paddingTop: compact ? 28 : 38, paddingBottom: 45, gap: 25, maxWidth: 1320, width: '100%', alignSelf: 'center' }}>
-        {!!error && <Notice error text={error} />}
-        {tab === 'items' ? <>
-          <View style={[s.between, { alignItems: 'flex-start', flexWrap: 'wrap', gap: 19 }]}><View style={{ gap: 10 }}><Text accessibilityRole="header" style={[s.h1, compact && { fontSize: 31, lineHeight: 37 }]}>Suas coisas.{ '\n' }Sempre por perto.</Text></View><Button onPress={() => setForm('new')} icon="plus" style={{ marginTop: compact ? 0 : 26 }}>Adicionar objeto</Button></View>
-          <View style={{ flexDirection: 'row', gap: compact ? 8 : 15 }}>{[{ label: 'Protegidos', value: tags.filter(t => t.status === 'active').length, icon: 'shield' as IconName, color: C.purple }, { label: 'Perdidos', value: tags.filter(t => t.status === 'lost').length, icon: 'search' as IconName, color: C.amber }, { label: 'Reencontros', value: tags.reduce((n, t) => n + t.recoveryCount, 0), icon: 'heart' as IconName, color: C.purple }].map(stat => <View key={stat.label} style={[s.card, { flex: 1, padding: compact ? 13 : 21, borderRadius: 15, gap: 13 }]}><View style={[s.between, { gap: 2 }]}><Text style={[s.small, { fontSize: compact ? 10 : 12 }]}>{stat.label}</Text><Icon name={stat.icon} size={compact ? 14 : 18} color={stat.color} /></View><Text style={{ fontSize: compact ? 28 : 33, fontWeight: '500', color: C.ink, letterSpacing: -1 }}>{stat.value.toString().padStart(2, '0')}</Text></View>)}</View>
-          {openReports.length > 0 && <Pressable accessibilityRole="button" onPress={() => switchTab('messages')} style={[s.between, { padding: 18, backgroundColor: C.soft, borderRadius: 14 }]}><View style={[s.row, { flex: 1 }]}><Icon name="message-circle" color={C.purple} /><Text style={{ color: C.purple, fontWeight: '600', flex: 1, lineHeight: 20 }}>{openReports.length === 1 ? 'Alguém encontrou um objeto seu.' : `${openReports.length} conversas aguardam um reencontro.`} Vamos conversar?</Text></View><Icon name="arrow-right" color={C.purple} /></Pressable>}
-          <View style={[s.between, { flexWrap: 'wrap', gap: 14, marginTop: 10 }]}><Text style={s.h3}>Meus objetos <Text style={{ color: C.muted, fontWeight: '400' }}>{tags.length}</Text></Text><View style={{ minWidth: compact ? '100%' : 250 }}><Field label="Buscar objetos" placeholder="Buscar por nome ou categoria" value={search} onChangeText={setSearch} /></View></View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7 }}>{[{ key: 'all', name: 'Todos' }, { key: 'active', name: 'Protegidos' }, { key: 'lost', name: 'Perdidos' }, { key: 'paused', name: 'Pausados' }].map(f => <Pressable key={f.key} accessibilityRole="button" accessibilityState={{ selected: filter === f.key }} onPress={() => setFilter(f.key)} style={{ paddingHorizontal: 15, paddingVertical: 11, borderRadius: 10, backgroundColor: filter === f.key ? C.purple : 'transparent' }}><Text style={{ color: filter === f.key ? C.onAccent : C.muted, fontSize: 12, fontWeight: '500' }}>{f.name}</Text></Pressable>)}</ScrollView>
-          {filtered.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>{filtered.map(tag => { const cat = categoryInfo(tag.category); const status = tag.status === 'lost' ? ['Perdido', C.amber, C.amberSoft] : tag.status === 'paused' ? ['Pausado', C.muted, C.raised] : ['Protegido', C.purple, C.soft]; return <Pressable key={tag.id} accessibilityRole="button" accessibilityLabel={`Abrir ${tag.name}`} onPress={() => setSelected(tag)} style={({ pressed }) => [{ backgroundColor: C.surface, borderWidth: 1, borderColor: pressed ? C.purple : C.line, borderRadius: 19, width: compact ? '100%' : width > 1250 ? '31.8%' : '48%', overflow: 'hidden' }]}><View style={{ height: 146, backgroundColor: cat.color, padding: 17, justifyContent: 'space-between' }}><View style={[s.between, { alignItems: 'flex-start' }]}><View style={[s.pill, { backgroundColor: status[2] }]}><View style={{ height: 5, width: 5, borderRadius: 3, backgroundColor: status[1] }} /><Text style={{ fontSize: 11, fontWeight: '600', color: status[1] }}>{status[0]}</Text></View><Icon name="arrow-up-right" size={18} color={C.muted} /></View><View style={{ position: 'absolute', alignSelf: 'center', top: 65, transform: [{ rotate: '-8deg' }] }}><Icon name={cat.icon} size={49} color={C.purple} /></View></View><View style={{ padding: 19, gap: 11 }}><Text numberOfLines={1} style={s.h3}>{tag.name}</Text><View style={s.between}><Text style={s.small}>{tag.category}</Text><View style={s.row}><Icon name="maximize" size={12} color={C.muted} /><Text style={{ fontSize: 10, color: C.muted }}>{tag.status === 'paused' ? 'QR pausado' : 'QR ativo'}</Text></View></View>{tag.openReportCount > 0 && <Text style={{ color: C.purple, fontSize: 12, fontWeight: '500' }}>{tag.openReportCount} conversa(s) em aberto</Text>}</View></Pressable>; })}</View> : <View style={[s.card, s.empty, { borderStyle: 'dashed' }]}><View style={s.circle}><Icon name={search ? 'search' : 'tag'} size={27} color={C.purple} /></View><Text style={[s.h2, { textAlign: 'center', fontSize: 21 }]}>{tags.length ? 'Nenhum objeto por aqui.' : 'Tudo começa com uma etiqueta.'}</Text><Text style={[s.body, { textAlign: 'center', maxWidth: 370 }]}>{tags.length ? 'Tente outro nome ou filtro para encontrar seu objeto.' : 'Sua mochila, suas chaves, seu companheiro de viagem. Adicione o primeiro objeto e leve um pouco mais de tranquilidade.'}</Text>{!tags.length && <Button onPress={() => setForm('new')} icon="plus">Criar minha primeira etiqueta</Button>}</View>}
-          <View style={[s.between, { marginTop: 6, flexWrap: 'wrap' }]}><View style={s.row}><Icon name="lock" size={13} color={C.muted} /><Text style={s.small}>Seus contatos ficam só com você.</Text></View><Button variant="ghost" onPress={onHelp} icon="help-circle">Como funciona</Button></View>
-        </> : tab === 'messages' ? <>
-          <View style={{ gap: 10 }}><Text accessibilityRole="header" style={s.h1}>Um “encontrei”{ '\n' }muda tudo.</Text><Text style={s.body}>Combine a devolução com quem cuidou do seu objeto.</Text></View>
-          {chat ? <View style={[s.card, { gap: 18 }]}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start' }}>Todas as conversas</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length ? reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={`Conversa sobre ${report.tagName}`} onPress={() => setChat(report.id)} style={[s.card, { flexDirection: 'row', gap: 15, alignItems: 'center', padding: compact ? 17 : 23 }]}><View style={s.circle}><Icon name={report.status === 'resolved' ? 'check' : 'message-circle'} color={C.purple} /></View><View style={{ flex: 1, gap: 6 }}><View style={[s.between, { flexWrap: 'wrap' }]}><Text style={s.h3}>{report.tagName}</Text><Text style={s.small}>{formatDate(report.updatedAt)}</Text></View><Text style={s.small}>{report.finderName} · {report.status === 'resolved' ? 'Devolvido' : 'Em conversa'}</Text><Text numberOfLines={1} style={{ color: C.muted, fontSize: 13 }}>{report.lastMessage}</Text></View><Icon name="chevron-right" size={17} color={C.muted} /></Pressable>) : <View style={[s.card, s.empty]}><View style={s.circle}><Icon name="message-circle" color={C.purple} size={26} /></View><Text style={[s.h2, { textAlign: 'center' }]}>Por enquanto, tudo tranquilo.</Text><Text style={[s.body, { textAlign: 'center', maxWidth: 360 }]}>Quando alguém escanear sua etiqueta e enviar um aviso, a conversa aparece aqui. As mensagens são atualizadas enquanto o app está aberto.</Text></View>}
-        </> : <>
-          <View style={{ gap: 10 }}><Text accessibilityRole="header" style={s.h1}>Minha conta.</Text></View><View style={[s.card, { gap: 16 }]}><Text style={s.h3}>{user.name}</Text><Text selectable style={s.body}>{user.email}</Text><View style={s.divider} /><View style={s.row}><Icon name="shield" color={C.purple} /><Text style={[s.small, { flex: 1 }]}>Estes dados não aparecem nas suas etiquetas ou nas conversas com quem encontra.</Text></View></View>
-          <WalletPanel /><View style={[s.card, { gap: 14 }]}><Text style={s.h3}>Bom saber</Text><Text style={s.body}>SeekerTag usa etiquetas passivas. Elas não têm GPS, bateria ou Bluetooth: um reencontro começa quando alguém escaneia o QR ou aproxima o celular da etiqueta NFC.</Text><Text style={s.body}>Mantenha seu código de recuperação em um lugar seguro. Ele é necessário para redefinir a senha sem depender de e-mail.</Text><Button variant="secondary" icon="help-circle" onPress={onHelp}>Como funciona</Button></View><Button variant="secondary" onPress={logout} busy={busy} icon="log-out">Sair da conta</Button>
-        </>}
-      </ScrollView>
-      {!wide && <View style={{ flexDirection: 'row', backgroundColor: C.surface, borderTopWidth: 1, borderColor: C.line, paddingVertical: 9 }}>{tabs.map(t => <Pressable key={t.key} accessibilityRole="button" accessibilityLabel={t.label} accessibilityState={{ selected: tab === t.key }} onPress={() => switchTab(t.key)} style={{ flex: 1, alignItems: 'center', paddingVertical: 8, gap: 6 }}><View><Icon name={t.icon} color={tab === t.key ? C.purple : C.muted} size={21} />{t.key === 'messages' && openReports.length > 0 && <View style={{ position: 'absolute', top: -3, right: -6, width: 7, height: 7, backgroundColor: C.purple, borderRadius: 5 }} />}</View><Text style={{ fontSize: 10, color: tab === t.key ? C.purple : C.muted, fontWeight: '500' }}>{t.label}</Text></Pressable>)}</View>}
-    </View>
+
+  const stats = [
+    { label: 'Protegidos', value: tags.filter(t => t.status === 'active').length, icon: 'shield' as IconName, color: C.green },
+    { label: 'Perdidos', value: tags.filter(t => t.status === 'lost').length, icon: 'search' as IconName, color: C.amber },
+    { label: 'Reencontros', value: tags.reduce((n, t) => n + t.recoveryCount, 0), icon: 'heart' as IconName, color: C.accent },
+  ];
+
+  return <View style={styles.page}>
+    <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)} animatedProps={header.accessibilityProps} style={[styles.topBar, header.style]}><Button variant="ghost" icon="user" label="Minha conta" onPress={() => setAccount(true)} style={{ backgroundColor: C.surface, borderRadius: 18 }} /><Text style={{ color: C.ink, fontSize: 20, fontWeight: '500' }}>SeekerTag</Text><Button variant="ghost" icon="maximize" onPress={onScan} label="Escanear etiqueta" /></Animated.View>
+    <KeyboardAwareScrollView bottomOffset={24} ref={scroll} onScroll={header.onScroll} scrollEventThrottle={16} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} progressViewOffset={headerHeight} />} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight }]}>
+      <View style={styles.content}>
+      {!!error && <Notice error text={error} />}
+      {tab === 'items' ? <>
+        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>Meus objetos</Text><Text style={s.body}>Tudo o que importa, por perto.</Text></View>
+        <View style={styles.stats}>{stats.map(stat => <View key={stat.label} style={styles.stat}>
+          <Icon name={stat.icon} size={22} color={stat.color} /><Text style={styles.statValue}>{stat.value}</Text><Text style={styles.statLabel}>{stat.label}</Text>
+        </View>)}</View>
+        <Button onPress={() => setForm('new')} icon="plus">Adicionar objeto</Button>
+        {openReports.length > 0 && <Pressable accessibilityRole="button" onPress={() => switchTab('messages')} style={({ pressed }) => [styles.alert, pressed && styles.pressed]}>
+          <View style={[s.circle, { backgroundColor: C.soft }]}><Icon name="message-circle" color={C.accent} /></View>
+          <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>Tem um reencontro a caminho</Text><Text style={s.small}>{openReports.length} conversa(s) em aberto</Text></View><Icon name="chevron-right" color={C.muted} />
+        </Pressable>}
+        {tags.length > 0 && <View style={{ gap: 18 }}>
+          <Field hideLabel label="Buscar objetos" placeholder="Buscar por nome ou categoria" value={search} onChangeText={setSearch} returnKeyType="search" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+            {filters.map(f => <Pressable key={f.key} accessibilityRole="button" accessibilityState={{ selected: filter === f.key }} onPress={() => setFilter(f.key)} style={({ pressed }) => [styles.filter, { backgroundColor: filter === f.key ? C.primary : C.secondary }, pressed && styles.pressed]}><Text style={{ color: filter === f.key ? C.onPrimary : C.ink, fontSize: 16, fontWeight: '500' }}>{f.name}</Text></Pressable>)}
+          </ScrollView>
+        </View>}
+        {filtered.length > 0 ? <View>
+          <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>Etiquetas</Text><Text style={s.small}>{filtered.length} {filtered.length === 1 ? 'objeto' : 'objetos'}</Text></View>
+          {filtered.map(tag => { const cat = categoryInfo(tag.category); return <Pressable key={tag.id} accessibilityRole="button" accessibilityLabel={`Abrir ${tag.name}`} onPress={() => setSelected(tag)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
+            <View style={[s.circle, { backgroundColor: cat.color }]}><Icon name={cat.icon} size={26} /></View>
+            <View style={{ flex: 1, gap: 8 }}><Text numberOfLines={2} style={s.h3}>{tag.name}</Text><View style={[s.row, { flexWrap: 'wrap', gap: 8 }]}><Text style={s.small}>{tag.category}</Text><Pill status={tag.status} /></View>{tag.openReportCount > 0 && <Text style={[s.small, { color: C.accent }]}>{tag.openReportCount} conversa(s) em aberto</Text>}</View>
+            <Icon name="chevron-right" color={C.muted} size={22} />
+          </Pressable>; })}
+        </View> : <View style={s.empty}>
+          <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name={search ? 'search' : 'tag'} size={32} /></View>
+          <Text style={[s.h2, styles.center]}>{tags.length ? 'Nenhum objeto por aqui' : 'Sua primeira etiqueta'}</Text>
+          <Text style={[s.body, styles.center]}>{tags.length ? 'Tente outro nome ou filtro para encontrar seu objeto.' : 'Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.'}</Text>
+        </View>}
+        <Pressable accessibilityRole="button" accessibilityLabel="Como funciona" onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
+          <View style={s.circle}><Icon name="help-circle" /></View><View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>Como funciona</Text><Text style={s.small}>Uma etiqueta. Um caminho de volta.</Text></View><Icon name="chevron-right" color={C.muted} />
+        </Pressable>
+      </> : <>
+        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>Conversas</Text><Text style={s.body}>O próximo reencontro começa aqui.</Text></View>
+        {chat ? <View style={{ gap: 24 }}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>Todas as conversas</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length > 0 ? <View>{reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={`Conversa sobre ${report.tagName}`} onPress={() => setChat(report.id)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
+          <View style={s.circle}><Icon name={report.status === 'resolved' ? 'check' : 'message-circle'} color={report.status === 'resolved' ? C.green : C.ink} /></View>
+          <View style={{ flex: 1, gap: 6 }}><Text numberOfLines={2} style={s.h3}>{report.tagName}</Text><Text style={s.small}>{report.finderName} · {report.status === 'resolved' ? 'Devolvido' : 'Em conversa'}</Text><Text numberOfLines={1} style={s.body}>{report.lastMessage}</Text><Text style={s.small}>{formatDate(report.updatedAt)}</Text></View><Icon name="chevron-right" color={C.muted} size={22} />
+        </Pressable>)}</View> : <View style={s.empty}><View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="message-circle" size={32} /></View><Text style={[s.h2, styles.center]}>Tudo tranquilo por aqui</Text><Text style={[s.body, styles.center]}>Quando alguém escanear sua etiqueta e enviar um aviso, a conversa aparece aqui.</Text></View>}
+      </>}
+      </View>
+    </KeyboardAwareScrollView>
+    <View style={styles.navigation}>{tabs.map(t => <Pressable key={t.key} accessibilityRole="tab" accessibilityLabel={t.label} accessibilityState={{ selected: tab === t.key }} onPress={() => switchTab(t.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
+      <View style={styles.tabIcon}>
+        {tab === t.key && <View pointerEvents="none" style={styles.tabSelection} />}
+        <Icon name={t.icon} color={tab === t.key ? C.onPrimary : C.ink} size={28} />{t.key === 'messages' && openReports.length > 0 && <View style={styles.badge} />}
+      </View>
+    </Pressable>)}</View>
+    {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} />}
     {form && <TagForm token={token} tag={form === 'new' ? undefined : form} onClose={() => setForm(null)} onSaved={tag => { saveTag(tag); setForm(null); }} />}
-    {selected && !form && <TagDetails tag={selected} token={token} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={tag => setForm(tag)} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
+    {selected && !form && <TagDetails tag={selected} token={token} user={user} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={tag => setForm(tag)} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
   </View>;
 }
+
+const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' }, topBar: { position: 'absolute', top: 0, width: '100%', maxWidth: 720, alignSelf: 'center', zIndex: 2, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
+  scrollContent: { width: '100%', maxWidth: 720, alignSelf: 'center' },
+  content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32, gap: 26 }, intro: { gap: 8 }, center: { textAlign: 'center' },
+  stats: { flexDirection: 'row', gap: 10 }, stat: { flex: 1, backgroundColor: C.surface, borderRadius: 24, paddingHorizontal: 12, paddingVertical: 18, gap: 8 }, statValue: { color: C.ink, fontSize: 32, fontWeight: '600', lineHeight: 39 }, statLabel: { color: C.muted, fontSize: 13, lineHeight: 18 },
+  filters: { gap: 8, paddingVertical: 2 }, filter: { minHeight: 44, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, minHeight: 106, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
+  helpRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }, alert: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 }, pressed: { opacity: 0.65 },
+  navigation: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 12, paddingBottom: 8 }, tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 56 },
+  tabIcon: { width: 72, height: 52, alignItems: 'center', justifyContent: 'center' },
+  // Mount the rounded background with its final color so Android preserves its corners when switching tabs.
+  tabSelection: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 20, backgroundColor: C.primary },
+  badge: { position: 'absolute', top: 8, right: 15, width: 8, height: 8, backgroundColor: C.accent, borderRadius: 4 },
+});

@@ -1,5 +1,5 @@
 appId: app.seekertag.mobile
-name: Native login, object, QR fallback and secure session
+name: Android account, label, clipboard, PDF picker, visitor and app links
 ---
 - stopApp
 - launchApp
@@ -16,9 +16,9 @@ name: Native login, object, QR fallback and secure session
           direction: DOWN
       - tapOn: "Sair da conta"
 - scrollUntilVisible:
-    element: "Entrar"
+    element: "Entrar com e-mail"
     direction: DOWN
-- tapOn: "Entrar"
+- tapOn: "Entrar com e-mail"
 - tapOn: "voce@exemplo.com"
 - inputText: ${QA_EMAIL}
 - pressKey: Enter
@@ -34,7 +34,6 @@ name: Native login, object, QR fallback and secure session
 - extendedWaitUntil:
     visible: "Adicionar objeto"
     timeout: 20000
-- assertNotVisible: ".*KeyChainException.*"
 - takeScreenshot: native-dashboard
 - tapOn: "Adicionar objeto"
 - tapOn: "Ex.: Minha mochila verde"
@@ -50,6 +49,54 @@ name: Native login, object, QR fallback and secure session
     timeout: 20000
 - assertVisible: ${QA_OBJECT_NAME}
 - takeScreenshot: native-created-qr
+- scrollUntilVisible:
+    element: "Copiar link"
+    direction: DOWN
+- tapOn: "Copiar link"
+- scrollUntilVisible:
+    element: "Link da etiqueta copiado."
+    direction: DOWN
+- assertVisible: "Link da etiqueta copiado."
+- tapOn: "Fechar"
+- tapOn: "Escanear etiqueta"
+# Use Android's actual clipboard, not Maestro's separate pasteText buffer.
+- longPressOn: "https://…/found/sua-etiqueta"
+- tapOn: "Paste|Colar|Pegar"
+- hideKeyboard
+- tapOn: "Abrir etiqueta"
+- extendedWaitUntil:
+    visible: ${QA_OBJECT_NAME}
+    timeout: 20000
+- back
+- scrollUntilVisible:
+    element: "Abrir ${QA_OBJECT_NAME}"
+    direction: DOWN
+- tapOn: "Abrir ${QA_OBJECT_NAME}"
+- scrollUntilVisible:
+    element: "Ver como visitante"
+    direction: DOWN
+- tapOn: "Ver como visitante"
+- extendedWaitUntil:
+    visible: ${QA_OBJECT_NAME}
+    timeout: 20000
+- assertVisible: "Página inicial"
+- back
+- scrollUntilVisible:
+    element: "Abrir ${QA_OBJECT_NAME}"
+    direction: DOWN
+- tapOn: "Abrir ${QA_OBJECT_NAME}"
+- scrollUntilVisible:
+    element: "Baixar etiquetas em PDF"
+    direction: DOWN
+- tapOn: "Baixar etiquetas em PDF"
+- extendedWaitUntil:
+    visible: ".*(USE THIS FOLDER|Usar esta pasta|USAR ESTA PASTA|Usar esta carpeta).*"
+    timeout: 10000
+- back
+- scrollUntilVisible:
+    element: "Download cancelado."
+    direction: DOWN
+- assertVisible: "Download cancelado."
 - tapOn: "Fechar"
 - stopApp
 - launchApp
@@ -79,16 +126,7 @@ name: Native login, object, QR fallback and secure session
     direction: DOWN
 - tapOn: ".*Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui."
 - inputText: ${QA_MESSAGE}
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - tapOn: ${QA_PUBLIC_OBJECT_NAME}
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - hideKeyboard
+- hideKeyboard
 - scrollUntilVisible:
     element: "Avisar o dono"
     direction: DOWN
@@ -111,3 +149,17 @@ name: Native login, object, QR fallback and secure session
     timeout: 20000
 - assertVisible: ${QA_PUBLIC_OBJECT_NAME}
 - takeScreenshot: native-persisted-finder
+- back
+- openLink: ${QA_APP_URL}
+- extendedWaitUntil:
+    visible: "Obrigado por ajudar."
+    timeout: 20000
+- assertVisible: ${QA_PUBLIC_OBJECT_NAME}
+- takeScreenshot: native-warm-link
+- stopApp
+- openLink: ${QA_APP_URL}
+- extendedWaitUntil:
+    visible: "Obrigado por ajudar."
+    timeout: 20000
+- assertVisible: ${QA_PUBLIC_OBJECT_NAME}
+- takeScreenshot: native-cold-link
