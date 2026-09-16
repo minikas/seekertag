@@ -22,7 +22,7 @@ export default function Found({ code, chatId, goHome, goChat }: { code?: string;
       <Text accessibilityRole="header" style={s.screenTitle}>{chatId ? t("Conversa") : t("Devolver objeto")}</Text>
       <View style={{ width: 48 }} />
     </View>
-    <KeyboardAwareScrollView bottomOffset={24} disableScrollOnKeyboardHide keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={styles.content}>
+    <KeyboardAwareScrollView mode="layout" bottomOffset={24} disableScrollOnKeyboardHide keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={styles.content}>
       {loading && <ActivityIndicator color={C.ink} style={{ marginVertical: 40 }} />}
       {!!error && <Notice error text={error} />}
       {chatId && chatToken ? <Conversation id={chatId} token={chatToken} finder /> : tag ? <>

@@ -67,7 +67,7 @@ export function Sheet({ title, subtitle, onClose, children, footer, headerRight,
         {dismissible ? <Button variant="ghost" onPress={onClose} icon="arrow-left" label={t("Fechar")} /> : <View style={{ width: 48 }} />}
         <Text accessibilityRole="header" style={s.screenTitle}>{title}</Text>{headerRight || <View style={{ width: 48 }} />}
       </View>
-      <KeyboardAwareScrollView key={contentKey} style={{ flex: 1 }} bottomOffset={24} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 20, paddingBottom: 36, gap: 24, width: '100%', maxWidth: 600, alignSelf: 'center' }}>
+      <KeyboardAwareScrollView mode="layout" disableScrollOnKeyboardHide key={contentKey} style={{ flex: 1 }} bottomOffset={24} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 20, paddingBottom: 36, gap: 24, width: '100%', maxWidth: 600, alignSelf: 'center' }}>
         {!!subtitle && <Text style={s.body}>{subtitle}</Text>}{children}
       </KeyboardAwareScrollView>
       {!!footer && <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, width: '100%', maxWidth: 600, alignSelf: 'center' }}>{footer}</View>}
