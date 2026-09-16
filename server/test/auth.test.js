@@ -62,6 +62,18 @@ test('wallet sign-in verifies Ed25519, creates one passwordless account and resu
   assert.equal(h.app.locals.db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
 });
 
+test('localized wallet statements remain bound to the exact signed challenge', async t => {
+  const h = await harness(); t.after(h.close); const key = wallet();
+  for (const [language, prefix] of [['pt', 'Entrar no'], ['en', 'Sign in'], ['es', 'Entrar en']]) {
+    const start = (await h.request('/auth/wallet/challenge', { language })).data;
+    assert.ok(start.payload.statement.startsWith(prefix));
+    const altered = { ...start.payload, statement: 'Different request' };
+    assert.equal((await h.request('/auth/wallet/verify', { challengeId: start.challengeId, ...key.sign(altered) })).status, 401);
+    assert.equal((await h.request('/auth/wallet/verify', { challengeId: start.challengeId, ...key.sign(start.payload) })).status, 200);
+  }
+  assert.equal(h.app.locals.db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
+});
+
 test('wallet login rejects forged, wrong address/domain/nonce, expired and replayed signatures', async t => {
   const h = await harness(); t.after(h.close); const key = wallet();
   const start = (await h.request('/auth/wallet/challenge', {})).data;

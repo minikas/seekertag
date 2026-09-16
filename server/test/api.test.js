@@ -50,7 +50,7 @@ test('complete return lifecycle relays messages, preserves privacy, and records 
   assert.match(tag.publicUrl, /^http:\/\/localhost:4318\/found\/[\w-]{16}$/);
   const publicResult = await h.request(`/public/tags/${tag.code}`);
   assert.equal(publicResult.status, 200);
-  assert.deepEqual(Object.keys(publicResult.data.tag).sort(), ['category', 'code', 'color', 'name', 'publicMessage', 'rewardAmount', 'rewardCurrency', 'status']);
+  assert.deepEqual(Object.keys(publicResult.data.tag).sort(), ['category', 'categoryIcon', 'code', 'color', 'name', 'publicMessage', 'rewardAmount', 'rewardCurrency', 'status']);
   assert.ok(!JSON.stringify(publicResult.data).includes('private-owner'));
   assert.ok(!JSON.stringify(publicResult.data).includes('99999'));
   assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token, method: 'PATCH', body: { status: 'lost' } })).data.tag.status, 'lost');
@@ -194,6 +194,11 @@ test('download artifacts have valid byte signatures and canonical QR URL ignores
   assert.ok(Math.abs(size.width - 595.28) < 0.1 && Math.abs(size.height - 841.89) < 0.1, 'printable label sheet is one A4 page');
   assert.equal(document.isEncrypted, false);
   assert.match(pdf.headers.get('content-disposition'), /^attachment; filename="seekertag-[\w-]+\.pdf"$/);
+  for (const language of ['en', 'es']) {
+    const translated = await h.request(`/tags/${tag.id}/label.pdf?lang=${language}`, { token: owner.token });
+    assert.equal(translated.status, 200);
+    assert.equal((await ParsedPDF.load(translated.bytes)).getPageCount(), 1, `${language} labels still fit one A4 sheet`);
+  }
   assert.throws(() => createApp({ publicUrl: 'javascript:alert(1)', dbPath: ':memory:' }));
   assert.throws(() => createApp({ publicUrl: 'https://user:pass@example.com', dbPath: ':memory:' }));
 });

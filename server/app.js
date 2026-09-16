@@ -6,8 +6,10 @@ import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
 import QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
+import { labelCopy } from './label-copy.js';
 import { installAuth, migrateAuth } from './auth.js';
 import { createOAuthProviders } from './oauth.js';
+import { createCategories } from './categories.js';
 
 const scrypt = promisify(scryptCallback);
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -94,6 +96,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   const all = (sql, ...params) => db.prepare(sql).all(...params);
   const run = (sql, ...params) => db.prepare(sql).run(...params);
   const transaction = (fn) => { db.exec('BEGIN IMMEDIATE'); try { const result = fn(); db.exec('COMMIT'); return result; } catch (error) { db.exec('ROLLBACK'); throw error; } };
+  const categories = createCategories({ db, get, all, run, transaction, fail });
   const userView = (u) => {
     const identities = all('SELECT provider,subject FROM auth_identities WHERE user_id=? ORDER BY created_at,provider', u.id);
     return { id: u.id, name: u.name, email: u.email, createdAt: u.created_at,
@@ -116,7 +119,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   });
   app.use(express.json({ limit: '16kb', strict: true }));
   app.use((req, _res, next) => {
-    if (['POST', 'PATCH'].includes(req.method) && req.body != null && (Array.isArray(req.body) || typeof req.body !== 'object')) return next(new HttpError(400, 'Envie um objeto JSON.'));
+    if (['POST', 'PATCH', 'DELETE'].includes(req.method) && req.body != null && (Array.isArray(req.body) || typeof req.body !== 'object')) return next(new HttpError(400, 'Envie um objeto JSON.'));
     req.body ??= {};
     next();
   });
@@ -169,6 +172,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     req.user = u; req.sessionHash = tokenHash; next();
   };
   const { consumeProof } = installAuth({ app, get, all, run, transaction, fail, requireOwner, authLimit, makeSession, userView, publicOrigin, oauthProviders });
+  categories.install(app, requireOwner, ownerWriteLimit);
   const ownerTag = (req) => {
     const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', req.params.id, req.user.id);
     if (!tag) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
@@ -192,9 +196,9 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   };
   function tagView(t) {
     const counts = get("SELECT COUNT(*) AS total, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open FROM reports WHERE tag_id=? AND owner_id=?", t.id, t.owner_id);
-    return { id: t.id, code: t.code, name: t.name, category: t.category, color: t.color, description: t.description, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency, publicUrl: `${publicOrigin}/found/${t.code}`, createdAt: t.created_at, updatedAt: t.updated_at, returnedAt: t.returned_at, recoveryCount: t.recovery_count, reportCount: counts.total, openReportCount: counts.open || 0 };
+    return { id: t.id, code: t.code, name: t.name, category: t.category, ...categories.metadata(t.category_id), color: t.color, description: t.description, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency, publicUrl: `${publicOrigin}/found/${t.code}`, createdAt: t.created_at, updatedAt: t.updated_at, returnedAt: t.returned_at, recoveryCount: t.recovery_count, reportCount: counts.total, openReportCount: counts.open || 0 };
   }
-  const publicView = (t) => ({ code: t.code, name: t.name, category: t.category, color: t.color, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency });
+  const publicView = (t) => ({ code: t.code, name: t.name, category: t.category, categoryIcon: categories.metadata(t.category_id).categoryIcon, color: t.color, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency });
   function reportView(r) {
     const last = get('SELECT body FROM messages WHERE report_id=? ORDER BY id DESC LIMIT 1', r.id);
     const count = get('SELECT COUNT(*) AS n FROM messages WHERE report_id=?', r.id).n;
@@ -291,7 +295,8 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const v = validateTag(req.body);
     const id = randomUUID(); const code = randomBytes(12).toString('base64url'); const at = now();
     transaction(() => {
-      run('INSERT INTO tags(id,code,owner_id,name,category,color,description,public_message,status,reward_amount,reward_currency,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', id, code, req.user.id, v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, at);
+      const categoryId = categories.forTag(req.user.id, req.body, v);
+      run('INSERT INTO tags(id,code,owner_id,name,category,color,description,public_message,status,reward_amount,reward_currency,created_at,updated_at,category_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, code, req.user.id, v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, at, categoryId);
       run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', id, req.user.id, 'created', v.status, at);
     });
     res.status(201).json({ tag: tagView(get('SELECT * FROM tags WHERE id=?', id)) });
@@ -300,7 +305,8 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   app.patch('/api/tags/:id', requireOwner, ownerWriteLimit, (req, res) => {
     const t = ownerTag(req); const v = validateTag(req.body, t); const at = now();
     transaction(() => {
-      run('UPDATE tags SET name=?,category=?,color=?,description=?,public_message=?,status=?,reward_amount=?,reward_currency=?,updated_at=? WHERE id=?', v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, t.id);
+      const categoryId = categories.forTag(req.user.id, req.body, v, t);
+      run('UPDATE tags SET name=?,category=?,color=?,description=?,public_message=?,status=?,reward_amount=?,reward_currency=?,updated_at=?,category_id=? WHERE id=?', v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, categoryId, t.id);
       if (t.status !== v.status) run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', t.id, req.user.id, 'status_changed', v.status, at);
     });
     res.json({ tag: tagView(get('SELECT * FROM tags WHERE id=?', t.id)) });
@@ -331,7 +337,8 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       if (get('SELECT COUNT(*) AS n FROM tags WHERE owner_id=?', target.id).n >= 500) fail(409, 'A conta de destino atingiu o limite de etiquetas.', 'TAG_LIMIT');
       const at = now();
       // Public QR remains valid; clear private notes, pledges, and previous recovery metrics before handing over.
-      run("UPDATE tags SET owner_id=?,description='',public_message='',reward_amount=0,status='active',updated_at=?,returned_at=NULL,recovery_count=0 WHERE id=?", target.id, at, tag.id);
+      const category = categories.transfer(current, target.id);
+      run("UPDATE tags SET owner_id=?,category_id=?,category=?,color=?,description='',public_message='',reward_amount=0,status='active',updated_at=?,returned_at=NULL,recovery_count=0 WHERE id=?", target.id, category.id, category.name, category.color, at, tag.id);
       run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', tag.id, req.user.id, 'transferred_out', 'active', at);
       run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', tag.id, target.id, 'transferred_in', 'active', at);
     });
@@ -344,18 +351,19 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   });
   app.get('/api/tags/:id/label.pdf', requireOwner, async (req, res) => {
     const tag = ownerTag(req); const url = `${publicOrigin}/found/${tag.code}`;
+    const copy = labelCopy(req.query.lang);
     const png = await QRCode.toBuffer(url, { width: 900, margin: 4, errorCorrectionLevel: 'M' });
     const doc = new PDFDocument({ size: 'A4', margin: 40, info: { Title: `SeekerTag — ${tag.name}`, Author: 'SeekerTag' } });
     const chunks = [];
     const pdf = new Promise((resolve, reject) => { doc.on('data', (chunk) => chunks.push(chunk)); doc.on('end', () => resolve(Buffer.concat(chunks))); doc.on('error', reject); });
     doc.fillColor('#213528').fontSize(25).text('SeekerTag', 40, 36);
-    doc.fontSize(11).text('Imprima em tamanho real. Recorte e prenda ao seu item.', 40, 70);
-    doc.fontSize(9).fillColor('#5B655C').text('Teste o QR no aplicativo SeekerTag antes de usar a etiqueta.', 40, 88);
+    doc.fontSize(11).text(copy.print, 40, 70);
+    doc.fontSize(9).fillColor('#5B655C').text(copy.test, 40, 88);
     for (let row = 0; row < 3; row++) for (let col = 0; col < 2; col++) {
       const x = 40 + col * 261; const y = 120 + row * 220;
       doc.save().dash(3, { space: 3 }).lineWidth(0.6).strokeColor('#B4BEB2').roundedRect(x, y, 250, 207, 9).stroke().restore();
-      doc.fillColor('#213528').fontSize(15).text('Encontrou este item?', x + 12, y + 13, { width: 226, align: 'center' });
-      doc.fontSize(9).text('Leia no app SeekerTag. Não precisa de conta.', x + 12, y + 34, { width: 226, align: 'center' });
+      doc.fillColor('#213528').fontSize(15).text(copy.found, x + 12, y + 13, { width: 226, align: 'center' });
+      doc.fontSize(9).text(copy.scan, x + 12, y + 34, { width: 226, align: 'center' });
       doc.image(png, x + 61, y + 52, { width: 128, height: 128 });
       doc.fontSize(8).fillColor('#5B655C').text(`SeekerTag · ${tag.code}`, x + 10, y + 186, { width: 230, align: 'center' });
     }

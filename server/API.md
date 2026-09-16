@@ -53,7 +53,7 @@ Um aviso anônimo retorna outro token, uma capacidade exclusiva daquela conversa
 | Método e rota | Corpo | Resposta |
 |---|---|---|
 | `GET /auth/providers` | — | `{ solana, google, apple }`, disponibilidade booleana |
-| `POST /auth/wallet/challenge` | `{ mode?: 'login'|'link'|'reauth' }` | `{ challengeId, payload }`, entrada SIWS gerada pela API |
+| `POST /auth/wallet/challenge` | `{ mode?: 'login'|'link'|'reauth', language?: 'pt'|'en'|'es' }` | `{ challengeId, payload }`, entrada SIWS gerada pela API |
 | `POST /auth/wallet/verify` | `{ challengeId, address, signedMessage, signature }`, três últimos em base64 padrão | Login: `{ token, user }`; vínculo: `{ user }`; confirmação: `{ proof }` |
 | `POST /auth/oauth/:provider/start` | `{ mode?, codeChallenge }`, SHA-256 base64url do verifier do app | `{ flowId, url }` |
 | `GET /auth/oauth/google/callback` | `state`, `code` enviados pelo Google | `303` para `seekertag://auth/callback?code=...&state=FLOW_ID` |
@@ -64,18 +64,31 @@ Um aviso anônimo retorna outro token, uma capacidade exclusiva daquela conversa
 
 Google/Apple exigem HTTPS em `PUBLIC_URL` e as variáveis completas em `.env.example`. Os callbacks e URLs autorizados estão descritos no README. A API retorna `503 PROVIDER_UNAVAILABLE` enquanto não estiverem configurados. O banco migra contas existentes preservando IDs, objetos e sessões; faça backup antes de atualizar uma instalação de produção.
 
+### Categorias do dono
+
+| Método e rota | Corpo | Resposta |
+|---|---|---|
+| `GET /categories` | — | `{ categories: Category[] }` |
+| `POST /categories` | `{ name, icon?, color? }` | `201 { category }` |
+| `PATCH /categories/:id` | `{ name?, icon?, color? }` | `{ category }`, atualiza os objetos vinculados |
+| `DELETE /categories/:id` | `{ replacementId? }` | `204`; exige destino da mesma conta se houver objetos |
+
+`Category` contém `{ id, name, icon, color, defaultKey, tagCount }`. Nome: 1–32 caracteres, único por conta após normalização Unicode e comparação sem diferença de maiúsculas. Cor: hexadecimal de seis dígitos. Ícones: `shopping-bag`, `briefcase`, `key`, `heart`, `headphones`, `box`, `smartphone`, `watch`, `book`, `camera`, `credit-card`, `umbrella`, `truck`, `home`, `coffee`, `tag`. Limite: 50 categorias. Seis categorias iniciais são criadas uma vez por conta; excluí-las é permanente. `defaultKey` identifica uma opção inicial para tradução, e fica `null` após renomeá-la.
+
+O novo cliente envia `categoryId` na criação/edição do objeto; nome e cor vêm dessa categoria. O formato antigo `category`/`color` continua aceito e vincula uma categoria pertencente à conta. Categorias de outra conta são rejeitadas. A migração mantém nomes, cores e QRs antigos; renomear ou mover uma categoria preserva QRs e histórico. Transferir uma etiqueta reutiliza uma categoria correspondente do destino ou copia a categoria para ele, sem compartilhar a propriedade. A operação falha sem transferir se precisaria criar uma categoria acima do limite.
+
 ### Etiquetas do dono
 
 | Método e rota | Corpo | Resposta |
 |---|---|---|
 | `GET /tags` | — | `{ tags: Tag[] }`, recentes primeiro |
-| `POST /tags` | `{ name, category?, color?, description?, publicMessage?, status?, rewardAmount?, rewardCurrency? }` | `201 { tag }` |
+| `POST /tags` | `{ name, categoryId?, category?, color?, description?, publicMessage?, status?, rewardAmount?, rewardCurrency? }` | `201 { tag }` |
 | `GET /tags/:id` | — | `{ tag }` |
 | `PATCH /tags/:id` | Campos editáveis da criação | `{ tag }` |
 | `GET /tags/:id/history` | — | `{ events: [{ id, type, status, createdAt }] }`, recentes primeiro |
 | `POST /tags/:id/transfer` | `{ recipient, password }` ou `{ recipient, proof }`; `email` ainda é aceito como alias de `recipient` | `{ ok: true }` |
 | `GET /tags/:id/qr.png` | — | PNG 900×900, attachment |
-| `GET /tags/:id/label.pdf` | — | PDF A4 com seis etiquetas recortáveis, attachment |
+| `GET /tags/:id/label.pdf?lang=pt` | `lang`: `pt`, `en` ou `es` (padrão `pt`) | PDF A4 com seis etiquetas recortáveis, attachment |
 
 ```ts
 type Tag = {
@@ -83,6 +96,9 @@ type Tag = {
   code: string;
   name: string;
   category: string;
+  categoryId: string | null;
+  categoryIcon: string;
+  categoryDefaultKey: string | null;
   color: string;
   description: string;       // Privada: só o dono vê.
   publicMessage: string;     // Exibida a quem abre o QR.
@@ -114,7 +130,7 @@ Recompensa é um **valor opcional prometido pelo dono**, de 0 a 1.000.000 na uni
 | `GET /finder/reports/:id` | — | `{ report, messages, tag: PublicTag }` |
 | `POST /finder/reports/:id/messages` | `{ body }` | `201 { message }` |
 
-`PublicTag` contém exclusivamente `{ code, name, category, color, publicMessage, status, rewardAmount, rewardCurrency }`. Não inclui e-mail, nome da conta, ID do dono, descrição privada ou histórico. Etiqueta pausada responde `410 TAG_PAUSED` à consulta pública, criação de aviso e envio de mensagens. Uma conversa existente pode continuar sendo lida e mostra o status pausado. `active` e `lost` aceitam avisos: encontrar um item antes de o dono perceber a perda também é um caso válido.
+`PublicTag` contém exclusivamente `{ code, name, category, categoryIcon, color, publicMessage, status, rewardAmount, rewardCurrency }`. Não inclui e-mail, nome da conta, ID do dono, descrição privada ou histórico. Etiqueta pausada responde `410 TAG_PAUSED` à consulta pública, criação de aviso e envio de mensagens. Uma conversa existente pode continuar sendo lida e mostra o status pausado. `active` e `lost` aceitam avisos: encontrar um item antes de o dono perceber a perda também é um caso válido.
 
 `finderName`: até 60 caracteres, opcional, padrão `Pessoa que encontrou`. Mensagem inicial e respostas: 1–2.000 caracteres. A API transporta texto como dado; o cliente deve renderizar como texto e não como HTML. Não há envio de localização ou contato implícito; o usuário escolhe o que compartilha na mensagem.
 

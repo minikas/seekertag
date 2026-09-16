@@ -1,3 +1,4 @@
+import { walletStatement } from './auth-copy.js';
 import express from 'express';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import bs58 from 'bs58';
@@ -106,7 +107,7 @@ export function installAuth({ app, get, all, run, transaction, fail, requireOwne
     const issued = Date.now();
     const payload = {
       domain: new URL(publicOrigin).host, uri: publicOrigin, version: '1', chainId: 'solana:mainnet',
-      statement: ctx.mode === 'link' ? 'Vincular esta carteira à minha conta SeekerTag.' : ctx.mode === 'reauth' ? 'Confirmar uma transferência de etiqueta no SeekerTag.' : 'Entrar no SeekerTag. Esta assinatura não autoriza transações.',
+      statement: walletStatement(req.body.language, ctx.mode),
       nonce: randomBytes(24).toString('hex'), issuedAt: new Date(issued).toISOString(), expirationTime: new Date(issued + 5 * 60_000).toISOString(),
     };
     run('INSERT INTO auth_flows(id,provider,mode,user_id,session_hash,payload,expires_at) VALUES(?,?,?,?,?,?,?)', id, 'solana', ctx.mode, ctx.userId, ctx.sessionHash, JSON.stringify(payload), issued + 5 * 60_000);
