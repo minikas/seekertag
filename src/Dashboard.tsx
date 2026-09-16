@@ -79,18 +79,18 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
         {chat ? <View style={{ gap: 24 }}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>{t("Todas as conversas")}</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length > 0 ? <View>{reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={t("Conversa sobre {name}", { name: report.tagName })} onPress={() => setChat(report.id)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
           <View style={s.circle}><Icon name={report.status === 'resolved' ? 'check' : 'message-circle'} color={report.status === 'resolved' ? C.green : C.ink} /></View>
           <View style={{ flex: 1, gap: 6 }}><Text numberOfLines={2} style={s.h3}>{report.tagName}</Text><Text style={s.small}>{report.finderName} · {report.status === 'resolved' ? t("Devolvido") : t("Em conversa")}</Text><Text numberOfLines={1} style={s.body}>{report.lastMessage}</Text><Text style={s.small}>{formatDate(report.updatedAt, locale)}</Text></View><Icon name="chevron-right" color={C.muted} size={22} />
-        </Pressable>)}</View> : <View style={s.empty}><View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="message-circle" size={32} /></View><Text style={[s.h2, styles.center]}>{t("Tudo tranquilo por aqui")}</Text><Text style={[s.body, styles.center]}>{t("Quando alguém escanear sua etiqueta e enviar um aviso, a conversa aparece aqui.")}</Text></View>}
+        </Pressable>)}</View> : <View style={[s.empty, { flex: 1 }]}><View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="message-circle" size={32} /></View><Text style={[s.h2, styles.center]}>{t("Tudo tranquilo por aqui")}</Text><Text style={[s.body, styles.center]}>{t("Quando alguém escanear sua etiqueta e enviar um aviso, a conversa aparece aqui.")}</Text></View>}
       </>}
       </View>
     </KeyboardAwareScrollView>
     </View>
     {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} />}
-    <View style={styles.navigation}>{tabs.map(tabItem => <Pressable key={tabItem.key} accessibilityRole="tab" accessibilityLabel={t(tabItem.label)} accessibilityState={{ selected: !account && tab === tabItem.key }} onPress={() => switchTab(tabItem.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
+    {!account && <View style={styles.navigation}>{tabs.map(tabItem => <Pressable key={tabItem.key} accessibilityRole="tab" accessibilityLabel={t(tabItem.label)} accessibilityState={{ selected: tab === tabItem.key }} onPress={() => switchTab(tabItem.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
       <View style={styles.tabIcon}>
         {!account && tab === tabItem.key && <View pointerEvents="none" style={styles.tabSelection} />}
         <Icon name={tabItem.icon} color={!account && tab === tabItem.key ? C.onPrimary : C.ink} size={28} />{tabItem.key === 'messages' && openReports.length > 0 && <View style={styles.badge} />}
       </View>
-    </Pressable>)}</View>
+    </Pressable>)}</View>}
     {browsing && <ObjectsScreen initialFilter={browsing} tags={tags} onSelect={setSelected} onClose={() => setBrowsing(null)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} suspended={!!form} />}
     {form && <TagForm onCategoriesChanged={() => void refresh(true)} token={token} tag={form === 'new' ? undefined : form} onClose={() => setForm(null)} onSaved={tag => { saveTag(tag); setForm(null); }} />}
     {selected && !form && <TagDetails tag={selected} token={token} user={user} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={tag => setForm(tag)} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
@@ -99,12 +99,12 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
 
 const makeStyles = (C: Colors) => StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' }, topBar: { position: 'absolute', top: 0, width: '100%', maxWidth: 720, alignSelf: 'center', zIndex: 2, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
-  scrollContent: { width: '100%', maxWidth: 720, alignSelf: 'center' },
-  content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32, gap: 26 }, intro: { gap: 8 }, center: { textAlign: 'center' },
+  scrollContent: { flexGrow: 1, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 24, gap: 26 }, center: { textAlign: 'center' },
   stats: { flexDirection: 'row', gap: 16 }, stat: { flex: 1, gap: 5 }, statValue: { color: C.ink, fontSize: 28, fontWeight: '500', lineHeight: 34 }, statLabel: { color: C.muted, fontSize: 14, lineHeight: 21 },
   viewAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 12 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, minHeight: 106, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
-  helpRow: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 64, paddingVertical: 12 },
+  helpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginTop: 'auto', minHeight: 72, paddingTop: 20, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line },
   alert: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 }, pressed: { opacity: 0.65 },
   navigation: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 12, paddingBottom: 8 }, tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 56 },
   tabIcon: { width: 72, height: 52, alignItems: 'center', justifyContent: 'center' },
