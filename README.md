@@ -31,7 +31,7 @@ A atualização migra os objetos existentes para categorias com IDs estáveis, m
 | Busca, filtros e indicadores | Painel de objetos |
 | Marcar perdido, pausar e reativar | Detalhes da etiqueta |
 | QR, leitura por câmera e entrada manual | QR nativo e leitor Expo |
-| Copiar link | Botão próprio com clipboard Android |
+| Copiar link | Toque no campo do link para copiar; compartilhar fica no ícone ao lado |
 | Compartilhar link | Compartilhador Android |
 | Baixar PDF A4 com seis etiquetas | Seletor de pasta Android e arquivo persistente |
 | Compartilhar/imprimir PDF | Compartilhar PDF com o aplicativo de arquivos/impressão escolhido |
@@ -131,7 +131,7 @@ Mantenha API, Metro e cabo conectados durante o teste. Repita os dois comandos `
 
 ## Links das etiquetas
 
-Os QRs e as etiquetas NFC mantêm o formato `PUBLIC_URL/found/CODIGO`. O leitor dentro do app abre esses links diretamente. Ao acessar esse endereço externamente, a API responde com um redirecionamento para `seekertag:///found/CODIGO?origin=ORIGEM`; não entrega HTML. O botão **Ver como visitante** abre o fluxo no próprio app.
+Os QRs e as etiquetas NFC mantêm o formato `PUBLIC_URL/found/CODIGO`. O leitor dentro do app abre esses links diretamente. Ao acessar esse endereço externamente, a API responde com um redirecionamento para `seekertag:///found/CODIGO?origin=ORIGEM`; não entrega HTML. A opção **Ver como visitante**, no menu **⋯** do objeto, abre o fluxo no próprio app.
 
 O app valida a origem do link contra `EXPO_PUBLIC_API_URL`. Configure `PUBLIC_URL` como a origem dessa API, sem `/api`, e use o mesmo endereço nos builds. Links não podem mudar o servidor ao qual o aplicativo se conecta. Conversas exigem a credencial salva no aparelho, mesmo quando abertas por link.
 
@@ -195,6 +195,8 @@ EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run test:android
 Esse comando cria duas contas e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica login, criação de objeto, cópia/colagem pelo clipboard real do Android, prévia do visitante, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
 
 Para conferir o teclado sem criar dados, selecione Português em Idioma, comece no painel com a conta conectada e execute `maestro test tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
+
+Para conferir o menu do objeto e cancelar NFC sem alterar dados, mantenha NFC ativado e execute `maestro test -e QA_OBJECT_NAME="Nome do objeto" tests/android/tag-details.yaml`. O fluxo usa uma etiqueta existente e verifica nova tentativa e fechamento pelo Voltar do Android.
 
 O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
 

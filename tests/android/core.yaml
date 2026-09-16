@@ -45,7 +45,7 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     direction: DOWN
 - tapOn: "Criar etiqueta"
 - extendedWaitUntil:
-    visible: "Sua etiqueta"
+    visible: "Link da etiqueta"
     timeout: 20000
 - assertVisible: ${QA_OBJECT_NAME}
 - takeScreenshot: native-created-qr
@@ -53,10 +53,8 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     element: "Copiar link"
     direction: DOWN
 - tapOn: "Copiar link"
-- scrollUntilVisible:
-    element: "Link da etiqueta copiado."
-    direction: DOWN
-- assertVisible: "Link da etiqueta copiado."
+# The transient copy toast is not a persistent assertion target. Opening the
+# clipboard value below verifies that the link was copied successfully.
 - tapOn: "Fechar"
 - tapOn: "Escanear etiqueta"
 # Use Android's actual clipboard, not Maestro's separate pasteText buffer.
@@ -72,9 +70,7 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     element: "Abrir ${QA_OBJECT_NAME}"
     direction: DOWN
 - tapOn: "Abrir ${QA_OBJECT_NAME}"
-- scrollUntilVisible:
-    element: "Ver como visitante"
-    direction: DOWN
+- tapOn: "Opções do objeto"
 - tapOn: "Ver como visitante"
 - extendedWaitUntil:
     visible: ${QA_OBJECT_NAME}
@@ -86,17 +82,14 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     direction: DOWN
 - tapOn: "Abrir ${QA_OBJECT_NAME}"
 - scrollUntilVisible:
-    element: "Baixar etiquetas em PDF"
+    element: "Baixar PDF"
     direction: DOWN
-- tapOn: "Baixar etiquetas em PDF"
+- tapOn: "Baixar PDF"
 - extendedWaitUntil:
     visible: ".*(USE THIS FOLDER|Usar esta pasta|USAR ESTA PASTA|Usar esta carpeta).*"
     timeout: 10000
 - back
-- scrollUntilVisible:
-    element: "Download cancelado."
-    direction: DOWN
-- assertVisible: "Download cancelado."
+- assertVisible: "Baixar PDF"
 - tapOn: "Fechar"
 - stopApp
 - launchApp
@@ -122,9 +115,9 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
 - inputText: "Native QA"
 - pressKey: Enter
 - scrollUntilVisible:
-    element: ".*Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui."
+    element: "Conte onde encontrou o objeto."
     direction: DOWN
-- tapOn: ".*Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui."
+- tapOn: "Conte onde encontrou o objeto."
 - inputText: ${QA_MESSAGE}
 - hideKeyboard
 - scrollUntilVisible:
@@ -132,7 +125,7 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     direction: DOWN
 - tapOn: "Avisar o dono"
 - extendedWaitUntil:
-    visible: "Obrigado por ajudar."
+    visible: "Conversa"
     timeout: 20000
 - takeScreenshot: native-finder-chat
 - stopApp
@@ -145,21 +138,21 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
 - inputText: ${QA_PUBLIC_URL}
 - pressKey: Enter
 - extendedWaitUntil:
-    visible: "Obrigado por ajudar."
+    visible: "Conversa"
     timeout: 20000
 - assertVisible: ${QA_PUBLIC_OBJECT_NAME}
 - takeScreenshot: native-persisted-finder
 - back
 - openLink: ${QA_APP_URL}
 - extendedWaitUntil:
-    visible: "Obrigado por ajudar."
+    visible: "Conversa"
     timeout: 20000
 - assertVisible: ${QA_PUBLIC_OBJECT_NAME}
 - takeScreenshot: native-warm-link
 - stopApp
 - openLink: ${QA_APP_URL}
 - extendedWaitUntil:
-    visible: "Obrigado por ajudar."
+    visible: "Conversa"
     timeout: 20000
 - assertVisible: ${QA_PUBLIC_OBJECT_NAME}
 - takeScreenshot: native-cold-link

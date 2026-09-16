@@ -1,0 +1,32 @@
+appId: app.seekertag.mobile
+name: Tag actions and NFC cancellation preserve the current item
+---
+# Start on a signed-in Portuguese dashboard, with NFC enabled.
+# Pass QA_OBJECT_NAME for an existing tag. This flow never changes or submits data.
+- tapOn: "Meus objetos"
+- scrollUntilVisible:
+    element: "Abrir ${QA_OBJECT_NAME}"
+    direction: DOWN
+- tapOn: "Abrir ${QA_OBJECT_NAME}"
+- assertVisible: "Link da etiqueta"
+- assertNotVisible: "Transferir etiqueta"
+- tapOn: "Opções do objeto"
+- tapOn: "Detalhes do objeto"
+- assertVisible: "Editar objeto"
+- back
+- assertVisible: "Gravar NFC"
+- repeat:
+    times: 2
+    commands:
+      - tapOn: "Gravar NFC"
+      - assertVisible: "Aproxime a etiqueta NFC"
+      - tapOn: "Cancelar gravação"
+      - assertNotVisible: "Aproxime a etiqueta NFC"
+      - assertVisible: "Link da etiqueta"
+- tapOn: "Gravar NFC"
+- assertVisible: "Aproxime a etiqueta NFC"
+- back
+- assertNotVisible: "Aproxime a etiqueta NFC"
+- assertVisible: "Link da etiqueta"
+- takeScreenshot: tag-details-after-nfc-cancellation
+- back
