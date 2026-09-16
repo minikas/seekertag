@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
+import Screen from './Screen';
 import Pressable from './HapticPressable';
 import { usePreferences } from './PreferencesProvider';
 import { LanguagePreference, ThemePreference } from './preferences.model';
 import { Icon, Notice, Sheet, useUI } from './ui';
 
-export default function PreferencesScreen({ section, onClose }: { section: 'language' | 'theme'; onClose: () => void }) {
+export default function PreferencesScreen({ section, onClose, presentation = 'modal' }: { presentation?: 'screen' | 'modal'; section: 'language' | 'theme'; onClose: () => void }) {
   const { C, s, t, locale } = useUI();
+  const Frame = presentation === 'screen' ? Screen : Sheet;
   const { preferences, update } = usePreferences();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +28,7 @@ export default function PreferencesScreen({ section, onClose }: { section: 'lang
     } catch { setError('Não foi possível salvar a preferência. Tente novamente.'); }
     finally { setBusy(false); }
   }
-  return <Sheet title={section === 'language' ? t("Idioma") : t("Aparência")} onClose={onClose}>
+  return <Frame title={section === 'language' ? t("Idioma") : t("Aparência")} onClose={onClose}>
     <View>{(section === 'language' ? languages : themes).map(option => {
       const selected = preferences[section] === option.value;
       return <Pressable key={option.value} testID={`preference-${section}-${option.value}`} accessibilityRole="radio" accessibilityLabel={t(option.title)} accessibilityState={{ selected, disabled: busy }} disabled={busy} onPress={() => void choose(option.value)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 26, borderBottomWidth: 1, borderBottomColor: C.line, opacity: pressed ? 0.6 : 1 })}>
@@ -36,5 +38,5 @@ export default function PreferencesScreen({ section, onClose }: { section: 'lang
       </Pressable>;
     })}</View>
     {!!error && <Notice error text={error} />}
-  </Sheet>;
+  </Frame>;
 }

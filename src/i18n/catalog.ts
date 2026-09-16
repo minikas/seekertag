@@ -93,6 +93,7 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Tem um reencontro a caminho': ['A reunion is on its way', 'Hay un reencuentro en camino'],
   'Buscar objetos': ['Search items', 'Buscar objetos'], 'Buscar por nome ou categoria': ['Search by name or category', 'Buscar por nombre o categoría'],
   'Objetos': ['Items', 'Objetos'], 'Ver todos': ['View all', 'Ver todos'],
+  'Voltar': ['Back', 'Volver'],
   'Reencontrados': ['Recovered', 'Recuperados'],
   'Esta etiqueta é sua': ['This is your tag', 'Esta etiqueta es tuya'],
   'Você está vendo como seu objeto aparece para quem o encontrar.': ['This is how your item appears to its finder.', 'Así ve tu objeto quien lo encuentre.'],

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import Screen from './Screen';
 import Pressable from './HapticPressable';
 import { objectCount } from './i18n';
 import { categoryLabel, categoryInk } from './category.model';
@@ -9,8 +10,9 @@ import { Button, Field, Icon, IconName, Notice, Sheet, useUI } from './ui';
 const icons: IconName[] = ['shopping-bag', 'briefcase', 'key', 'heart', 'headphones', 'box', 'smartphone', 'watch', 'book', 'camera', 'credit-card', 'umbrella', 'truck', 'home', 'coffee', 'tag'];
 const colors = ['#304441', '#34434B', '#634457', '#5B4938', '#403D67', '#285569'];
 const iconNames: Record<string, string> = { 'shopping-bag': 'Mochila', briefcase: 'Mala', key: 'Chaves', heart: 'Pet', headphones: 'Eletrônico', box: 'Outro', smartphone: 'Telefone', watch: 'Relógio', book: 'Livro', camera: 'Câmera', 'credit-card': 'Cartão', umbrella: 'Guarda-chuva', truck: 'Veículo', home: 'Casa', coffee: 'Café', tag: 'Etiqueta' };
-export default function Categories({ token, onClose, onChanged }: { token: string; onClose: () => void; onChanged: (categories: Category[]) => void }) {
+export default function Categories({ token, onClose, onChanged, presentation = 'modal' }: { presentation?: 'screen' | 'modal'; token: string; onClose: () => void; onChanged: (categories: Category[]) => void }) {
   const { C, s, t, locale } = useUI();
+  const Frame = presentation === 'screen' ? Screen : Sheet;
   const [categories, setCategories] = useState<Category[]>([]);
   const [editing, setEditing] = useState<Category | 'new' | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function Categories({ token, onClose, onChanged }: { token: strin
       .catch(cause => { if (live) setError((cause as Error).message); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [token]);
-  return <Sheet title={editing ? editing === 'new' ? t("Nova categoria") : t("Editar categoria") : t("Categorias")} onClose={() => editing ? setEditing(null) : onClose()}>
+  return <Frame contentKey={editing ? editing === 'new' ? 'new' : editing.id : 'categories'} title={editing ? editing === 'new' ? t("Nova categoria") : t("Editar categoria") : t("Categorias")} onClose={() => editing ? setEditing(null) : onClose()}>
     {editing ? <CategoryEditor key={editing === 'new' ? 'new' : editing.id} token={token} category={editing === 'new' ? undefined : editing} categories={categories} onSaved={async () => { await refresh(); setEditing(null); }} /> : <>
       <Text style={s.body}>{t("Organize seus objetos do seu jeito.")}</Text>
       <Button icon="plus" onPress={() => setEditing('new')}>{t("Criar categoria")}</Button>
@@ -37,7 +39,7 @@ export default function Categories({ token, onClose, onChanged }: { token: strin
       {!loading && !categories.length && <Text style={s.body}>{t("Crie sua primeira categoria.")}</Text>}
       {!!error && <><Notice error text={error} /><Button variant="secondary" onPress={() => { setError(''); void refresh().catch(cause => setError(cause.message)); }}>{t("Tentar novamente")}</Button></>}
     </>}
-  </Sheet>;
+  </Frame>;
 }
 
 function CategoryEditor({ token, category, categories, onSaved }: { token: string; category?: Category; categories: Category[]; onSaved: () => Promise<void> }) {
