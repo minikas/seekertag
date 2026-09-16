@@ -1,0 +1,49 @@
+appId: app.seekertag.mobile
+name: Home browsing preserves search through details and the object editor
+---
+# Start on a signed-in Portuguese dashboard with an existing protected item.
+# Pass its name as QA_OBJECT_NAME. This flow never saves or changes account data.
+- tapOn: "Meus objetos"
+- assertNotVisible: "Buscar objetos"
+- assertVisible: "Ver todos"
+- takeScreenshot: home-overview
+- tapOn: "Ver todos"
+- tapOn: "Buscar objetos"
+- inputText: "${QA_OBJECT_NAME}"
+- hideKeyboard
+- tapOn: "Filtrar objetos"
+- takeScreenshot: object-filters
+- tapOn: "Protegidos"
+- tapOn: "Abrir ${QA_OBJECT_NAME}"
+- assertVisible: "Link da etiqueta"
+- back
+- assertVisible: "${QA_OBJECT_NAME}"
+- assertVisible: "Limpar filtro"
+- tapOn: "Abrir ${QA_OBJECT_NAME}"
+- tapOn: "Opções do objeto"
+- tapOn: "Editar objeto"
+- assertVisible:
+    id: "object-name"
+- back
+- assertVisible: "Link da etiqueta"
+- back
+- assertVisible: "${QA_OBJECT_NAME}"
+- assertVisible: "Limpar filtro"
+- tapOn: "Filtrar objetos"
+- tapOn: "Perdidos"
+- assertVisible: "Nenhum objeto por aqui"
+- tapOn: "Limpar busca e filtros"
+- assertVisible: "Abrir ${QA_OBJECT_NAME}"
+- tapOn: "Buscar objetos"
+- inputText: "QA nonexistent object"
+- assertVisible: "Nenhum objeto por aqui"
+- tapOn: "Limpar busca"
+- assertVisible: "Abrir ${QA_OBJECT_NAME}"
+- hideKeyboard
+- takeScreenshot: objects-list
+- tapOn: "Filtrar objetos"
+- back
+- assertVisible: "Buscar objetos"
+- tapOn: "Voltar para início"
+- assertVisible: "Adicionar objeto"
+- assertNotVisible: "Buscar objetos"
