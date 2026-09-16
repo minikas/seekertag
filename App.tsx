@@ -42,7 +42,27 @@ function Content() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { navigate({}); return true; });
     return () => sub.remove();
   }, [route.code, route.chatId]);
-  useEffect(() => { let live = true; (async () => { try { const saved = await tokenStorage.get(); if(saved) { const { user } = await api<{ user: User }>('/auth/me', saved); if(live) { setToken(saved); setUser(user); } } } catch(e) { if(e instanceof ApiError && e.status === 401) await tokenStorage.clear(); else if(live) setError((e as Error).message); } finally { if(live) setLoading(false); } })(); return () => { live = false; }; }, []);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const saved = await tokenStorage.get();
+        if (saved) {
+          // Retain the session on a transient profile-fetch failure. A cold QR
+          // link must not silently treat a signed-in owner as an anonymous finder.
+          if (live) setToken(saved);
+          const { user: person } = await api<{ user: User }>('/auth/me', saved);
+          if (live) setUser(person);
+        }
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) {
+          await tokenStorage.clear();
+          if (live) { setToken(null); setUser(undefined); }
+        } else if (live) setError((e as Error).message);
+      } finally { if (live) setLoading(false); }
+    })();
+    return () => { live = false; };
+  }, []);
   async function login(value: string, person: User, code?: string) { await tokenStorage.set(value); setToken(value); setUser(person); setError(''); setRecovery(code); }
   async function logout() { try { await api('/auth/logout', token, {}); } catch(e) { if (!(e instanceof ApiError && e.status === 401)) throw e; } await tokenStorage.clear(); forgetWalletAuthorization(); setToken(null); setUser(undefined); }
   function scanResult(url: string) { setScan(false); const destination = readRoute(url, API_URL); if (destination?.code) navigate(destination); else setError('Este QR não é uma etiqueta desta instalação do SeekerTag. Confira se está usando o link correto.'); }
