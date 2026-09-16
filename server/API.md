@@ -13,28 +13,27 @@ O serviço escuta `0.0.0.0:4318`. Base local: `http://localhost:4318/api`. `GET 
 
 ## Configuração
 
-Defina variáveis no ambiente do processo, quando necessário; nenhum arquivo de credenciais é exigido.
+Defina variáveis no ambiente do processo ou em `server/.env`, carregado pelos comandos start/dev. O arquivo é opcional; veja `.env.example` para os nomes. Segredos dos provedores ficam somente na API.
 
 | Variável | Padrão | Finalidade |
 |---|---|---|
 | `PORT` | `4318` | Porta da API. |
 | `HOST` | `0.0.0.0` | Interface de rede. |
 | `DATABASE_PATH` | `server/data/seekertag.sqlite` | Banco persistente; arquivos de dados são ignorados pelo Git. |
-| `PUBLIC_URL` | `http://localhost:8081` | Origem canônica do app web, usada em todos os QRs e etiquetas. Somente `http(s)://host[:port]`, sem credenciais/caminho/query. |
-| `CORS_ORIGINS` | vazio | Origens adicionais, separadas por vírgula. A origem de `PUBLIC_URL`, `http://localhost:8081` e `http://127.0.0.1:8081` já são permitidas. Clientes nativos sem cabeçalho Origin são aceitos. |
-| `WEB_DIST_PATH` | `../dist`, quando contém `index.html` | Export web do Expo servido pelo mesmo processo da API. Caminho explícito inválido impede inicialização. |
+| `PUBLIC_URL` | `http://localhost:4318` (ou `PORT`) | Origem canônica da API, usada em todos os QRs e etiquetas. Somente `http(s)://host[:port]`, sem credenciais/caminho/query. |
+| `CORS_ORIGINS` | vazio | Origens adicionais, separadas por vírgula. A origem de `PUBLIC_URL` já é permitida. Clientes nativos sem cabeçalho Origin são aceitos. |
 
-Para ler a etiqueta em outro celular na mesma rede, configure `PUBLIC_URL` com o IP local e a porta do app web e a URL da API correspondente no cliente Expo. Para funcionamento pela internet, publique web e API com HTTPS, domínio estável e armazenamento persistente. **QRs emitidos com localhost só abrem no computador que hospeda o app.** Imprima etiquetas definitivas depois de definir o domínio público. A API nunca usa o cabeçalho Host do visitante para compor o QR.
+Para ler uma etiqueta em outro celular, configure `PUBLIC_URL` com a origem da API e `EXPO_PUBLIC_API_URL` com essa mesma origem seguida de `/api`. Na rede local, use um IP acessível pelos aparelhos. Pela internet, hospede somente a API com HTTPS, domínio estável e armazenamento persistente. A API nunca usa o cabeçalho Host do visitante para compor o QR.
 
-Depois de exportar a aplicação Expo para `dist`, `npm start` também serve a interface pela mesma porta da API. Configure `PUBLIC_URL` com a origem pública desse processo. Arquivos estáticos ficam limitados ao diretório exportado; arquivos ocultos, travessia de diretórios e links simbólicos que escapam dele são rejeitados. Somente `GET /`, `GET /found/:code` e `GET /chat/:id` recebem o `index.html` como fallback, permitindo abrir QRs e conversas diretamente. Assets ausentes, rotas desconhecidas de `/api` e métodos não GET não recebem HTML como fallback.
+Não há frontend web nem arquivos estáticos. `GET /found/:code` e `GET /chat/:id` retornam `302` com um link `seekertag:///found/CODIGO?origin=ORIGEM` ou `seekertag:///chat/ID?origin=ORIGEM`. A origem vem de `PUBLIC_URL`; parâmetros enviados pelo visitante não são repassados. O app instalado valida essa origem contra sua API configurada. Links de conversa não contêm credenciais. Não há página alternativa para quem não instalou o app. A raiz e os recursos desconhecidos retornam JSON `404`.
 
 ## Convenções e autenticação
 
-Requests e respostas são JSON com campos `camelCase`. Timestamps usam ISO 8601 UTC. Erros têm `{ error: string, code: string }`. IDs de objetos são UUIDs; códigos públicos têm 96 bits de aleatoriedade. Credenciais e mensagens nunca vão em parâmetros de URL.
+Requests e respostas são JSON com campos `camelCase`, exceto o callback Apple, que também aceita `form_post`. Timestamps usam ISO 8601 UTC. Erros têm `{ error: string, code: string }`. IDs de objetos são UUIDs; códigos públicos têm 96 bits de aleatoriedade. Tokens de sessão e mensagens nunca vão em parâmetros de URL.
 
 Login retorna um token opaco. Envie `Authorization: Bearer TOKEN` em todas as rotas de dono. Sessões duram 30 dias; logout revoga a sessão atual. Recuperação revoga todas as sessões. O banco guarda apenas hashes de tokens e códigos de recuperação. Senhas usam scrypt com salt individual e comparação em tempo constante.
 
-Um aviso anônimo retorna outro token, uma capacidade exclusiva daquela conversa. Use esse token somente nas rotas `/finder/reports/:id`. Um token de dono não acessa uma conversa de finder e vice-versa. Guarde a capacidade no mesmo navegador/dispositivo; ela não é enviada por e-mail e não pode ser recuperada se o armazenamento do navegador for apagado. A conversa encerrada permanece legível, mas não recebe novas mensagens.
+Um aviso anônimo retorna outro token, uma capacidade exclusiva daquela conversa. Use esse token somente nas rotas `/finder/reports/:id`. Um token de dono não acessa uma conversa de finder e vice-versa. Guarde a capacidade no armazenamento seguro do aplicativo; ela não é enviada por e-mail e não pode ser recuperada se os dados do aplicativo forem apagados. A conversa encerrada permanece legível, mas não recebe novas mensagens.
 
 ### Conta
 
@@ -47,7 +46,23 @@ Um aviso anônimo retorna outro token, uma capacidade exclusiva daquela conversa
 | `POST /auth/logout` | — | `204` |
 | `GET /account/export` | — | JSON para download com `{ exportedAt, user, tags, reports }`; cada report inclui mensagens. |
 
-`user`: `{ id, name, email, createdAt }`. Nome: 1–80 caracteres. Senha: 10–128 caracteres, espaços preservados. E-mail é normalizado para minúsculas. Não há envio/verificação de e-mail. O código de recuperação aparece uma vez, deve ser guardado pelo usuário e é invalidado após o uso; a resposta de recuperação sempre fornece um substituto. O export é uma cópia legível dos dados, sem senhas, hashes ou tokens; não existe importação automática.
+`user`: `{ id, name, email: string | null, createdAt, hasPassword, providers: ('solana'|'google'|'apple')[], walletAddress: string | null }`. Nome: 1–80 caracteres. Senha: 10–128 caracteres, espaços preservados. E-mail é normalizado para minúsculas. O cadastro por senha não envia/verifica e-mail; logins sociais aceitam e-mail somente com a declaração de verificação assinada pelo provedor. O código de recuperação aparece uma vez para contas por senha e é invalidado após o uso. O export é uma cópia legível dos dados, sem senhas, hashes ou tokens; não existe importação automática.
+
+### Carteira e provedores sociais
+
+| Método e rota | Corpo | Resposta |
+|---|---|---|
+| `GET /auth/providers` | — | `{ solana, google, apple }`, disponibilidade booleana |
+| `POST /auth/wallet/challenge` | `{ mode?: 'login'|'link'|'reauth' }` | `{ challengeId, payload }`, entrada SIWS gerada pela API |
+| `POST /auth/wallet/verify` | `{ challengeId, address, signedMessage, signature }`, três últimos em base64 padrão | Login: `{ token, user }`; vínculo: `{ user }`; confirmação: `{ proof }` |
+| `POST /auth/oauth/:provider/start` | `{ mode?, codeChallenge }`, SHA-256 base64url do verifier do app | `{ flowId, url }` |
+| `GET /auth/oauth/google/callback` | `state`, `code` enviados pelo Google | `303` para `seekertag://auth/callback?code=...&state=FLOW_ID` |
+| `POST /auth/oauth/apple/callback` | `form_post` da Apple com `state`, `code` ou `error` | Mesmo retorno para o aplicativo |
+| `POST /auth/oauth/exchange` | `{ flowId, code, verifier }` | Login: `{ token, user }`; vínculo: `{ user }`; confirmação: `{ proof }` |
+
+`link` e `reauth` exigem o mesmo bearer válido no início e na conclusão. Um vínculo nunca substitui um acesso de outra conta; contas não são unidas por coincidência de e-mail. O login por carteira verifica SIWS e Ed25519, domínio, endereço, nonce e prazo de cinco minutos, com consumo único. O fluxo social dura dez minutos e valida state, nonce e JWT (assinatura, emissor, audience e validade). Apenas um código temporário protegido pela prova do aplicativo aparece no deep link. Os tokens do provedor não são persistidos.
+
+Google/Apple exigem HTTPS em `PUBLIC_URL` e as variáveis completas em `.env.example`. Os callbacks e URLs autorizados estão descritos no README. A API retorna `503 PROVIDER_UNAVAILABLE` enquanto não estiverem configurados. O banco migra contas existentes preservando IDs, objetos e sessões; faça backup antes de atualizar uma instalação de produção.
 
 ### Etiquetas do dono
 
@@ -58,7 +73,7 @@ Um aviso anônimo retorna outro token, uma capacidade exclusiva daquela conversa
 | `GET /tags/:id` | — | `{ tag }` |
 | `PATCH /tags/:id` | Campos editáveis da criação | `{ tag }` |
 | `GET /tags/:id/history` | — | `{ events: [{ id, type, status, createdAt }] }`, recentes primeiro |
-| `POST /tags/:id/transfer` | `{ email, password }` (senha do dono atual) | `{ ok: true }` |
+| `POST /tags/:id/transfer` | `{ recipient, password }` ou `{ recipient, proof }`; `email` ainda é aceito como alias de `recipient` | `{ ok: true }` |
 | `GET /tags/:id/qr.png` | — | PNG 900×900, attachment |
 | `GET /tags/:id/label.pdf` | — | PDF A4 com seis etiquetas recortáveis, attachment |
 
@@ -86,11 +101,11 @@ type Tag = {
 
 Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pública: até 500. Campos omitidos recebem `category: 'other'`, `color: '#B9C79B'`, `status: 'active'`, textos vazios, `rewardAmount: 0`, `rewardCurrency: 'BRL'`. Até 500 etiquetas por conta. O dono desativa uma etiqueta com `PATCH { status: 'paused' }`; a mesma etiqueta pode ser reativada, mantendo seu QR.
 
-Transferência exige conta de destino existente, senha correta e ausência de conversas abertas. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
+Transferência exige conta de destino existente, senha correta ou prova de reautenticação e ausência de conversas abertas. O destino pode ser e-mail, endereço Solana vinculado ou ID da conta. A prova dura cinco minutos, pertence à sessão que a solicitou e é consumida na mesma transação da transferência. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
 
 Recompensa é um **valor opcional prometido pelo dono**, de 0 a 1.000.000 na unidade escolhida. Esta API não recebe, custodia, deposita, bloqueia, paga ou reembolsa fundos. Não há escrow nem transações de blockchain. Confirmar devolução registra a recuperação do objeto e não executa pagamento.
 
-### Página pública e finder
+### Consulta pública e visitante
 
 | Método e rota | Corpo | Resposta |
 |---|---|---|
@@ -147,6 +162,6 @@ Faça polling da conversa e lista de avisos enquanto a tela estiver visível. O 
 
 ## Verificação
 
-`npm test` executa testes HTTP reais contra portas efêmeras e bancos isolados, sem depender da instância de desenvolvimento. Cobrem ciclo completo de devolução, privacidade, autorização, capacidades, pausa/reativação, transferência, recuperação/revogação inclusive concorrente, persistência após restart, bytes de PNG/PDF, URL canônica, validação, limite de spam, export estático, fallback de rotas e proteção contra acesso fora do diretório web.
+`npm test` executa testes HTTP reais contra portas efêmeras e bancos isolados, sem depender da instância de desenvolvimento. Cobrem ciclo completo de devolução, privacidade, autorização, capacidades, pausa/reativação, transferência, recuperação/revogação inclusive concorrente, persistência após restart, bytes de PNG/PDF, URL canônica, validação, limite de spam, redirecionamentos para o app e ausência de interface/arquivos estáticos.
 
 Referências primárias de implementação: [SQLite no Node.js](https://nodejs.org/docs/latest-v24.x/api/sqlite.html) e [API Express 5](https://expressjs.com/en/5x/api/). O módulo SQLite embutido exibe aviso experimental no Node.js 24 usado na validação; nenhum driver nativo extra é necessário.

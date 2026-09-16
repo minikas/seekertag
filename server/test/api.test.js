@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, readFileSync, statSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -16,7 +16,7 @@ async function harness(options = {}) {
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}/api`;
   async function request(path, { method = 'GET', token, body, rawBody, headers = {}, root = false } = {}) {
-    const response = await fetch((root ? base.slice(0, -4) : base) + path, { method, headers: { ...(body !== undefined || rawBody !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers }, ...(rawBody !== undefined ? { body: rawBody } : body !== undefined ? { body: JSON.stringify(body) } : {}) });
+    const response = await fetch((root ? base.slice(0, -4) : base) + path, { method, redirect: 'manual', headers: { ...(body !== undefined || rawBody !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers }, ...(rawBody !== undefined ? { body: rawBody } : body !== undefined ? { body: JSON.stringify(body) } : {}) });
     const bytes = Buffer.from(await response.arrayBuffer());
     let data;
     if (bytes.length && response.headers.get('content-type')?.includes('application/json')) data = JSON.parse(bytes.toString());
@@ -47,7 +47,7 @@ test('complete return lifecycle relays messages, preserves privacy, and records 
   const owner = await h.register('Dona Maria', 'private-owner@example.com');
   const tag = await h.tag(owner, { rewardAmount: 25, rewardCurrency: 'BRL' });
   assert.equal(tag.status, 'active'); assert.equal(tag.reportCount, 0);
-  assert.match(tag.publicUrl, /^http:\/\/localhost:8081\/found\/[\w-]{16}$/);
+  assert.match(tag.publicUrl, /^http:\/\/localhost:4318\/found\/[\w-]{16}$/);
   const publicResult = await h.request(`/public/tags/${tag.code}`);
   assert.equal(publicResult.status, 200);
   assert.deepEqual(Object.keys(publicResult.data.tag).sort(), ['category', 'code', 'color', 'name', 'publicMessage', 'rewardAmount', 'rewardCurrency', 'status']);
@@ -210,7 +210,7 @@ test('validation rejects oversized bodies, invalid credentials and mass-assignme
   assert.equal((await h.request('/tags', { method: 'POST', token: owner.token, body: { name: 'x'.repeat(20_000) } })).status, 413);
   assert.equal((await h.request('/tags', { method: 'POST', token: owner.token, body: [] })).status, 400);
   assert.equal((await h.request('/auth/me', { token: owner.token, headers: { Origin: 'https://evil.example' } })).status, 403);
-  assert.equal((await h.request('/auth/me', { token: owner.token, headers: { Origin: 'http://localhost:8081' } })).headers.get('access-control-allow-origin'), 'http://localhost:8081');
+  assert.equal((await h.request('/auth/me', { token: owner.token, headers: { Origin: 'http://localhost:4318' } })).headers.get('access-control-allow-origin'), 'http://localhost:4318');
   assert.equal((await h.request(`/public/tags/' OR 1=1--`)).status, 404);
 });
 
@@ -227,54 +227,29 @@ test('anonymous reports are limited per IP and Authorization secrets do not appe
   assert.ok(!JSON.stringify(error.data).includes(owner.token));
 });
 
-test('static Expo export serves app routes and assets while unknown API/non-GET paths stay JSON 404', async (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'seekertag-web-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const dist = join(directory, 'dist');
-  mkdirSync(join(dist, 'assets'), { recursive: true });
-  mkdirSync(join(dist, 'api'));
-  writeFileSync(join(dist, 'index.html'), '<!doctype html><html><body>SeekerTag exported app</body></html>');
-  writeFileSync(join(dist, 'assets', 'app.js'), 'globalThis.seekerTagExport = true;');
-  writeFileSync(join(dist, 'api', 'unknown'), 'API fallback must never serve this file');
-  const h = await harness({ webDistPath: dist }); t.after(h.close);
-  for (const path of ['/', '/found/valid-public-code', '/found/code/', '/chat/90ca2a78-39f7-4f11-b716-a4e9b3d0809']) {
-    const page = await h.request(path, { root: true });
-    assert.equal(page.status, 200, path); assert.match(page.headers.get('content-type'), /text\/html/);
-    assert.match(page.bytes.toString(), /SeekerTag exported app/); assert.equal(page.headers.get('cache-control'), 'no-store');
+test('printed links hand off to the mobile app without serving a web frontend', async (t) => {
+  const h = await harness({ publicUrl: 'https://tags.example.com' }); t.after(h.close);
+  for (const path of ['/found/valid-public-code', '/found/code/', '/chat/thread-id']) {
+    const response = await h.request(path, { root: true, headers: { Host: 'attacker.example' } });
+    assert.equal(response.status, 302);
+    const link = new URL(response.headers.get('location'));
+    assert.equal(link.protocol, 'seekertag:');
+    assert.equal(link.pathname, path.replace(/\/$/, ''));
+    assert.equal(link.searchParams.get('origin'), 'https://tags.example.com');
+    assert.equal(response.bytes.length, 0, 'redirect has no HTML frontend');
+    assert.equal(response.headers.get('cache-control'), 'no-store');
   }
-  const asset = await h.request('/assets/app.js', { root: true });
-  assert.equal(asset.status, 200); assert.match(asset.headers.get('content-type'), /javascript/); assert.match(asset.bytes.toString(), /seekerTagExport/);
-  assert.equal((await h.request('/assets/app.js', { root: true, method: 'HEAD' })).status, 200);
-  for (const path of ['/api/unknown', '/api/found/valid-code', '/assets/missing.js', '/found', '/chat', '/unknown']) {
-    const missing = await h.request(path, { root: true });
-    assert.equal(missing.status, 404, path); assert.equal(missing.data.code, 'NOT_FOUND');
+  const injected = await h.request('/found/code?origin=https://attacker.example&token=secret', { root: true });
+  assert.equal(injected.headers.get('location'), 'seekertag:///found/code?origin=https%3A%2F%2Ftags.example.com');
+  for (const path of ['/', '/index.html', '/assets/app.js', '/api/unknown', '/found', '/chat', '/found/code/extra', '/.env', '/%2e%2e%2fsecret.txt']) {
+    const response = await h.request(path, { root: true });
+    assert.equal(response.status, 404, path);
+    assert.equal(response.data.code, 'NOT_FOUND');
   }
-  for (const method of ['POST', 'PATCH', 'DELETE', 'HEAD']) {
-    for (const path of ['/', '/found/valid-code', '/chat/thread-id']) assert.equal((await h.request(path, { root: true, method })).status, 404, `${method} ${path}`);
+  for (const method of ['POST', 'PATCH', 'DELETE']) {
+    assert.equal((await h.request('/found/code', { root: true, method })).status, 404);
   }
   assert.equal((await h.request('/health')).data.ok, true);
-});
-
-test('static export rejects hidden files, encoded traversal, escaping symlinks, and invalid export roots', async (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'seekertag-static-security-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const dist = join(directory, 'dist'); mkdirSync(dist);
-  writeFileSync(join(dist, 'index.html'), '<html>Public app</html>');
-  writeFileSync(join(directory, 'secret.txt'), 'PRIVATE_OUTSIDE_ROOT');
-  writeFileSync(join(dist, '.env'), 'PRIVATE_DOTFILE');
-  symlinkSync(join(directory, 'secret.txt'), join(dist, 'leak.txt'));
-  const h = await harness({ webDistPath: dist }); t.after(h.close);
-  for (const path of ['/..%2fsecret.txt', '/%2e%2e%2fsecret.txt', '/assets%2f..%2f..%2fsecret.txt', '/..%5csecret.txt', '/.env', '/%2eenv', '/leak.txt', '/%00']) {
-    const result = await h.request(path, { root: true });
-    assert.equal(result.status, 404, path); assert.ok(!result.bytes.toString().includes('PRIVATE_'));
-  }
-  assert.equal((await h.request('/%E0%A4%A', { root: true })).status, 400);
-  assert.throws(() => createApp({ dbPath: ':memory:', webDistPath: join(directory, 'missing') }), /WEB_DIST_PATH/);
-  const bad = join(directory, 'bad-export'); mkdirSync(bad);
-  symlinkSync(join(directory, 'secret.txt'), join(bad, 'index.html'));
-  assert.throws(() => createApp({ dbPath: ':memory:', webDistPath: bad }), /WEB_DIST_PATH/);
-  const noWeb = await harness(); t.after(noWeb.close);
-  assert.equal((await noWeb.request('/', { root: true })).status, 404);
 });
 
 test('expired/malformed sessions and duplicate accounts are rejected; concurrent recovery succeeds only once', async (t) => {
@@ -469,13 +444,13 @@ test('global quota and owner write quota cannot be bypassed by spoofed forwardin
 test('CORS preflight permits only configured origins and private exports require owner authentication', async (t) => {
   const h = await harness({ publicUrl: 'https://tags.example.com', corsOrigins: ['https://admin.example.com'] }); t.after(h.close);
   const owner = await h.register(); const stranger = await h.register(); const tag = await h.tag(owner); const found = await h.report(tag);
-  for (const origin of ['https://tags.example.com', 'https://admin.example.com', 'http://localhost:8081']) {
+  for (const origin of ['https://tags.example.com', 'https://admin.example.com']) {
     const preflight = await h.request('/tags', { method: 'OPTIONS', headers: { Origin: origin, 'Access-Control-Request-Method': 'PATCH', 'Access-Control-Request-Headers': 'authorization,content-type' } });
     assert.equal(preflight.status, 204); assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
     assert.match(preflight.headers.get('access-control-allow-headers'), /Authorization/);
     assert.equal(preflight.headers.get('access-control-allow-credentials'), null);
   }
-  for (const origin of ['https://evil.example', 'null', 'https://tags.example.com.evil.example']) assert.equal((await h.request('/tags', { method: 'OPTIONS', headers: { Origin: origin } })).status, 403);
+  for (const origin of ['https://evil.example', 'null', 'https://tags.example.com.evil.example', 'http://localhost:8081']) assert.equal((await h.request('/tags', { method: 'OPTIONS', headers: { Origin: origin } })).status, 403);
   assert.equal((await h.request('/account/export')).status, 401);
   assert.equal((await h.request('/account/export', { token: found.token })).status, 401);
   const privateExport = await h.request('/account/export', { token: stranger.token });

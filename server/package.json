@@ -7,12 +7,15 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js",
+    "start": "node --env-file-if-exists=.env index.js",
+    "dev": "node --env-file-if-exists=.env --watch index.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@solana/wallet-standard-util": "^1.1.4",
+    "bs58": "^6.0.0",
     "express": "^5.1.0",
+    "jose": "^6.2.12",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4"
   },

@@ -2,11 +2,12 @@ import express from 'express';
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { mkdirSync, chmodSync, realpathSync, statSync } from 'node:fs';
-import { realpath, stat } from 'node:fs/promises';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { mkdirSync, chmodSync } from 'node:fs';
+import { dirname } from 'node:path';
 import QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
+import { installAuth, migrateAuth } from './auth.js';
+import { createOAuthProviders } from './oauth.js';
 
 const scrypt = promisify(scryptCallback);
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -38,26 +39,15 @@ async function passwordHash(value) {
   return `${salt}:${(await scrypt(value, salt, 64, { N: 32768, maxmem: 64 * 1024 * 1024 })).toString('hex')}`;
 }
 async function passwordMatches(value, stored) {
+  if (!stored) return false;
   const [salt, expected] = stored.split(':');
   const actual = await scrypt(value, salt, 64, { N: 32768, maxmem: 64 * 1024 * 1024 });
   return timingSafeEqual(actual, Buffer.from(expected, 'hex'));
 }
-const userView = (u) => ({ id: u.id, name: u.name, email: u.email, createdAt: u.created_at });
-
-export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:8081', corsOrigins = [], rateLimits = true, webDistPath = null } = {}) {
+export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:4318', corsOrigins = [], rateLimits = true, oauthProviders = createOAuthProviders() } = {}) {
   const canonical = new URL(publicUrl);
   if (!['http:', 'https:'].includes(canonical.protocol) || canonical.username || canonical.password || canonical.search || canonical.hash || canonical.pathname !== '/') throw new Error('PUBLIC_URL must be an http(s) origin without credentials, query, or path.');
   const publicOrigin = canonical.origin;
-  let webRoot = null;
-  let webIndex = null;
-  const isInside = (root, file) => { const path = relative(root, file); return path !== '..' && !path.startsWith(`..${sep}`) && !path.startsWith(sep); };
-  if (webDistPath) {
-    try {
-      webRoot = realpathSync(webDistPath);
-      webIndex = realpathSync(join(webRoot, 'index.html'));
-      if (!statSync(webRoot).isDirectory() || !statSync(webIndex).isFile() || !isInside(webRoot, webIndex)) throw new Error('Invalid web root');
-    } catch { throw new Error('WEB_DIST_PATH must contain a regular index.html inside the exported web directory. Run the Expo web export first.'); }
-  }
   if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(dbPath, { timeout: 5000 });
   if (dbPath !== ':memory:') chmodSync(dbPath, 0o600);
@@ -65,8 +55,8 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL, recovery_hash TEXT NOT NULL, created_at TEXT NOT NULL
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE,
+      password_hash TEXT, recovery_hash TEXT, created_at TEXT NOT NULL
     ) STRICT;
     CREATE TABLE IF NOT EXISTS sessions (
       hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires_at INTEGER NOT NULL
@@ -99,19 +89,27 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     CREATE INDEX IF NOT EXISTS events_tag ON tag_events(tag_id, owner_id);
     CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
   `);
+  migrateAuth(db);
   const get = (sql, ...params) => db.prepare(sql).get(...params);
   const all = (sql, ...params) => db.prepare(sql).all(...params);
   const run = (sql, ...params) => db.prepare(sql).run(...params);
   const transaction = (fn) => { db.exec('BEGIN IMMEDIATE'); try { const result = fn(); db.exec('COMMIT'); return result; } catch (error) { db.exec('ROLLBACK'); throw error; } };
+  const userView = (u) => {
+    const identities = all('SELECT provider,subject FROM auth_identities WHERE user_id=? ORDER BY created_at,provider', u.id);
+    return { id: u.id, name: u.name, email: u.email, createdAt: u.created_at,
+      hasPassword: !!get('SELECT password_hash FROM users WHERE id=?', u.id)?.password_hash,
+      providers: identities.map(identity => identity.provider), walletAddress: identities.find(identity => identity.provider === 'solana')?.subject || null };
+  };
   const app = express();
   app.disable('x-powered-by');
   app.locals.db = db;
   app.locals.close = () => db.close();
-  const origins = new Set([publicOrigin, 'http://localhost:8081', 'http://127.0.0.1:8081', ...corsOrigins]);
+  const origins = new Set([publicOrigin, ...corsOrigins]);
   app.use((req, res, next) => {
     res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store', 'Cross-Origin-Resource-Policy': 'cross-origin' });
     const origin = req.headers.origin;
-    if (origin && !origins.has(origin)) return res.status(403).json({ error: 'Origem não autorizada.', code: 'ORIGIN_DENIED' });
+    const appleCallback = req.method === 'POST' && req.path === '/api/auth/oauth/apple/callback' && origin === 'https://appleid.apple.com';
+    if (origin && !origins.has(origin) && !appleCallback) return res.status(403).json({ error: 'Origem não autorizada.', code: 'ORIGIN_DENIED' });
     if (origin) res.set({ 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS', 'Access-Control-Expose-Headers': 'Content-Disposition' });
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
@@ -170,6 +168,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     if (!u) fail(401, 'Sua sessão expirou. Entre novamente.', 'UNAUTHORIZED');
     req.user = u; req.sessionHash = tokenHash; next();
   };
+  const { consumeProof } = installAuth({ app, get, all, run, transaction, fail, requireOwner, authLimit, makeSession, userView, publicOrigin, oauthProviders });
   const ownerTag = (req) => {
     const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', req.params.id, req.user.id);
     if (!tag) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
@@ -267,7 +266,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const pass = password(req.body.password);
     const user = get('SELECT * FROM users WHERE email=?', address);
     const expected = hash(normalizeRecovery(code));
-    if (!user || !timingSafeEqual(Buffer.from(expected), Buffer.from(user.recovery_hash))) fail(401, 'E-mail ou código de recuperação incorretos.', 'INVALID_CREDENTIALS');
+    if (!user?.recovery_hash || !timingSafeEqual(Buffer.from(expected), Buffer.from(user.recovery_hash))) fail(401, 'E-mail ou código de recuperação incorretos.', 'INVALID_CREDENTIALS');
     const digest = await passwordHash(pass);
     const recoveryCode = recovery();
     const token = transaction(() => {
@@ -311,14 +310,21 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     res.json({ events: all('SELECT id,type,status,created_at AS createdAt FROM tag_events WHERE tag_id=? AND owner_id=? ORDER BY id DESC', tag.id, req.user.id) });
   });
   app.post('/api/tags/:id/transfer', requireOwner, authLimit, async (req, res) => {
-    const tag = ownerTag(req); const address = email(req.body.email); const pass = password(req.body.password);
-    if (!(await passwordMatches(pass, req.user.password_hash))) fail(401, 'Senha incorreta.', 'INVALID_CREDENTIALS');
+    const tag = ownerTag(req);
+    const recipient = string(req.body.recipient ?? req.body.email, 'Quem vai receber', 254);
+    const usingPassword = req.body.proof === undefined;
+    if (usingPassword) {
+      const pass = password(req.body.password);
+      if (!(await passwordMatches(pass, req.user.password_hash))) fail(401, 'Senha incorreta.', 'INVALID_CREDENTIALS');
+    }
     transaction(() => {
       // Reauthorize after hashing: recovery/logout/another transfer may occur while scrypt runs.
       const current = get('SELECT * FROM tags WHERE id=? AND owner_id=?', tag.id, req.user.id);
       if (!get('SELECT hash FROM sessions WHERE hash=? AND expires_at>?', req.sessionHash, Date.now()) || get('SELECT password_hash FROM users WHERE id=?', req.user.id)?.password_hash !== req.user.password_hash) fail(401, 'Entre novamente para continuar.', 'UNAUTHORIZED');
+      if (!usingPassword) consumeProof(req, req.body.proof);
       if (!current) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
-      const target = get('SELECT id FROM users WHERE email=?', address);
+      const target = recipient.includes('@') ? get('SELECT id FROM users WHERE email=?', email(recipient))
+        : get("SELECT users.id FROM users LEFT JOIN auth_identities ON auth_identities.user_id=users.id AND auth_identities.provider='solana' WHERE users.id=? OR auth_identities.subject=? LIMIT 1", recipient, recipient);
       if (!target) fail(404, 'A pessoa precisa criar uma conta SeekerTag antes da transferência.', 'RECIPIENT_NOT_FOUND');
       if (target.id === req.user.id) fail(400, 'A etiqueta já está na sua conta.');
       if (get("SELECT id FROM reports WHERE tag_id=? AND status='open'", tag.id)) fail(409, 'Conclua as conversas abertas antes de transferir esta etiqueta.', 'OPEN_REPORTS');
@@ -344,12 +350,12 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const pdf = new Promise((resolve, reject) => { doc.on('data', (chunk) => chunks.push(chunk)); doc.on('end', () => resolve(Buffer.concat(chunks))); doc.on('error', reject); });
     doc.fillColor('#213528').fontSize(25).text('SeekerTag', 40, 36);
     doc.fontSize(11).text('Imprima em tamanho real. Recorte e prenda ao seu item.', 40, 70);
-    doc.fontSize(9).fillColor('#5B655C').text('Teste o QR com outro celular antes de usar a etiqueta.', 40, 88);
+    doc.fontSize(9).fillColor('#5B655C').text('Teste o QR no aplicativo SeekerTag antes de usar a etiqueta.', 40, 88);
     for (let row = 0; row < 3; row++) for (let col = 0; col < 2; col++) {
       const x = 40 + col * 261; const y = 120 + row * 220;
       doc.save().dash(3, { space: 3 }).lineWidth(0.6).strokeColor('#B4BEB2').roundedRect(x, y, 250, 207, 9).stroke().restore();
       doc.fillColor('#213528').fontSize(15).text('Encontrou este item?', x + 12, y + 13, { width: 226, align: 'center' });
-      doc.fontSize(9).text('Escaneie para falar com o dono.', x + 12, y + 34, { width: 226, align: 'center' });
+      doc.fontSize(9).text('Leia no app SeekerTag. Não precisa de conta.', x + 12, y + 34, { width: 226, align: 'center' });
       doc.image(png, x + 61, y + 52, { width: 128, height: 128 });
       doc.fontSize(8).fillColor('#5B655C').text(`SeekerTag · ${tag.code}`, x + 10, y + 186, { width: 230, align: 'center' });
     }
@@ -393,35 +399,12 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   });
   app.post('/api/finder/reports/:id/messages', requireFinder, messageLimit, (req, res) => res.status(201).json({ message: addMessage(req.finderReport, 'finder', string(req.body.body, 'Mensagem', 2000)) }));
   const notFound = (_req, res) => res.status(404).json({ error: 'Recurso não encontrado.', code: 'NOT_FOUND' });
-  // Keep all unknown API routes as JSON, even when a web export is present.
-  app.use('/api', notFound);
-  if (webRoot) {
-    app.use(async (req, res, next) => {
-      if (!['GET', 'HEAD'].includes(req.method)) return next();
-      let pathname;
-      try { pathname = decodeURIComponent(req.path); } catch { return next(new HttpError(400, 'Endereço inválido.')); }
-      // Reject traversal and hidden files before resolving disk paths. Also reject
-      // symlinks escaping the export: only real files within webRoot are served.
-      if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').some((part) => part.startsWith('.')) || /^\/api(?:\/|$)/i.test(pathname)) return notFound(req, res);
-      const candidate = resolve(webRoot, `.${pathname}`);
-      if (!isInside(webRoot, candidate)) return notFound(req, res);
-      let file;
-      try {
-        file = await realpath(candidate);
-        if (!isInside(webRoot, file)) return notFound(req, res);
-        if (!(await stat(file)).isFile()) return next();
-      } catch (error) {
-        if (['ENOENT', 'ENOTDIR', 'EACCES', 'ELOOP'].includes(error.code)) return next();
-        throw error;
-      }
-      return res.sendFile(file, { cacheControl: false, dotfiles: 'deny' }, (error) => { if (error) next(error); });
-    });
-    app.use((req, res, next) => {
-      // Only actual client routes receive the SPA shell; missing assets remain 404.
-      if (req.method !== 'GET' || !/^\/(?:$|(?:found|chat)\/[A-Za-z0-9_-]+\/?$)/.test(req.path)) return next();
-      return res.sendFile(webIndex, { cacheControl: false }, (error) => { if (error) next(error); });
-    });
-  }
+  // Printed HTTP links only hand off to the installed mobile app. No HTML or
+  // static frontend is served; the origin comes from config, never from Host.
+  app.get(/^\/(found|chat)\/([A-Za-z0-9_-]+)\/?$/, (req, res) => {
+    const location = `seekertag:///${req.params[0]}/${req.params[1]}?origin=${encodeURIComponent(publicOrigin)}`;
+    res.status(302).set('Location', location).end();
+  });
   app.use(notFound);
   app.use((err, _req, res, _next) => {
     if (res.headersSent) return res.end();
