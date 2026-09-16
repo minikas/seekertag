@@ -14,3 +14,5 @@ playwright-report
 qa
 *.log
 .env*
+programs/**/target
+**/*-keypair.json

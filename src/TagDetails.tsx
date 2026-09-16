@@ -5,6 +5,7 @@ import { api, API_URL, Tag } from './api';
 import { Button, C, categoryInfo, Field, formatDate, Icon, Notice, Pill, Sheet, s } from './ui';
 import { downloadLabel } from './platform/labels';
 import { cancelNfcWrite, writeTagUrl } from './platform/nfc';
+import { RewardControls } from './Rewards';
 
 type Props = {
   tag: Tag;
@@ -164,7 +165,7 @@ export default function TagDetails({ tag, token, onClose, onUpdated, onEdit, onT
         {tag.status !== 'paused' ? <Button style={styles.halfButton} variant="ghost" icon="pause-circle" onPress={() => changeStatus('paused')} disabled={!!busy}>Pausar etiqueta</Button> : null}
       </View>
       {tag.description ? <View style={styles.privateNote}><View style={s.row}><Icon name="lock" size={14} color={C.muted} /><Text style={s.label}>Sua anotação particular</Text></View><Text style={s.body}>{tag.description}</Text></View> : null}
-      {tag.rewardAmount > 0 ? <View style={styles.privateNote}><View style={s.row}><Icon name="gift" size={15} color={C.purple} /><Text style={s.label}>{tag.rewardAmount.toLocaleString('pt-BR')} {tag.rewardCurrency} de recompensa oferecida</Text></View><Text style={s.small}>Promessa do dono. O pagamento é combinado na conversa; nenhum valor foi depositado pelo app.</Text></View> : null}
+      <RewardControls key={`${tag.id}:${token}`} tag={tag} token={token} />
     </View>
 
     <View style={s.divider} />

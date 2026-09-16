@@ -25,7 +25,7 @@ export function WalletPanel() {
     {connection && <View style={styles.addressBox}><Text style={styles.walletName}>{connection.label}</Text><Text selectable style={styles.address}>{connection.address}</Text></View>}
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     <Pressable accessibilityRole="button" disabled={busy} onPress={() => void toggle()} style={[styles.button, busy && { opacity: 0.6 }]}>{busy ? <ActivityIndicator color={C.purple} /> : <Text style={styles.buttonText}>{connection ? 'Desconectar carteira' : 'Conectar carteira'}</Text>}</Pressable>
-    <Text style={styles.note}>Nenhuma transferência é solicitada. As chaves continuam na sua carteira.</Text>
+    <Text style={styles.note}>Conectar aqui não transfere fundos. Depósitos e pagamentos exigem uma confirmação separada. As chaves continuam na sua carteira.</Text>
   </View>;
 }
 

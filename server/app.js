@@ -7,6 +7,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
+import { installRewards } from './rewards.js';
 
 const scrypt = promisify(scryptCallback);
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -44,7 +45,7 @@ async function passwordMatches(value, stored) {
 }
 const userView = (u) => ({ id: u.id, name: u.name, email: u.email, createdAt: u.created_at });
 
-export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:8081', corsOrigins = [], rateLimits = true, webDistPath = null } = {}) {
+export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:8081', corsOrigins = [], rateLimits = true, webDistPath = null, rewards: rewardOptions = {} } = {}) {
   const canonical = new URL(publicUrl);
   if (!['http:', 'https:'].includes(canonical.protocol) || canonical.username || canonical.password || canonical.search || canonical.hash || canonical.pathname !== '/') throw new Error('PUBLIC_URL must be an http(s) origin without credentials, query, or path.');
   const publicOrigin = canonical.origin;
@@ -234,6 +235,8 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     return values;
   }
 
+  const rewards = installRewards({ app, db, get, all, run, transaction, fail, requireOwner, requireFinder, ownerTag, ownerReport, publicTag, limiter, publicOrigin, options: rewardOptions });
+
   app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'SeekerTag', publicUrl: publicOrigin }));
   app.post('/api/auth/register', authLimit, async (req, res) => {
     const name = string(req.body.name, 'Nome', 80);
@@ -301,6 +304,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   app.patch('/api/tags/:id', requireOwner, ownerWriteLimit, (req, res) => {
     const t = ownerTag(req); const v = validateTag(req.body, t); const at = now();
     transaction(() => {
+      rewards.assertTagMutable(t, v);
       run('UPDATE tags SET name=?,category=?,color=?,description=?,public_message=?,status=?,reward_amount=?,reward_currency=?,updated_at=? WHERE id=?', v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, t.id);
       if (t.status !== v.status) run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', t.id, req.user.id, 'status_changed', v.status, at);
     });
@@ -318,6 +322,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       const current = get('SELECT * FROM tags WHERE id=? AND owner_id=?', tag.id, req.user.id);
       if (!get('SELECT hash FROM sessions WHERE hash=? AND expires_at>?', req.sessionHash, Date.now()) || get('SELECT password_hash FROM users WHERE id=?', req.user.id)?.password_hash !== req.user.password_hash) fail(401, 'Entre novamente para continuar.', 'UNAUTHORIZED');
       if (!current) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
+      rewards.assertTagMutable(current);
       const target = get('SELECT id FROM users WHERE email=?', address);
       if (!target) fail(404, 'A pessoa precisa criar uma conta SeekerTag antes da transferência.', 'RECIPIENT_NOT_FOUND');
       if (target.id === req.user.id) fail(400, 'A etiqueta já está na sua conta.');
@@ -373,11 +378,15 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   app.get('/api/reports', requireOwner, (req, res) => res.json({ reports: all('SELECT * FROM reports WHERE owner_id=? ORDER BY updated_at DESC, id DESC', req.user.id).map(reportView) }));
   app.get('/api/reports/:id', requireOwner, (req, res) => { const r = ownerReport(req); res.json({ report: reportView(r), messages: messagesFor(r.id) }); });
   app.post('/api/reports/:id/messages', requireOwner, messageLimit, (req, res) => res.status(201).json({ message: addMessage(ownerReport(req), 'owner', string(req.body.body, 'Mensagem', 2000)) }));
-  app.post('/api/reports/:id/resolve', requireOwner, ownerWriteLimit, (req, res) => {
+  app.post('/api/reports/:id/resolve', requireOwner, ownerWriteLimit, async (req, res) => {
     const report = ownerReport(req);
+    if (report.status === 'open') await rewards.assertResolve(report);
     if (report.status === 'open') transaction(() => {
+      if (!get('SELECT hash FROM sessions WHERE hash=? AND expires_at>?', req.sessionHash, Date.now())) fail(401, 'Entre novamente para continuar.', 'UNAUTHORIZED');
+      if (get('SELECT status FROM reports WHERE id=?', report.id)?.status !== 'open') return;
       const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', report.tag_id, req.user.id);
       if (!tag) fail(409, 'A etiqueta foi transferida.', 'TAG_TRANSFERRED');
+      rewards.recordResolution(report);
       const at = now();
       run("UPDATE reports SET status='resolved',updated_at=? WHERE tag_id=? AND owner_id=? AND status='open'", at, tag.id, req.user.id);
       run("UPDATE tags SET status='active',updated_at=?,returned_at=?,recovery_count=recovery_count+1 WHERE id=?", at, at, tag.id);

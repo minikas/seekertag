@@ -79,6 +79,7 @@ O APK atualizado passou pelo fluxo Maestro em um emulador com perfil Pixel 7, An
 - Confirmação de devolução que encerra as conversas do objeto e atualiza seu histórico.
 - Transferência para outra conta, confirmada com a senha atual, preservando a privacidade das conversas anteriores.
 - Conexão opcional de carteira Solana por Mobile Wallet Adapter no Android ou carteira injetada compatível na web.
+- Recompensa com depósito SPL: saldo verificado na blockchain, comprovação da carteira de quem encontrou, compromisso prévio com carteira fixa, pagamento autorizado pelo dono e renúncia assinada por quem recebe. Ofertas sem compromisso permitem renovação +7/+15/+30 dias mantendo o QR e retirada após vencimento. A integração fica desativada até configurar uma implantação; veja [configuração e testes SKR](docs/skr-setup.md).
 
 ## Android e Expo
 
@@ -135,7 +136,9 @@ Referências de plataforma: [requisitos do Expo 57](https://docs.expo.dev/versio
 
 ## Limites desta entrega
 
-Recompensas são **promessas opcionais**, claramente identificadas na interface. O app não recebe, bloqueia, libera ou reembolsa dinheiro. Escrow, pagamentos USDC/SKR, associação verificada de carteira/alias `.skr` e verificação SGT não estão implementados. A conexão de carteira é opcional e local; não equivale a provar propriedade de uma etiqueta.
+As recompensas manuais continuam sendo **promessas opcionais**. O novo contrato de depósito SKR e a integração estão implementados para validação local, desativados por padrão e sem implantação pública. O dono assume um compromisso antes da entrega: depois disso, não pode redirecionar o pagamento, renovar nem retirar. Quem recebe pode renunciar sem pagamento. O compromisso não expira automaticamente e o pagamento ainda exige assinatura do dono; há risco de impasse e de carteira controlada pelo próprio dono antes do vínculo. A revisão, as evidências e os limites estão no [relatório do compromisso SKR v2](docs/skr-commitment-review.md). Associação de alias `.skr`, verificação SGT e pagamentos USDC não fazem parte desta entrega.
+
+O APK e os testes nativos históricos descritos acima antecedem essa integração. A nova exportação JavaScript Android foi verificada; uma sessão real Mobile Wallet Adapter em aparelho físico e um novo APK configurado ainda precisam ser validados.
 
 Não há push ou envio de e-mail: os avisos ficam na caixa de conversas e são atualizados enquanto o aplicativo está aberto. Uma implantação pública com HTTPS, serviços de notificações, testes com NFC físico/Seed Vault e publicação na dApp Store são etapas próprias. A etiqueta é passiva e não rastreia localização.
 
@@ -234,6 +237,8 @@ Esta rodada corrigiu dois problemas encontrados nos testes: um ciclo ao usar Vol
 | `src/Found.tsx`, `src/Conversation.tsx` | Fluxo público e relay de mensagens |
 | `src/platform/` | Armazenamento, carteira, câmera, NFC e arquivos por plataforma |
 | `server/` | API, SQLite, autenticação, QR/PDF e web compilada |
+| `programs/reward-escrow/`, `shared/` | Contrato Solana e protocolo compartilhado do depósito |
+| `tests/rewards/`, `tests/contract/` | Integração SBF/API em blockchain local, cenários adversariais e SDK |
 | `tests/unit/`, `server/test/` | Regras locais, armazenamento e API |
 | `tests/e2e/` | Matriz de navegadores e auditoria HTTP |
 | `tests/native/` | Testes reexecutáveis em simulador nativo |

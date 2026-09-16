@@ -88,7 +88,7 @@ Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pú
 
 Transferência exige conta de destino existente, senha correta e ausência de conversas abertas. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
 
-Recompensa é um **valor opcional prometido pelo dono**, de 0 a 1.000.000 na unidade escolhida. Esta API não recebe, custodia, deposita, bloqueia, paga ou reembolsa fundos. Não há escrow nem transações de blockchain. Confirmar devolução registra a recuperação do objeto e não executa pagamento.
+Recompensa é um **valor opcional prometido pelo dono**, de 0 a 1.000.000 na unidade escolhida. Esse campo manual não movimenta fundos. A integração opcional de depósito SKR descrita abaixo usa rotas próprias e transações assinadas nas carteiras. Confirmar devolução registra a recuperação; o pagamento é uma etapa separada.
 
 ### Página pública e finder
 
@@ -134,6 +134,75 @@ type Message = {
 ```
 
 Faça polling da conversa e lista de avisos enquanto a tela estiver visível. O produto não envia push/e-mail. As mensagens são persistidas e consultadas pela outra pessoa. Resolver é idempotente: fecha todas as conversas abertas daquele item, ativa a etiqueta, preenche `returnedAt` e incrementa `recoveryCount` uma única vez por devolução. Novos avisos futuros podem registrar outra devolução. Report encerrado rejeita mensagens com `409 REPORT_RESOLVED`.
+
+## Recompensas SKR em escrow
+
+A reserva está desligada por padrão. Para habilitar um ambiente já provisionado,
+configure `SKR_REWARDS_ENABLED=true`, `SKR_CLUSTER` (`localnet`, `devnet` ou
+`mainnet-beta`), `SKR_RPC_URL`, `SKR_PROGRAM_ID` e `SKR_MINT`. `localnet` exige
+também `SKR_GENESIS_HASH`. Em mainnet o mint precisa ser o SKR oficial
+`SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`. Tokens de teste recebem o
+rótulo **Test SKR**. O mint deve usar SPL Token legado, 6 decimais e não ter
+autoridade de congelamento. Configurar o servidor não faz deploy nem transações.
+
+Todas as rotas abaixo têm prefixo `/api`. As rotas de etiqueta/conversa exigem
+Bearer de dono; `/finder` exige a capacidade da conversa. Configuração e prova
+pública não exigem autenticação. Os envelopes anteriores permanecem iguais.
+
+| Método e rota | Corpo | Resposta |
+|---|---|---|
+| `GET /rewards/config` | — | `{ enabled, available, cluster, assetLabel, mint, programId, reason? }` |
+| `GET /tags/:id/reward` | — | `{ reward }` |
+| `GET /public/tags/:code/reward` | — | `{ reward }` |
+| `GET /reports/:id/reward` e `GET /finder/reports/:id/reward` | — | `{ reward, recipient?, commitmentMatchesReport, canResolve }` |
+| `POST /tags/:id/reward/prepare` | `{ wallet, amount: "10.000001", days: 7 }` | preparação |
+| `POST /tags/:id/reward/renew` | `{ wallet, days: 15 }` | preparação |
+| `POST /tags/:id/reward/refund` | `{ wallet }` | preparação |
+| `POST /tags/:id/reward/cancel` | `{ wallet }` | `{ reward: null }` |
+| `POST /reports/:id/reward/commit` | `{ wallet }` | preparação de compromisso pelo dono |
+| `POST /finder/reports/:id/reward/waive` | `{ wallet }` | preparação de renúncia pela carteira vinculada |
+| `POST /reports/:id/reward/release` | `{ wallet }` | preparação |
+| `POST /finder/reports/:id/reward/wallet/challenge` | `{ wallet }` | `{ message, nonce }` |
+| `POST /finder/reports/:id/reward/wallet/verify` | `{ wallet, nonce, signature }` | `{ recipient }` |
+| `POST /tags/:id/reward/sync` | `{ signature? }` | `{ reward }` |
+| `POST /reports/:id/reward/sync` e `POST /finder/reports/:id/reward/sync` | `{ signature? }` | `{ reward, recipient?, commitmentMatchesReport, canResolve }` |
+
+`reward` é `null` ou `{ id, status, amount, assetLabel, cluster, wallet,
+expiresAt, address, explorerUrl, claimSeq, committedAt?, reportRef?, recipientWallet?, transactionSignature? }`.
+`amount` usa texto decimal; `expiresAt` usa ISO 8601. Estados:
+`draft | funded | expired | committed | paid | refunded | unavailable`. O estado
+`unavailable` nunca comprova saldo reservado. `explorerUrl` é `null` em localnet.
+`recipient` contém `{ wallet, verifiedAt, reportRef }`; `reportRef` é aleatório,
+sem identificador de usuário ou conversa na blockchain.
+
+Uma preparação contém `{ reward, transaction, wallet, action,
+lastValidBlockHeight, intent }`. `transaction` é uma transação Solana legacy,
+sem assinaturas, em base64. `intent` contém `id`, `rewardId` (32 bytes em hex),
+`mint`, `programId`, `amountBaseUnits`, `expiresAt` (segundos Unix em texto),
+`claimSeq` (u64 em texto) e, para compromisso/pagamento/renúncia, `recipientWallet` e `reportRef`. `wallet` é a carteira que assina: o finder na renúncia e o dono nas demais ações. O cliente deve reconstruir
+e conferir a mensagem antes de solicitar assinatura. A API não guarda chaves,
+não assina e não transmite transações.
+
+Repetir uma preparação pendente retorna a mesma transação. Após interrupção,
+chame `/sync` antes de preparar outra. Uma renúncia pode substituir um pagamento pendente; o contrato decide a ordem de execução e a sequência impede reutilização no próximo compromisso. Intenções comprovadamente impossíveis pelo estado/sequência são marcadas como substituídas. Nos demais casos, a API só retira uma preparação ambígua após observar um bloco **finalizado** posterior à validade e consultar o recibo
+em um slot pelo menos tão recente. Cancelamento só abandona um draft sem depósito
+confirmado e sem transação ainda válida. Recompensas pagas/retiradas e seus
+recibos permanecem no histórico; conversas encerradas preservam o recibo antigo.
+
+Renovar mantém o recibo, o saldo, a etiqueta e o QR. A nova validade parte de
+`max(agora, validade atual)` e acrescenta os dias solicitados; não pode ultrapassar
+365 dias a partir de agora. Renovação e retirada exigem ausência de compromisso; retirada também exige vencimento. O compromisso exige oferta vigente e uma carteira comprovada por desafio Ed25519 de uso único de cinco minutos, vinculado à origem, conversa, recompensa, rede e carteira. Escanear o QR e comprovar uma carteira não assumem o compromisso: o dono precisa assinar `/commit` antes da entrega.
+
+Pagamento exige compromisso confirmado para a mesma conversa e paga exclusivamente à carteira fixada, mesmo após o vencimento original. A renúncia exige assinatura dessa carteira, não paga tokens e reabre a oferta com mesmo saldo, prazo e QR. Um compromisso não expira automaticamente e não pode ser cancelado unilateralmente pelo dono. Sem pagamento ou renúncia, o saldo pode ficar bloqueado indefinidamente.
+
+O histórico imutável de provas permite reconciliar compromissos diretos na blockchain mesmo quando outra prova de carteira chega simultaneamente. As respostas da conversa exibem a prova vinculada ao compromisso, e não uma carteira nova ainda sem vínculo. Confirmar devolução com depósito exige pagamento verificado para aquela conversa; depois de retirada, pode confirmar sem pagamento.
+
+Erros de RPC não liberam transferência da etiqueta, alteração do prêmio ou pausa
+de um depósito ativo. `enabled` descreve a configuração; `available` descreve a
+verificação atual da rede/programa/mint. Nenhuma URL RPC, chave ou credencial é
+exposta. Testes de API com RPC simulado verificam as fronteiras de confiança;
+os testes `tests/rewards/*.localnet.test.mjs` executam o programa compilado e
+movimentação real de tokens de teste em um validador descartável.
 
 ## Controles e limites
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { api, Report, Tag } from './api';
 import Conversation from './Conversation';
+import { PublicReward } from './Rewards';
 import { secureStorage } from './platform/storage';
 import { Brand, Button, categoryInfo, C, Field, Icon, Notice, s } from './ui';
 
@@ -17,7 +18,7 @@ export default function Found({ code, chatId, goHome, goChat }: { code?: string;
       {chatId && chatToken ? <><View style={{ gap: 9 }}><Text accessibilityRole="header" style={s.h2}>Obrigado por ajudar.</Text></View><Conversation id={chatId} token={chatToken} finder /></> : tag ? <>
         <View style={{ alignItems: 'center', gap: 16, paddingVertical: 15 }}><View style={[s.circle, { backgroundColor: cat.color, width: 92, height: 92, borderRadius: 28 }]}><Icon name={cat.icon} size={39} /></View><Text accessibilityRole="header" style={[s.h1, { fontSize: 30, textAlign: 'center' }]}>{tag.name}</Text><Text style={[s.body, { textAlign: 'center' }]}>Encontrou este objeto? Você pode fazer o dia de alguém melhor.</Text></View>
         {tag.publicMessage ? <View style={{ padding: 17, borderRadius: 14, backgroundColor: C.bg, gap: 7 }}><Text style={[s.body, { color: C.ink }]}>{tag.publicMessage}</Text></View> : null}
-        {tag.rewardAmount > 0 && <View style={{ padding: 15, borderRadius: 12, backgroundColor: C.amberSoft, gap: 8 }}><View style={s.row}><Icon name="gift" color={C.amber} size={18} /><Text style={{ fontWeight: '600', color: C.amber }}>{tag.rewardCurrency === 'BRL' ? 'R$' : tag.rewardCurrency} {tag.rewardAmount} de agradecimento</Text></View><Text style={s.small}>Promessa do dono, combinada após a devolução. O SeekerTag não guarda ou transfere esse valor.</Text></View>}
+        <PublicReward key={tag.code} tag={tag} />
         <Field label="Como podemos te chamar? (opcional)" value={finderName} onChangeText={setFinderName} placeholder="Seu primeiro nome ou apelido" maxLength={60} />
         <Field label="Mensagem para o dono" value={message} onChangeText={setMessage} placeholder="Oi! Encontrei seu objeto. Podemos combinar a devolução por aqui." multiline maxLength={2000} />
         <Button onPress={submit} busy={busy} icon="send">Avisar o dono</Button>
