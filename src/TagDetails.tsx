@@ -1,7 +1,7 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Share, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 import { nativeTagUrl } from './links';
@@ -29,6 +29,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   const [busy, setBusy] = useState<Action>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [nfcStopping, setNfcStopping] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -123,8 +124,12 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   async function cancelNfc() {
     if (active.current !== 'nfc') return;
     operation.current++;
+    active.current = null;
+    setBusy(null);
+    setNfcStopping(true);
+    ToastAndroid.show(t('Gravação NFC cancelada.'), ToastAndroid.SHORT);
     await cancelNfcWrite().catch(() => {});
-    if (mounted.current) { active.current = null; setBusy(null); setNotice('Gravação NFC cancelada.'); }
+    if (mounted.current) setNfcStopping(false);
   }
 
   function transfer() {
@@ -164,7 +169,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       <Button onPress={download} busy={busy === 'download'} disabled={!!busy} icon="download">{t("Baixar etiquetas em PDF")}</Button>
       <Button variant="secondary" onPress={sharePdf} busy={busy === 'sharePdf'} disabled={!!busy} icon="share-2">{t("Compartilhar PDF")}</Button>
       <View style={styles.buttonRow}>
-        <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy} icon="wifi">{t("Gravar NFC")}</Button>
+        <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy || nfcStopping} icon="wifi">{t("Gravar NFC")}</Button>
         <Button style={styles.halfButton} variant="secondary" onPress={openVisitor} disabled={!!busy} icon="external-link">{t("Ver como visitante")}</Button>
       </View>
       {busy === 'nfc' ? <View style={styles.nfcProgress}><View style={[s.row, { alignItems: 'flex-start' }]}><ActivityIndicator color={C.accent} /><View style={{ flex: 1, gap: 4 }}><Text style={s.label}>{t("Aproxime a etiqueta NFC")}</Text><Text style={s.small}>{t("Mantenha uma etiqueta NDEF regravável encostada no aparelho. O link existente será substituído.")}</Text></View></View><Button variant="ghost" onPress={() => void cancelNfc()} icon="x">{t("Cancelar gravação")}</Button></View> : null}
