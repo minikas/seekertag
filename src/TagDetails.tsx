@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Share, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Pressable from './HapticPressable';
+import ScreenBottomSheet from './ScreenBottomSheet';
 import * as Clipboard from 'expo-clipboard';
 import { nativeTagUrl } from './links';
 import { api, API_URL, Tag, User } from './api';
@@ -29,9 +30,9 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   const styles = useThemedStyles(makeStyles);
   const [busy, setBusy] = useState<Action>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [nfcStopping, setNfcStopping] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
+  const [page, setPage] = useState<'overview' | 'info' | 'transfer'>('overview');
+  const [overlay, setOverlay] = useState<'actions' | 'nfc' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const mounted = useRef(true);
@@ -45,7 +46,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   useEffect(() => {
     mounted.current = true;
     active.current = null;
-    setBusy(null); setError(''); setNotice(''); setTransferOpen(false); setEmail(''); setPassword('');
+    setBusy(null); setError(''); setPage('overview'); setOverlay(null); setEmail(''); setPassword('');
     return () => {
       mounted.current = false;
       operation.current++;
@@ -58,7 +59,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     const identity = currentIdentity.current;
     const id = ++operation.current;
     const isCurrent = () => mounted.current && operation.current === id && currentIdentity.current === identity;
-    active.current = kind; setBusy(kind); setError(''); setNotice('');
+    active.current = kind; setBusy(kind); setError('');
     try {
       const finish = await task();
       if (isCurrent()) finish();
@@ -70,6 +71,8 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   }
 
   function close() {
+    if (overlay) { closeOverlay(); return; }
+    if (page !== 'overview') { setPage('overview'); setPassword(''); setError(''); return; }
     operation.current++;
     if (active.current === 'nfc') void cancelNfcWrite().catch(() => {});
     onClose();
@@ -78,14 +81,14 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   function changeStatus(status: Tag['status']) {
     void run('status', async () => {
       const { tag: updated } = await api<{ tag: Tag }>(`/tags/${tag.id}`, token, { status }, 'PATCH');
-      return () => { onUpdated(updated); setNotice(status === 'lost' ? 'Marcado como perdido. Quem encontrar verá seu aviso.' : status === 'paused' ? 'Etiqueta pausada. O QR não recebe novos avisos até você reativar.' : 'Etiqueta ativa e pronta para receber avisos.'); };
+      return () => { onUpdated(updated); ToastAndroid.show(t(status === 'lost' ? 'Objeto marcado como perdido.' : status === 'paused' ? 'Etiqueta pausada.' : 'Etiqueta ativada.'), ToastAndroid.SHORT); };
     });
   }
 
   function download() {
     void run('download', async () => {
       const saved = await downloadLabel({ url: `${API_URL}/tags/${tag.id}/label.pdf?lang=${locale.slice(0, 2)}`, token, fileName: `SeekerTag-${tag.code}.pdf` });
-      return () => setNotice(saved ? 'PDF salvo na pasta escolhida. Imprima em tamanho real e teste o QR.' : 'Download cancelado.');
+      return () => ToastAndroid.show(t(saved ? 'PDF salvo na pasta escolhida.' : 'Download cancelado.'), ToastAndroid.SHORT);
     });
   }
 
@@ -116,9 +119,11 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   }
 
   function writeNfc() {
+    if (active.current || nfcStopping) return;
+    setOverlay('nfc');
     void run('nfc', async () => {
       await writeTagUrl(tag.publicUrl);
-      return () => setNotice('Etiqueta NFC gravada. Afaste e aproxime novamente para testar o link.');
+      return () => { setOverlay(null); ToastAndroid.show(t('Etiqueta NFC gravada.'), ToastAndroid.SHORT); };
     });
   }
 
@@ -127,10 +132,23 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     operation.current++;
     active.current = null;
     setBusy(null);
+    setOverlay(null);
     setNfcStopping(true);
     ToastAndroid.show(t('Gravação NFC cancelada.'), ToastAndroid.SHORT);
     await cancelNfcWrite().catch(() => {});
     if (mounted.current) setNfcStopping(false);
+  }
+
+  function closeOverlay() {
+    if (active.current === 'nfc') { void cancelNfc(); return; }
+    setOverlay(null);
+    setError('');
+  }
+
+  function choose(action: () => void) {
+    setOverlay(null);
+    setError('');
+    action();
   }
 
   function transfer() {
@@ -151,85 +169,101 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     });
   }
 
-  return <Sheet title={tag.name} subtitle={`${tagCategoryLabel(tag, t)} · ${t("Criada em {date}", { date: formatDate(tag.createdAt, locale) })}`} onClose={close}>
-    <View style={s.between}>
-      <View style={[s.row, { flex: 1 }]}><View style={[styles.itemIcon, { backgroundColor: info.color }]}><Icon name={info.icon} color={categoryInk(info.color)} size={24} /></View><View style={{ gap: 4, flex: 1 }}><Text style={s.h3}>{t("Sua etiqueta")}</Text></View></View>
-      <Pill status={tag.status} />
+  const actions = <ScreenBottomSheet title={t("Opções do objeto")} onClose={closeOverlay}>
+    <View>
+      <ActionRow icon="info" title={t("Detalhes do objeto")} onPress={() => choose(() => setPage('info'))} />
+      <ActionRow icon="edit-2" title={t("Editar objeto")} onPress={() => choose(() => onEdit(tag))} />
+      <ActionRow icon="external-link" title={t("Ver como visitante")} onPress={() => choose(openVisitor)} />
+      <ActionRow icon="share-2" title={t("Compartilhar PDF")} onPress={() => choose(sharePdf)} />
+      <ActionRow icon={tag.status === 'active' ? 'alert-circle' : 'check-circle'} title={tag.status === 'active' ? t("Marcar como perdido") : tag.status === 'lost' ? t("Já está comigo") : t("Reativar etiqueta")} onPress={() => choose(() => changeStatus(tag.status === 'active' ? 'lost' : 'active'))} />
+      {tag.status !== 'paused' && <ActionRow icon="pause-circle" title={t("Pausar etiqueta")} onPress={() => choose(() => changeStatus('paused'))} />}
+      <ActionRow icon="arrow-right-circle" title={t("Transferir etiqueta")} onPress={() => choose(() => setPage('transfer'))} />
     </View>
-
-    <View style={styles.qrCard}>
-      <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={190} backgroundColor="white" color="#252925" ecl="M" quietZone={10} /></View>
-      <Text style={styles.qrTitle}>{t("Encontrou? Escaneie para devolver.")}</Text>
-      <View style={s.row}><Icon name="shield" size={13} color={C.accent} /><Text style={s.small}>{t("Seu e-mail e sua anotação ficam privados.")}</Text></View>
+  </ScreenBottomSheet>;
+  const nfc = <ScreenBottomSheet title={t("Gravar NFC")} onClose={closeOverlay}>
+    <View style={styles.nfcContent}>
+      <View style={styles.nfcIcon}><Icon name="wifi" size={38} /></View>
+      <Text style={[s.h2, { textAlign: 'center' }]}>{t("Aproxime a etiqueta NFC")}</Text>
+      <Text style={[s.body, { textAlign: 'center' }]}>{t("Encoste uma etiqueta NFC regravável na parte de trás do celular.")}</Text>
+      {busy === 'nfc' && <ActivityIndicator color={C.ink} />}
     </View>
+    {error ? <Notice text={error} error /> : <Text style={[s.small, { textAlign: 'center' }]}>{t("O link gravado na etiqueta será substituído.")}</Text>}
+    {busy === 'nfc' ? <Button variant="secondary" onPress={() => void cancelNfc()}>{t("Cancelar gravação")}</Button> : <Button onPress={writeNfc} disabled={nfcStopping}>{t("Tentar novamente")}</Button>}
+  </ScreenBottomSheet>;
 
-    {localOnly ? <View style={styles.localNote}><Icon name="info" size={17} color={C.amber} /><Text style={[s.small, { color: C.amber, flex: 1 }]}>{t("Este link funciona apenas neste computador. Antes de usar a etiqueta em outro celular, defina um endereço acessível pela rede ou pela internet.")}</Text></View> : null}
-    {tag.status === 'paused' ? <View style={styles.localNote}><Icon name="pause-circle" size={17} color={C.amber} /><Text style={[s.small, { color: C.amber, flex: 1 }]}>{t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")}</Text></View> : null}
-
-    <View style={{ gap: 10 }}>
-      <Button onPress={download} busy={busy === 'download'} disabled={!!busy} icon="download">{t("Baixar etiquetas em PDF")}</Button>
-      <Button variant="secondary" onPress={sharePdf} busy={busy === 'sharePdf'} disabled={!!busy} icon="share-2">{t("Compartilhar PDF")}</Button>
+  return <Sheet title={page === 'transfer' ? t("Transferir etiqueta") : page === 'info' ? t("Detalhes do objeto") : tag.name} contentKey={page} onClose={close} dismissible={busy !== 'transfer'}
+    headerRight={page === 'overview' ? <Button variant="ghost" icon="more-horizontal" label={t("Opções do objeto")} busy={busy === 'status' || busy === 'sharePdf'} disabled={!!busy} onPress={() => setOverlay('actions')} /> : undefined}
+    overlay={overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : undefined}>
+    {page === 'overview' ? <>
+      <View style={s.between}>
+        <View style={[s.row, { flex: 1 }]}><View style={[styles.itemIcon, { backgroundColor: info.color }]}><Icon name={info.icon} color={categoryInk(info.color)} size={24} /></View><Text style={[s.body, { flex: 1 }]}>{tagCategoryLabel(tag, t)}</Text></View>
+        <Pill status={tag.status} />
+      </View>
+      <View style={styles.qrCard}>
+        <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={210} backgroundColor="white" color="#101918" ecl="M" quietZone={10} /></View>
+      </View>
+      <View style={{ gap: 10 }}>
+        <Text style={s.label}>{t("Link da etiqueta")}</Text>
+        <View style={styles.linkRow}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t("Copiar link")} accessibilityHint={tag.publicUrl} accessibilityState={{ disabled: !!busy }} disabled={!!busy} onPress={copyLink} style={({ pressed }) => [styles.linkField, pressed && { opacity: 0.65 }]}>
+            <Text numberOfLines={1} ellipsizeMode="middle" style={styles.linkText}>{tag.publicUrl}</Text>
+            <Icon name="copy" size={18} color={C.muted} />
+          </Pressable>
+          <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58, height: 58 }} />
+        </View>
+      </View>
       <View style={styles.buttonRow}>
+        <Button style={styles.halfButton} onPress={download} busy={busy === 'download'} disabled={!!busy} icon="download">{t("Baixar PDF")}</Button>
         <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy || nfcStopping} icon="wifi">{t("Gravar NFC")}</Button>
-        <Button style={styles.halfButton} variant="secondary" onPress={openVisitor} disabled={!!busy} icon="external-link">{t("Ver como visitante")}</Button>
       </View>
-      {busy === 'nfc' ? <View style={styles.nfcProgress}><View style={[s.row, { alignItems: 'flex-start' }]}><ActivityIndicator color={C.accent} /><View style={{ flex: 1, gap: 4 }}><Text style={s.label}>{t("Aproxime a etiqueta NFC")}</Text><Text style={s.small}>{t("Mantenha uma etiqueta NDEF regravável encostada no aparelho. O link existente será substituído.")}</Text></View></View><Button variant="ghost" onPress={() => void cancelNfc()} icon="x">{t("Cancelar gravação")}</Button></View> : null}
-      <Text style={[s.small, { textAlign: 'center' }]}>{t("Imprima, recorte e prenda ao item. NFC é opcional.")}</Text>
-    </View>
-
-    <View style={{ gap: 10 }}>
-      <Text style={s.label}>{t("Link da etiqueta")}</Text>
-      <View style={styles.linkRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("Copiar link")} accessibilityHint={tag.publicUrl} disabled={!!busy} onPress={copyLink} style={({ pressed }) => [styles.linkField, pressed && { opacity: 0.65 }]}>
-          <Text numberOfLines={1} ellipsizeMode="middle" style={styles.linkText}>{tag.publicUrl}</Text>
-          <Icon name="copy" size={18} color={C.muted} />
-        </Pressable>
-        <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58, height: 58 }} />
-      </View>
-    </View>
-
-    {error && !transferOpen ? <Notice text={error} error /> : null}
-    {notice ? <Notice text={notice} /> : null}
-
-    <View style={s.divider} />
-    <View style={{ gap: 12 }}>
-      <View style={s.between}><Text style={s.h3}>{t("Status do objeto")}</Text>{tag.recoveryCount > 0 ? <Text style={s.small}>{tag.recoveryCount} {tag.recoveryCount === 1 ? t("devolução") : t("devoluções")}</Text> : null}</View>
-      {tag.status === 'lost' ? <Button variant="secondary" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="check-circle">{t("Já está comigo")}</Button> : tag.status === 'paused' ? <Button onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="play-circle">{t("Reativar etiqueta")}</Button> : <Button variant="secondary" onPress={() => changeStatus('lost')} busy={busy === 'status'} disabled={!!busy} icon="alert-circle">{t("Marcar como perdido")}</Button>}
-      <View style={styles.buttonRow}>
-        <Button style={styles.halfButton} variant="secondary" icon="edit-2" onPress={() => onEdit(tag)} disabled={!!busy}>{t("Editar objeto")}</Button>
-        {tag.status !== 'paused' ? <Button style={styles.halfButton} variant="ghost" icon="pause-circle" onPress={() => changeStatus('paused')} disabled={!!busy}>{t("Pausar etiqueta")}</Button> : null}
-      </View>
-      {tag.description ? <View style={styles.privateNote}><View style={s.row}><Icon name="lock" size={14} color={C.muted} /><Text style={s.label}>{t("Sua anotação particular")}</Text></View><Text style={s.body}>{tag.description}</Text></View> : null}
-      {tag.rewardAmount > 0 ? <View style={styles.privateNote}><View style={s.row}><Icon name="gift" size={15} color={C.accent} /><Text style={s.label}>{tag.rewardAmount.toLocaleString(locale)} {tag.rewardCurrency} {t("de recompensa oferecida")}</Text></View><Text style={s.small}>{t("Promessa do dono. O pagamento é combinado na conversa; nenhum valor foi depositado pelo app.")}</Text></View> : null}
-    </View>
-
-    <View style={s.divider} />
-    {transferOpen ? <View style={styles.transfer}>
-      <Text style={s.h3}>{t("Transferir para outra pessoa")}</Text>
+      {tag.status === 'paused' ? <View style={{ gap: 12 }}><Text style={s.body}>{t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")}</Text><Button variant="secondary" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="play-circle">{t("Reativar etiqueta")}</Button></View> : tag.status === 'lost' ? <Button variant="secondary" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="check-circle">{t("Já está comigo")}</Button> : null}
+      {localOnly && <View style={styles.localNote}><Icon name="info" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Link local. Outros aparelhos precisam de um endereço público.")}</Text></View>}
+    </> : page === 'info' ? <>
+      <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} /></View>
+      <InfoBlock label={t("Categoria")} value={tagCategoryLabel(tag, t)} />
+      <Text style={s.small}>{t("Criada em {date}", { date: formatDate(tag.createdAt, locale) })}</Text>
+      {tag.description ? <InfoBlock label={t("Sua anotação particular")} value={tag.description} /> : null}
+      {tag.publicMessage ? <InfoBlock label={t("Mensagem na etiqueta")} value={tag.publicMessage} /> : null}
+      {tag.rewardAmount > 0 ? <InfoBlock label={t("Valor da recompensa")} value={`${tag.rewardAmount.toLocaleString(locale)} ${tag.rewardCurrency}`} /> : null}
+      {tag.recoveryCount > 0 && <Text style={s.body}>{tag.recoveryCount} {tag.recoveryCount === 1 ? t("devolução") : t("devoluções")}</Text>}
+      <Button variant="secondary" icon="edit-2" onPress={() => onEdit(tag)}>{t("Editar objeto")}</Button>
+    </> : <>
+      <Text style={s.h2}>{tag.name}</Text>
       <Text style={s.body}>{t("A etiqueta sairá da sua conta e o mesmo QR passará para a pessoa abaixo. Ela precisa ter uma conta SeekerTag.")}</Text>
       <Text style={s.small}>{t("Suas conversas antigas continuam privadas. Anotação, mensagem pública e recompensa serão apagadas da etiqueta. Para recebê-la de volta, a nova pessoa precisa transferi-la para você.")}</Text>
-      {tag.openReportCount > 0 ? <Notice error text={t("Conclua as conversas abertas deste objeto antes de transferir a etiqueta.")} /> : null}
+      {tag.openReportCount > 0 && <Notice error text={t("Conclua as conversas abertas deste objeto antes de transferir a etiqueta.")} />}
       <Field label={t("E-mail, carteira ou ID de quem vai receber")} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} maxLength={254} editable={!busy} placeholder={t("E-mail, endereço Solana ou ID da conta")} />
       {user.hasPassword ? <Field label={t("Sua senha atual")} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" maxLength={128} editable={!busy} onSubmitEditing={transfer} /> : <Text style={s.small}>{t("Você confirmará sua identidade com {provider} antes da transferência.", { provider: providerNames[user.providers[0]] || t("seu acesso vinculado") })}</Text>}
-      {error ? <Notice text={error} error /> : null}
-      <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || tag.openReportCount > 0}>{t("Confirmar transferência")}</Button>
-      <Button variant="ghost" onPress={() => { setTransferOpen(false); setPassword(''); setError(''); }} disabled={!!busy}>{t("Cancelar")}</Button>
-    </View> : <Button variant="ghost" icon="arrow-right-circle" onPress={() => { setTransferOpen(true); setError(''); setNotice(''); }} disabled={!!busy}>{t("Transferir etiqueta para outra pessoa")}</Button>}
+      <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || tag.openReportCount > 0 || !email.trim() || (user.hasPassword && password.length < 10)}>{t("Confirmar transferência")}</Button>
+    </>}
+    {!!error && overlay !== 'nfc' && <Notice text={error} error />}
   </Sheet>;
+}
+
+function InfoBlock({ label, value }: { label: string; value: string }) {
+  const { s } = useUI();
+  return <View style={{ gap: 8 }}><Text style={s.label}>{label}</Text><Text style={[s.body, { color: s.h3.color }]}>{value}</Text></View>;
+}
+
+function ActionRow({ icon, title, onPress }: { icon: IconName; title: string; onPress: () => void }) {
+  const { s } = useUI();
+  const styles = useThemedStyles(makeStyles);
+  return <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.65 }]}>
+    <View style={s.settingsIcon}><Icon name={icon} size={20} /></View><Text style={[s.h3, { flex: 1, fontSize: 18 }]}>{title}</Text>
+  </Pressable>;
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   linkField: { flex: 1, minHeight: 58, borderRadius: 18, backgroundColor: C.input, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
   linkText: { flex: 1, fontSize: 16, color: C.ink },
-  itemIcon: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  qrCard: { paddingVertical: 28, alignItems: 'center', gap: 20 },
-  qrPaper: { backgroundColor: 'white', padding: 8 },
-  qrTitle: { color: C.ink, fontSize: 20, fontWeight: '500', textAlign: 'center', lineHeight: 27 },
-  localNote: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 18, backgroundColor: C.amberSoft, alignItems: 'flex-start' },
-  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  halfButton: { flex: 1, minWidth: 165, paddingHorizontal: 12 },
-  nfcProgress: { padding: 20, backgroundColor: C.soft, borderRadius: 22, gap: 12 },
-  privateNote: { padding: 20, borderRadius: 22, backgroundColor: C.surface, gap: 12 },
-  transfer: { padding: 20, borderWidth: 1, borderColor: C.redLine, borderRadius: 24, gap: 18, backgroundColor: C.redSoft },
+  itemIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  qrCard: { paddingVertical: 20, alignItems: 'center' },
+  qrPaper: { backgroundColor: 'white', padding: 14, borderRadius: 24 },
+  localNote: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  buttonRow: { flexDirection: 'row', gap: 10 },
+  halfButton: { flex: 1, paddingHorizontal: 12 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
+  nfcContent: { alignItems: 'center', gap: 16, paddingVertical: 12 },
+  nfcIcon: { width: 76, height: 76, borderRadius: 26, backgroundColor: C.raised, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,5 +1,17 @@
 // Portuguese source messages, followed by English and Spanish translations.
 export const catalog: Record<string, readonly [string, string]> = {
+  'Opções do objeto': ['Item options', 'Opciones del objeto'],
+  'Detalhes do objeto': ['Item details', 'Detalles del objeto'],
+  'Transferir etiqueta': ['Transfer tag', 'Transferir etiqueta'],
+  'Baixar PDF': ['Download PDF', 'Descargar PDF'],
+  'Objeto marcado como perdido.': ['Item marked as lost.', 'Objeto marcado como perdido.'],
+  'Etiqueta pausada.': ['Tag paused.', 'Etiqueta pausada.'],
+  'Etiqueta ativada.': ['Tag activated.', 'Etiqueta activada.'],
+  'PDF salvo na pasta escolhida.': ['PDF saved to the selected folder.', 'PDF guardado en la carpeta elegida.'],
+  'Etiqueta NFC gravada.': ['NFC tag written.', 'Etiqueta NFC grabada.'],
+  'Encoste uma etiqueta NFC regravável na parte de trás do celular.': ['Hold a rewritable NFC tag against the back of your phone.', 'Acerca una etiqueta NFC regrabable a la parte trasera del teléfono.'],
+  'O link gravado na etiqueta será substituído.': ['The link stored on the tag will be replaced.', 'Se sustituirá el enlace guardado en la etiqueta.'],
+  'Link local. Outros aparelhos precisam de um endereço público.': ['Local link. Other devices need a public address.', 'Enlace local. Otros dispositivos necesitan una dirección pública.'],
   'Você confirmará sua identidade com {provider} antes da transferência.': ['You will confirm your identity with {provider} before the transfer.', 'Confirmarás tu identidad con {provider} antes de la transferencia.'],
 
   '{count} objeto': ['{count} item', '{count} objeto'], '{count} objetos': ['{count} items', '{count} objetos'],
