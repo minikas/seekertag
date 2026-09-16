@@ -3,12 +3,12 @@ import { Colors } from './theme';
 import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import TagRow from './TagRow';
-import { searchTags, TagFilter } from './tag-search.model';
+import ObjectsScreen from './ObjectsScreen';
 import { conversationCount } from './i18n';
-import { AppState, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
 import { api, ApiError, Report, Tag, User } from './api';
-import { Button, Field, formatDate, Icon, IconName, Notice, useUI } from './ui';
+import { Button, formatDate, Icon, IconName, Notice, useUI } from './ui';
 import TagForm from './TagForm';
 import TagDetails from './TagDetails';
 import Conversation from './Conversation';
@@ -21,12 +21,11 @@ const tabs: { key: Tab; label: string; icon: IconName }[] = [
   { key: 'items', label: 'Meus objetos', icon: 'home' },
   { key: 'messages', label: 'Conversas', icon: 'message-circle' },
 ];
-const filters: { key: TagFilter; name: string }[] = [{ key: 'all', name: 'Todos' }, { key: 'active', name: 'Protegidos' }, { key: 'lost', name: 'Perdidos' }, { key: 'paused', name: 'Pausados' }];
 
 export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, onExpired }: { token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; onExpired: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
-  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [search, setSearch] = useState(''); const [filter, setFilter] = useState<TagFilter>('all'); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [browsing, setBrowsing] = useState(false); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
   const scroll = useRef<KeyboardAwareScrollViewRef>(null);
   const [headerHeight, setHeaderHeight] = useState(72);
   const header = useScrollHeader(headerHeight);
@@ -34,12 +33,11 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     // Do not refresh and rerender the covered dashboard while editing a form.
-    if (form || selected || account) return;
+    if (form || selected || account || browsing) return;
     const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(true); }, 6000);
     return () => clearInterval(timer);
-  }, [refresh, form, selected, account]);
+  }, [refresh, form, selected, account, browsing]);
   const openReports = reports.filter(r => r.status === 'open');
-  const filtered = searchTags(tags, search, filter, t, locale);
   const switchTab = (key: Tab) => { setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
 
@@ -64,19 +62,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
           <View style={[s.circle, { backgroundColor: C.soft }]}><Icon name="message-circle" color={C.accent} /></View>
           <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Tem um reencontro a caminho")}</Text><Text style={s.small}>{conversationCount(t, openReports.length, locale)}</Text></View><Icon name="chevron-right" color={C.muted} />
         </Pressable>}
-        {tags.length > 0 && <View style={{ gap: 18 }}>
-          <Field hideLabel label={t("Buscar objetos")} placeholder={t("Buscar por nome ou categoria")} value={search} onChangeText={setSearch} returnKeyType="search" />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-            {filters.map(f => <Pressable key={f.key} accessibilityRole="button" accessibilityState={{ selected: filter === f.key }} onPress={() => setFilter(f.key)} style={({ pressed }) => [styles.filter, { backgroundColor: filter === f.key ? C.primary : C.secondary }, pressed && styles.pressed]}><Text style={{ color: filter === f.key ? C.onPrimary : C.ink, fontSize: 16, fontWeight: '500' }}>{t(f.name)}</Text></Pressable>)}
-          </ScrollView>
-        </View>}
-        {filtered.length > 0 ? <View>
-          <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Etiquetas")}</Text><Text style={s.small}>{filtered.length} {filtered.length === 1 ? t("objeto") : t("objetos")}</Text></View>
-          {filtered.map(tag => <TagRow key={tag.id} tag={tag} onPress={() => setSelected(tag)} />)}
+        {tags.length > 0 ? <View>
+          <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Etiquetas")}</Text><Pressable accessibilityRole="button" accessibilityLabel={t("Ver todos")} onPress={() => setBrowsing(true)} style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}><Text style={s.body}>{t("Ver todos")}</Text><Icon name="chevron-right" size={20} color={C.muted} /></Pressable></View>
+          {tags.map(tag => <TagRow key={tag.id} tag={tag} onPress={() => setSelected(tag)} />)}
         </View> : <View style={s.empty}>
-          <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name={search ? 'search' : 'tag'} size={32} /></View>
-          <Text style={[s.h2, styles.center]}>{tags.length ? t("Nenhum objeto por aqui") : t("Sua primeira etiqueta")}</Text>
-          <Text style={[s.body, styles.center]}>{tags.length ? t("Tente outro nome ou filtro para encontrar seu objeto.") : t("Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.")}</Text>
+          <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="tag" size={32} /></View>
+          <Text style={[s.h2, styles.center]}>{t("Sua primeira etiqueta")}</Text>
+          <Text style={[s.body, styles.center]}>{t("Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.")}</Text>
         </View>}
         <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
           <View style={s.circle}><Icon name="help-circle" /></View><View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Como funciona")}</Text><Text style={s.small}>{t("Uma etiqueta. Um caminho de volta.")}</Text></View><Icon name="chevron-right" color={C.muted} />
@@ -96,6 +88,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
         <Icon name={tabItem.icon} color={tab === tabItem.key ? C.onPrimary : C.ink} size={28} />{tabItem.key === 'messages' && openReports.length > 0 && <View style={styles.badge} />}
       </View>
     </Pressable>)}</View>
+    {browsing && <ObjectsScreen tags={tags} onSelect={setSelected} onClose={() => setBrowsing(false)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} />}
     {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} />}
     {form && <TagForm onCategoriesChanged={() => void refresh(true)} token={token} tag={form === 'new' ? undefined : form} onClose={() => setForm(null)} onSaved={tag => { saveTag(tag); setForm(null); }} />}
     {selected && !form && <TagDetails tag={selected} token={token} user={user} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={tag => setForm(tag)} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
@@ -107,7 +100,7 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   scrollContent: { width: '100%', maxWidth: 720, alignSelf: 'center' },
   content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32, gap: 26 }, intro: { gap: 8 }, center: { textAlign: 'center' },
   stats: { flexDirection: 'row', gap: 10 }, stat: { flex: 1, backgroundColor: C.surface, borderRadius: 24, paddingHorizontal: 12, paddingVertical: 18, gap: 8 }, statValue: { color: C.ink, fontSize: 32, fontWeight: '600', lineHeight: 39 }, statLabel: { color: C.muted, fontSize: 13, lineHeight: 18 },
-  filters: { gap: 8, paddingVertical: 2 }, filter: { minHeight: 44, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  viewAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 12 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, minHeight: 106, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
   helpRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }, alert: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 }, pressed: { opacity: 0.65 },
   navigation: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 12, paddingBottom: 8 }, tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 56 },
