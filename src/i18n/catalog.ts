@@ -1,5 +1,13 @@
 // Portuguese source messages, followed by English and Spanish translations.
 export const catalog: Record<string, readonly [string, string]> = {
+  'Conversa': ['Conversation', 'Conversación'],
+  'Devolver objeto': ['Return item', 'Devolver objeto'],
+  'Mensagem do dono': ['Owner’s message', 'Mensaje del dueño'],
+  'Envie uma mensagem para combinar a devolução.': ['Send a message to arrange the return.', 'Envía un mensaje para coordinar la devolución.'],
+  'Promessa do dono. Pagamento combinado na conversa.': ['Offered by the owner. Arrange payment in the conversation.', 'Promesa del dueño. El pago se acuerda en la conversación.'],
+  'Seu nome (opcional)': ['Your name (optional)', 'Tu nombre (opcional)'],
+  'Conte onde encontrou o objeto.': ['Tell the owner where you found the item.', 'Cuenta dónde encontraste el objeto.'],
+  'Converse pelo app sem compartilhar seus contatos.': ['Chat in the app without sharing your contact details.', 'Conversa en la app sin compartir tus datos de contacto.'],
   'Opções do objeto': ['Item options', 'Opciones del objeto'],
   'Detalhes do objeto': ['Item details', 'Detalles del objeto'],
   'Transferir etiqueta': ['Transfer tag', 'Transferir etiqueta'],
