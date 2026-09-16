@@ -14,6 +14,14 @@ O projeto tem um app Android e uma API Node.js com SQLite. Não há projeto iOS,
 
 Também existem busca, filtros, edição, pausa/reativação de etiquetas, marcação de perdido e transferência para outra conta com confirmação de identidade. A carteira usa Sign In With Solana via Mobile Wallet Adapter no Android.
 
+## Categorias, idioma e aparência
+
+Em **Minha conta → Categorias**, crie, renomeie e exclua categorias, escolhendo ícone e cor. O formulário de objeto também dá acesso ao gerenciamento sem perder o rascunho. Cada conta começa com Mochila, Mala, Chaves, Pet, Eletrônico e Outro. As categorias são próprias da conta e persistem na API; uma opção inicial excluída não reaparece. Se houver objetos nela, escolha a categoria de destino antes de excluir. Objetos, QRs e conversas são preservados. Até 50 categorias por conta.
+
+Em **Minha conta → Idioma**, escolha Português, English, Español ou **Igual ao dispositivo** (padrão). Em **Aparência**, escolha Claro, Escuro ou **Igual ao dispositivo**. As escolhas são aplicadas imediatamente e salvas no aparelho, inclusive após fechar o app. Um idioma não suportado usa inglês. Os textos do app e das etiquetas PDF seguem o idioma escolhido; nomes, categorias personalizadas e mensagens escritos pelas pessoas mantêm seu conteúdo original.
+
+A atualização migra os objetos existentes para categorias com IDs estáveis, mantendo seus códigos QR e cores. Categorias padrão usam chaves independentes do idioma; ao renomear uma delas, ela passa a ser um nome personalizado.
+
 ## Funcionalidades da antiga web no Android
 
 | Funcionalidade | Implementação no aplicativo |
@@ -59,13 +67,15 @@ EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run android
 
 `npm run start` inicia somente o Metro; `npm run api` inicia somente a API; `npm run api:lan` inicia a API com o IP local configurado para as etiquetas. `npm run dev` inicia API e Metro usando o ambiente atual. Não execute dois servidores na mesma porta.
 
+`npm ci` também aplica uma correção de compatibilidade do Keyboard Controller 1.21.9 com a barra de status do React Native 0.86: a cor dos ícones acompanha o tema mesmo dentro de telas modais. A correção está em `scripts/patch-android-statusbar.cjs` e deve ser revisada ao atualizar a biblioteca.
+
 NFC e carteira precisam de uma compilação nativa compatível. Expo Go não substitui essa compilação. Não há conta padrão nem dados simulados no produto.
 
 ## Acesso por carteira, Google e Apple
 
 A tela inicial unifica cadastro e entrada. **Continuar com Seeker / Solana** pede uma assinatura de login, sem transação ou taxa. A API gera o domínio, nonce e prazo de cinco minutos e verifica a assinatura Ed25519; o mesmo pedido não cria duas sessões. A carteira precisa suportar Sign In With Solana. Isso autentica a carteira, sem atestar que o aparelho é um Seeker ou verificar um Seeker Genesis Token.
 
-Em **Minha conta → Suas formas de entrar**, vincule uma carteira ou provedor à conta atual para preservar seus objetos. Contas com o mesmo e-mail nunca são unidas automaticamente. Contas por carteira podem não ter e-mail; o ID da conta e o endereço Solana também servem para receber etiquetas. Transferências de contas sem senha exigem nova confirmação, válida por cinco minutos e para uma única transferência.
+Em **Minha conta → Formas de entrar**, vincule uma carteira ou provedor à conta atual para preservar seus objetos. Contas com o mesmo e-mail nunca são unidas automaticamente. Contas por carteira podem não ter e-mail; o ID da conta e o endereço Solana também servem para receber etiquetas. Transferências de contas sem senha exigem nova confirmação, válida por cinco minutos e para uma única transferência.
 
 Google e Apple usam a autenticação oficial em uma aba do navegador Android e retornam ao aplicativo. Só são habilitados quando a API tem as credenciais completas e `PUBLIC_URL` HTTPS. Sem essa configuração, aparecem como **Em breve**. Nenhum projeto web ou iOS é necessário no repositório; os callbacks pertencem à API.
 
@@ -182,9 +192,11 @@ NATIVE_DEVICE_ID=emulator-5554 \
 EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run test:android
 ```
 
-Esse comando cria duas contas e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Ele verifica login, criação de objeto, cópia/colagem pelo clipboard real do Android, prévia do visitante, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
+Esse comando cria duas contas e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica login, criação de objeto, cópia/colagem pelo clipboard real do Android, prévia do visitante, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
 
-Para conferir o teclado sem criar dados, comece no painel com a conta conectada e execute `maestro test tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
+Para conferir o teclado sem criar dados, selecione Português em Idioma, comece no painel com a conta conectada e execute `maestro test tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
+
+O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
 
 `npm run build:bundle` confirma que o JavaScript empacota para Android; não substitui testes no aparelho, compilação do binário ou testes físicos de câmera/NFC/carteira.
 

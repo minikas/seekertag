@@ -1,0 +1,83 @@
+appId: app.seekertag.mobile
+name: Language and appearance persist; account categories support create, rename and delete
+---
+# Start on a signed-in dashboard. Creates/deletes only QA_CATEGORY, never an object.
+# Finishes in Portuguese/dark to run form-keyboard.yaml; restore system afterwards.
+- tapOn: "Minha conta|Mi cuenta|My account"
+- scrollUntilVisible:
+    element: "Idioma|Language"
+    direction: DOWN
+- tapOn: "Idioma|Language"
+- tapOn:
+    id: "preference-language-en"
+- assertVisible: "Language"
+- takeScreenshot: language-english
+- back
+- tapOn: "Appearance"
+- tapOn:
+    id: "preference-theme-light"
+- assertVisible: "Light"
+- takeScreenshot: theme-light
+- back
+- back
+- stopApp
+- launchApp
+- assertVisible: "My items"
+- waitForAnimationToEnd
+- takeScreenshot: home-light-persisted
+- tapOn: "My account"
+- tapOn: "Categories"
+- tapOn: "Create category"
+- tapOn:
+    id: "category-name"
+- inputText: ${QA_CATEGORY}
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save category"
+    direction: DOWN
+- tapOn: "Save category"
+- scrollUntilVisible:
+    element: ${QA_CATEGORY}
+    direction: DOWN
+- tapOn: ${QA_CATEGORY}
+- tapOn:
+    id: "category-name"
+- eraseText: 1
+- inputText: ${QA_CATEGORY}-edited
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save category"
+    direction: DOWN
+- tapOn: "Save category"
+- scrollUntilVisible:
+    element: ${QA_CATEGORY}-edited
+    direction: DOWN
+- takeScreenshot: category-renamed
+- tapOn: ${QA_CATEGORY}-edited
+- scrollUntilVisible:
+    element: "Delete category"
+    direction: DOWN
+- tapOn: "Delete category"
+- assertVisible: "Delete category?"
+- tapOn: "Delete category"
+- assertNotVisible: ${QA_CATEGORY}-edited
+- back
+- scrollUntilVisible:
+    element: "Language"
+    direction: DOWN
+- tapOn: "Language"
+- tapOn:
+    id: "preference-language-es"
+- assertVisible: "Idioma"
+- takeScreenshot: language-spanish
+- tapOn:
+    id: "preference-language-pt"
+- back
+- tapOn: "Aparência"
+- tapOn:
+    id: "preference-theme-dark"
+- assertVisible: "Escuro"
+- takeScreenshot: theme-dark
+- back
+- back
+- assertVisible: "Meus objetos"

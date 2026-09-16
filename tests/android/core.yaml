@@ -19,7 +19,7 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     element: "Entrar com e-mail"
     direction: DOWN
 - tapOn: "Entrar com e-mail"
-- tapOn: "voce@exemplo.com"
+- tapOn: "email@example.com"
 - inputText: ${QA_EMAIL}
 - pressKey: Enter
 - scrollUntilVisible:

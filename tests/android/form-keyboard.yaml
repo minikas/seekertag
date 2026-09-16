@@ -4,6 +4,21 @@ name: Form focus stays visible and dismissing the keyboard preserves the section
 # Start on the signed-in dashboard. This flow only edits and discards a draft.
 - tapOn: "Meus objetos"
 - tapOn: "Adicionar objeto"
+- tapOn:
+    id: "object-name"
+- inputText: "QA draft"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Gerenciar categorias"
+    direction: DOWN
+- tapOn: "Gerenciar categorias"
+- assertVisible: "Categorias"
+- back
+- scrollUntilVisible:
+    element:
+      id: "object-name"
+    direction: UP
+- assertVisible: "QA draft"
 - scrollUntilVisible:
     element:
       id: "object-reward"

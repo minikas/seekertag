@@ -101,8 +101,9 @@ test('failed writes remove the incomplete copy and temporary download', async ()
 
 test('sharing uses a local PDF and keeps it available to the receiving Android app', async () => {
   const h = harness();
-  await h.shareLabel(request);
+  await h.shareLabel({ ...request, dialogTitle: 'Share or print label' });
   assert.equal(h.shares.length, 1);
+  assert.equal(h.shares[0].config.dialogTitle, 'Share or print label');
   const shared = h.shares[0];
   assert.match(shared.uri, /^file:\/\/cache\//);
   assert.equal(shared.config.mimeType, 'application/pdf');
