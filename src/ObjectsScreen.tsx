@@ -17,16 +17,17 @@ const filters: { key: TagFilter; name: string; icon: IconName }[] = [
   { key: 'paused', name: 'Pausados', icon: 'pause-circle' },
 ];
 
-type Props = { tags: Tag[]; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean };
+type Props = { tags: Tag[]; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean };
 
-export default function ObjectsScreen({ tags, onSelect, onClose, refreshing, onRefresh, error, covered }: Props) {
+export default function ObjectsScreen({ tags, onSelect, onClose, refreshing, onRefresh, error, covered, suspended }: Props) {
   const { C, s, t, locale } = useUI();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<TagFilter>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const list = useRef<FlatList<Tag>>(null);
+  const scrollOffset = useRef(0);
   const filtered = useMemo(() => searchTags(tags, search, filter, t, locale), [tags, search, filter, t, locale]);
-  const resetScroll = () => list.current?.scrollToOffset({ offset: 0, animated: false });
+  const resetScroll = () => { scrollOffset.current = 0; list.current?.scrollToOffset({ offset: 0, animated: false }); };
   const changeSearch = (value: string) => { setSearch(value); resetScroll(); };
   const close = () => { Keyboard.dismiss(); onClose(); };
   const requestClose = () => {
@@ -35,7 +36,9 @@ export default function ObjectsScreen({ tags, onSelect, onClose, refreshing, onR
     else close();
   };
 
-  return <Modal visible animationType="slide" onRequestClose={requestClose}>
+  // The editor's Gorhom portal lives in the root window. Hide this native
+  // window while editing, retaining the query, filter and list position here.
+  return <Modal visible={!suspended} animationType="slide" onRequestClose={requestClose}>
     <GestureHandlerRootView style={styles.fill}>
       <SafeAreaView style={[styles.fill, { backgroundColor: C.bg }]}>
         <View style={styles.fill} accessibilityElementsHidden={filterOpen || covered} importantForAccessibility={filterOpen || covered ? 'no-hide-descendants' : 'auto'}>
@@ -64,6 +67,7 @@ export default function ObjectsScreen({ tags, onSelect, onClose, refreshing, onR
             {!!error && <Notice error text={error} />}
           </View>
           <FlatList ref={list} data={filtered} keyExtractor={tag => tag.id} style={styles.fill} contentContainerStyle={styles.list}
+            contentOffset={{ x: 0, y: scrollOffset.current }} onScroll={event => { scrollOffset.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={32}
             keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" initialNumToRender={12}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} />}
             renderItem={({ item }) => <TagRow tag={item} onPress={() => { Keyboard.dismiss(); onSelect(item); }} />}

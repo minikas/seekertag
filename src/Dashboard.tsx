@@ -37,14 +37,15 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(true); }, 6000);
     return () => clearInterval(timer);
   }, [refresh, form, selected, account, browsing]);
+  const homeTags = tags.slice(0, 3);
   const openReports = reports.filter(r => r.status === 'open');
   const switchTab = (key: Tab) => { setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
 
   const stats = [
-    { label: t("Protegidos"), value: tags.filter(t => t.status === 'active').length, icon: 'shield' as IconName, color: C.green },
-    { label: t("Perdidos"), value: tags.filter(t => t.status === 'lost').length, icon: 'search' as IconName, color: C.amber },
-    { label: t("Reencontros"), value: tags.reduce((n, t) => n + t.recoveryCount, 0), icon: 'heart' as IconName, color: C.accent },
+    { label: t("Protegidos"), value: tags.filter(t => t.status === 'active').length },
+    { label: t("Perdidos"), value: tags.filter(t => t.status === 'lost').length },
+    { label: t("Reencontros"), value: tags.reduce((n, t) => n + t.recoveryCount, 0) },
   ];
 
   return <View style={styles.page}>
@@ -53,9 +54,9 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
       <View style={styles.content}>
       {!!error && <Notice error text={error} />}
       {tab === 'items' ? <>
-        <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>{t("Meus objetos")}</Text><Text style={s.body}>{t("Tudo o que importa, por perto.")}</Text></View>
+        <Text accessibilityRole="header" style={s.h1}>{t("Meus objetos")}</Text>
         <View style={styles.stats}>{stats.map(stat => <View key={stat.label} style={styles.stat}>
-          <Icon name={stat.icon} size={22} color={stat.color} /><Text style={styles.statValue}>{stat.value}</Text><Text style={styles.statLabel}>{t(stat.label)}</Text>
+          <Text style={styles.statValue}>{stat.value.toLocaleString(locale)}</Text><Text style={styles.statLabel}>{stat.label}</Text>
         </View>)}</View>
         <Button onPress={() => setForm('new')} icon="plus">{t("Adicionar objeto")}</Button>
         {openReports.length > 0 && <Pressable accessibilityRole="button" onPress={() => switchTab('messages')} style={({ pressed }) => [styles.alert, pressed && styles.pressed]}>
@@ -64,15 +65,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
         </Pressable>}
         {tags.length > 0 ? <View>
           <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Etiquetas")}</Text><Pressable accessibilityRole="button" accessibilityLabel={t("Ver todos")} onPress={() => setBrowsing(true)} style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}><Text style={s.body}>{t("Ver todos")}</Text><Icon name="chevron-right" size={20} color={C.muted} /></Pressable></View>
-          {tags.map(tag => <TagRow key={tag.id} tag={tag} onPress={() => setSelected(tag)} />)}
+          {homeTags.map(tag => <TagRow key={tag.id} tag={tag} onPress={() => setSelected(tag)} />)}
         </View> : <View style={s.empty}>
           <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="tag" size={32} /></View>
           <Text style={[s.h2, styles.center]}>{t("Sua primeira etiqueta")}</Text>
           <Text style={[s.body, styles.center]}>{t("Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.")}</Text>
         </View>}
-        <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
-          <View style={s.circle}><Icon name="help-circle" /></View><View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Como funciona")}</Text><Text style={s.small}>{t("Uma etiqueta. Um caminho de volta.")}</Text></View><Icon name="chevron-right" color={C.muted} />
-        </Pressable>
+
       </> : <>
         <View style={styles.intro}><Text accessibilityRole="header" style={s.h1}>{t("Conversas")}</Text><Text style={s.body}>{t("O próximo reencontro começa aqui.")}</Text></View>
         {chat ? <View style={{ gap: 24 }}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>{t("Todas as conversas")}</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length > 0 ? <View>{reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={t("Conversa sobre {name}", { name: report.tagName })} onPress={() => setChat(report.id)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
@@ -88,7 +87,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
         <Icon name={tabItem.icon} color={tab === tabItem.key ? C.onPrimary : C.ink} size={28} />{tabItem.key === 'messages' && openReports.length > 0 && <View style={styles.badge} />}
       </View>
     </Pressable>)}</View>
-    {browsing && <ObjectsScreen tags={tags} onSelect={setSelected} onClose={() => setBrowsing(false)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} />}
+    {browsing && <ObjectsScreen tags={tags} onSelect={setSelected} onClose={() => setBrowsing(false)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} suspended={!!form} />}
     {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} />}
     {form && <TagForm onCategoriesChanged={() => void refresh(true)} token={token} tag={form === 'new' ? undefined : form} onClose={() => setForm(null)} onSaved={tag => { saveTag(tag); setForm(null); }} />}
     {selected && !form && <TagDetails tag={selected} token={token} user={user} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={tag => setForm(tag)} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
@@ -99,10 +98,10 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' }, topBar: { position: 'absolute', top: 0, width: '100%', maxWidth: 720, alignSelf: 'center', zIndex: 2, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   scrollContent: { width: '100%', maxWidth: 720, alignSelf: 'center' },
   content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32, gap: 26 }, intro: { gap: 8 }, center: { textAlign: 'center' },
-  stats: { flexDirection: 'row', gap: 10 }, stat: { flex: 1, backgroundColor: C.surface, borderRadius: 24, paddingHorizontal: 12, paddingVertical: 18, gap: 8 }, statValue: { color: C.ink, fontSize: 32, fontWeight: '600', lineHeight: 39 }, statLabel: { color: C.muted, fontSize: 13, lineHeight: 18 },
+  stats: { flexDirection: 'row', gap: 16 }, stat: { flex: 1, gap: 5 }, statValue: { color: C.ink, fontSize: 28, fontWeight: '500', lineHeight: 34 }, statLabel: { color: C.muted, fontSize: 14, lineHeight: 21 },
   viewAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 12 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, minHeight: 106, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
-  helpRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }, alert: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 }, pressed: { opacity: 0.65 },
+  alert: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 }, pressed: { opacity: 0.65 },
   navigation: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 12, paddingBottom: 8 }, tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 56 },
   tabIcon: { width: 72, height: 52, alignItems: 'center', justifyContent: 'center' },
   // Mount the rounded background with its final color so Android preserves its corners when switching tabs.
