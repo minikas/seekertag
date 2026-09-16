@@ -171,6 +171,9 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     if (!u) fail(401, 'Sua sessão expirou. Entre novamente.', 'UNAUTHORIZED');
     req.user = u; req.sessionHash = tokenHash; next();
   };
+  // Public routes remain usable anonymously. A supplied session must be valid;
+  // never silently turn an expired or malformed signed-in request anonymous.
+  const optionalOwner = (req, res, next) => req.headers.authorization !== undefined ? requireOwner(req, res, next) : next();
   const { consumeProof } = installAuth({ app, get, all, run, transaction, fail, requireOwner, authLimit, makeSession, userView, publicOrigin, oauthProviders });
   categories.install(app, requireOwner, ownerWriteLimit);
   const ownerTag = (req) => {
@@ -371,9 +374,13 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="seekertag-${tag.code}.pdf"` }).send(await pdf);
   });
 
-  app.get('/api/public/tags/:code', (req, res) => res.json({ tag: publicView(publicTag(req.params.code)) }));
-  app.post('/api/public/tags/:code/reports', reportLimit, (req, res) => {
+  app.get('/api/public/tags/:code', optionalOwner, (req, res) => {
     const tag = publicTag(req.params.code);
+    res.json({ tag: publicView(tag), viewerIsOwner: req.user?.id === tag.owner_id });
+  });
+  app.post('/api/public/tags/:code/reports', optionalOwner, reportLimit, (req, res) => {
+    const tag = publicTag(req.params.code);
+    if (req.user?.id === tag.owner_id) fail(403, 'Você não pode enviar um aviso para seu próprio objeto.', 'SELF_REPORT');
     const finderName = string(req.body.finderName ?? '', 'Como devemos chamar você', 60, { min: 0 }) || 'Pessoa que encontrou';
     const message = string(req.body.message, 'Mensagem', 2000);
     if (get("SELECT COUNT(*) AS n FROM reports WHERE tag_id=? AND status='open'", tag.id).n >= 100) fail(429, 'Esta etiqueta recebeu muitos avisos. Tente novamente mais tarde.', 'REPORT_LIMIT');

@@ -76,6 +76,50 @@ test('complete return lifecycle relays messages, preserves privacy, and records 
   assert.deepEqual(history.map((e) => e.type), ['returned', 'status_changed', 'created']);
 });
 
+test('public preview identifies the signed-in owner and rejects self reports without creating a conversation', async (t) => {
+  const h = await harness(); t.after(h.close);
+  const owner = await h.register(); const tag = await h.tag(owner);
+  const preview = await h.request(`/public/tags/${tag.code}`, { token: owner.token });
+  assert.equal(preview.data.viewerIsOwner, true);
+  assert.equal(preview.data.tag.ownerId, undefined);
+  const result = await h.request(`/public/tags/${tag.code}/reports`, { method: 'POST', token: owner.token, body: { message: 'Self report', viewerIsOwner: false } });
+  assert.equal(result.status, 403);
+  assert.equal(result.data.code, 'SELF_REPORT');
+  assert.equal((await h.request('/reports', { token: owner.token })).data.reports.length, 0);
+  assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag.reportCount, 0);
+});
+
+test('anonymous finders and other signed-in accounts can still notify the owner', async (t) => {
+  const h = await harness(); t.after(h.close);
+  const owner = await h.register(); const finder = await h.register(); const tag = await h.tag(owner);
+  for (const token of [undefined, finder.token]) {
+    assert.equal((await h.request(`/public/tags/${tag.code}`, { token })).data.viewerIsOwner, false);
+    const result = await h.request(`/public/tags/${tag.code}/reports`, { token, method: 'POST', body: { message: 'Found your item' } });
+    assert.equal(result.status, 201);
+  }
+});
+
+test('invalid or revoked public-route sessions cannot fall back to anonymous posting', async (t) => {
+  const h = await harness(); t.after(h.close);
+  const owner = await h.register(); const tag = await h.tag(owner);
+  await h.request('/auth/logout', { method: 'POST', token: owner.token });
+  for (const token of [owner.token, 'bad', 'a'.repeat(43)]) {
+    assert.equal((await h.request(`/public/tags/${tag.code}`, { token })).status, 401);
+    assert.equal((await h.request(`/public/tags/${tag.code}/reports`, { token, method: 'POST', body: { message: 'Self report' } })).status, 401);
+  }
+});
+
+test('self-report protection follows the current owner after a transfer', async (t) => {
+  const h = await harness(); t.after(h.close);
+  const owner = await h.register(); const recipient = await h.register(); const tag = await h.tag(owner);
+  const transfer = await h.request(`/tags/${tag.id}/transfer`, { token: owner.token, method: 'POST', body: { recipient: recipient.user.id, password: 'correct horse battery' } });
+  assert.equal(transfer.status, 200);
+  assert.equal((await h.request(`/public/tags/${tag.code}`, { token: recipient.token })).data.viewerIsOwner, true);
+  assert.equal((await h.request(`/public/tags/${tag.code}`, { token: owner.token })).data.viewerIsOwner, false);
+  assert.equal((await h.request(`/public/tags/${tag.code}/reports`, { token: recipient.token, method: 'POST', body: { message: 'Self report' } })).status, 403);
+  assert.equal((await h.request(`/public/tags/${tag.code}/reports`, { token: owner.token, method: 'POST', body: { message: 'Found your item' } })).status, 201);
+});
+
 test('owner authorization and finder capabilities cannot be swapped or supplied in query parameters', async (t) => {
   const h = await harness(); t.after(h.close);
   const owner = await h.register(); const stranger = await h.register(); const tag = await h.tag(owner); const found = await h.report(tag);

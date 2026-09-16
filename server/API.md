@@ -125,10 +125,12 @@ Recompensa é um **valor opcional prometido pelo dono**, de 0 a 1.000.000 na uni
 
 | Método e rota | Corpo | Resposta |
 |---|---|---|
-| `GET /public/tags/:code` | — | `{ tag: PublicTag }` |
+| `GET /public/tags/:code` | — | `{ tag: PublicTag, viewerIsOwner: boolean }` |
 | `POST /public/tags/:code/reports` | `{ finderName?, message }` | `201 { report, token, messages }` |
 | `GET /finder/reports/:id` | — | `{ report, messages, tag: PublicTag }` |
 | `POST /finder/reports/:id/messages` | `{ body }` | `201 { message }` |
+
+As duas rotas `/public/tags/:code` aceitam a sessão da conta no cabeçalho `Authorization`. A consulta informa `viewerIsOwner` sem expor a identidade do dono; a criação de aviso responde `403 SELF_REPORT` se a conta for a dona atual do objeto. Uma sessão informada, mas inválida ou revogada, responde `401`; ela nunca é tratada como visita anônima. Visitantes sem sessão e outras contas continuam podendo avisar o dono.
 
 `PublicTag` contém exclusivamente `{ code, name, category, categoryIcon, color, publicMessage, status, rewardAmount, rewardCurrency }`. Não inclui e-mail, nome da conta, ID do dono, descrição privada ou histórico. Etiqueta pausada responde `410 TAG_PAUSED` à consulta pública, criação de aviso e envio de mensagens. Uma conversa existente pode continuar sendo lida e mostra o status pausado. `active` e `lost` aceitam avisos: encontrar um item antes de o dono perceber a perda também é um caso válido.
 
