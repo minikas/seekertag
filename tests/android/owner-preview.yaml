@@ -1,0 +1,17 @@
+appId: app.seekertag.mobile
+name: Owner preview shows public information without a self-report form
+---
+# Signed-in Portuguese dashboard. No messages or account changes are submitted.
+- tapOn: "Meus objetos"
+- scrollUntilVisible:
+    element: "Abrir ${QA_OBJECT_NAME}"
+    direction: DOWN
+- tapOn: "Abrir ${QA_OBJECT_NAME}"
+- tapOn: "Opções do objeto"
+- tapOn: "Ver como visitante"
+- assertVisible: "Esta etiqueta é sua"
+- assertNotVisible: "Mensagem para o dono"
+- assertNotVisible: "Avisar o dono"
+- takeScreenshot: owner-read-only-preview
+- tapOn: "Página inicial"
+- assertVisible: "Adicionar objeto"

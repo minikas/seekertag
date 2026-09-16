@@ -1,0 +1,55 @@
+appId: app.seekertag.mobile
+name: Home shortcuts and account navigation stay in their intended screens
+---
+# Signed-in Portuguese dashboard with no conversations and a protected item.
+# This flow only reads data and navigates; it never changes preferences or signs out.
+- tapOn: "Meus objetos"
+- tapOn: "Como funciona"
+- assertVisible: "1. Adicione seu objeto"
+- tapOn: "Entendi"
+- tapOn: "Protegidos"
+- assertVisible: "Limpar filtro"
+- assertVisible: "Abrir ${QA_OBJECT_NAME}"
+- tapOn: "Voltar para início"
+- tapOn: "Perdidos"
+- assertVisible: "Limpar filtro"
+- assertNotVisible: "Abrir ${QA_OBJECT_NAME}"
+- tapOn: "Voltar para início"
+- tapOn: "Reencontrados"
+- assertVisible: "Limpar filtro"
+- tapOn: "Voltar para início"
+- tapOn: "Conversas"
+- assertVisible: "Tudo tranquilo por aqui"
+- assertNotVisible: "O próximo reencontro começa aqui."
+- takeScreenshot: empty-conversations
+- tapOn: "Minha conta"
+- assertVisible: "Sair da conta"
+- assertNotVisible: "Conversas"
+- tapOn: "Formas de entrar"
+- assertVisible: "Vincular Google"
+- back
+- assertVisible: "Receber etiquetas"
+- tapOn: "Receber etiquetas"
+- assertVisible: "Copiar ID da conta"
+- back
+- tapOn: "Categorias"
+- tapOn: "Criar categoria"
+- assertVisible: "Nome da categoria"
+- back
+- assertVisible: "Criar categoria"
+- back
+- tapOn: "Aparência"
+- assertVisible: "Igual ao dispositivo"
+- back
+- tapOn: "Idioma"
+- assertVisible: "Português"
+- back
+- takeScreenshot: account-normal-screen
+# Account subpages return through the screen back action, without bottom tabs.
+- tapOn: "Receber etiquetas"
+- assertNotVisible: "Meus objetos"
+- back
+- back
+- tapOn: "Meus objetos"
+- assertVisible: "Adicionar objeto"
+- takeScreenshot: home-shortcuts

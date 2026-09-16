@@ -28,14 +28,13 @@ A atualização migra os objetos existentes para categorias com IDs estáveis, m
 |---|---|
 | Cadastro, login, logout e recuperação | Mesmas telas e API; sessão no SecureStore |
 | Criar e editar objetos, categoria, nota privada, mensagem pública e recompensa prometida | Formulário completo de objeto |
-| Busca, filtros e indicadores | Painel de objetos |
+| Busca, filtros e indicadores | Indicadores da home abrem a lista filtrada; busca em Ver todos |
 | Marcar perdido, pausar e reativar | Detalhes da etiqueta |
 | QR, leitura por câmera e entrada manual | QR nativo e leitor Expo |
-| Copiar link | Toque no campo do link para copiar; compartilhar fica no ícone ao lado |
 | Compartilhar link | Compartilhador Android |
 | Baixar PDF A4 com seis etiquetas | Seletor de pasta Android e arquivo persistente |
 | Compartilhar/imprimir PDF | Compartilhar PDF com o aplicativo de arquivos/impressão escolhido |
-| Ver etiqueta como visitante | Abre no SeekerTag, sem cadastro do visitante |
+| Ver etiqueta como visitante | Abre no SeekerTag; o dono vê uma prévia sem formulário de aviso |
 | Gravar/cancelar NFC | NDEF nativo; exige hardware e etiqueta compatíveis |
 | Entrar com Seeker/Solana e vincular acessos | Assinatura SIWS verificada pela API; Google/Apple após configuração |
 | Aviso anônimo e conversa nos dois sentidos | Mesmas telas e API; credencial do visitante no SecureStore |
@@ -192,13 +191,15 @@ NATIVE_DEVICE_ID=emulator-5554 \
 EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run test:android
 ```
 
-Esse comando cria duas contas e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica login, criação de objeto, cópia/colagem pelo clipboard real do Android, prévia do visitante, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
+Esse comando cria duas contas e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica login, criação de objeto, compartilhamento nativo do link, prévia do dono sem envio de aviso, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
 
 Para conferir o teclado sem criar dados, selecione Português em Idioma, comece no painel com a conta conectada e execute `maestro test tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
 
 Para conferir o menu do objeto e cancelar NFC sem alterar dados, mantenha NFC ativado e execute `maestro test -e QA_OBJECT_NAME="Nome do objeto" tests/android/tag-details.yaml`. O fluxo usa uma etiqueta existente e verifica nova tentativa e fechamento pelo Voltar do Android.
 
-O fluxo `tests/android/visitor-keyboard.yaml`, com o mesmo `QA_OBJECT_NAME`, abre o visitante a partir do menu do objeto e confere o campo de mensagem com o teclado aberto, sem enviar o rascunho. Ele cobre a transição entre a janela nativa de detalhes e a tela principal do app.
+O fluxo `tests/android/owner-preview.yaml`, com o mesmo `QA_OBJECT_NAME`, abre a prévia pelo menu do objeto e verifica que o dono não recebe formulário nem botão para avisar a si mesmo. A API também rejeita a criação de aviso pela sessão do dono.
+
+`tests/android/home-browse.yaml` confere busca, filtros e retorno do editor; `tests/android/home-account.yaml` confere os indicadores, a ajuda e a navegação de Minha conta. Use `QA_OBJECT_NAME` de um objeto protegido e uma conta sem conversas para esses fluxos, que não salvam dados nem saem da conta.
 
 O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
 

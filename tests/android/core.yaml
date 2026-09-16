@@ -1,5 +1,5 @@
 appId: app.seekertag.mobile
-name: Android account, label, clipboard, PDF picker, visitor and app links
+name: Android account, label, sharing, PDF picker, visitor and app links
 ---
 - stopApp
 - launchApp
@@ -45,27 +45,15 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     direction: DOWN
 - tapOn: "Criar etiqueta"
 - extendedWaitUntil:
-    visible: "Link da etiqueta"
+    visible: "Compartilhar link"
     timeout: 20000
 - assertVisible: ${QA_OBJECT_NAME}
 - takeScreenshot: native-created-qr
-- scrollUntilVisible:
-    element: "Copiar link"
-    direction: DOWN
-- tapOn: "Copiar link"
-# The transient copy toast is not a persistent assertion target. Opening the
-# clipboard value below verifies that the link was copied successfully.
-- tapOn: "Fechar"
-- tapOn: "Escanear etiqueta"
-# Use Android's actual clipboard, not Maestro's separate pasteText buffer.
-- longPressOn: "https://…/found/sua-etiqueta"
-- tapOn: "Paste|Colar|Pegar"
-- hideKeyboard
-- tapOn: "Abrir etiqueta"
-- extendedWaitUntil:
-    visible: ${QA_OBJECT_NAME}
-    timeout: 20000
+- assertNotVisible: "Link da etiqueta"
+- tapOn: "Compartilhar link"
 - back
+- assertVisible: "Baixar PDF"
+- tapOn: "Fechar"
 - scrollUntilVisible:
     element: "Abrir ${QA_OBJECT_NAME}"
     direction: DOWN
@@ -76,6 +64,8 @@ name: Android account, label, clipboard, PDF picker, visitor and app links
     visible: ${QA_OBJECT_NAME}
     timeout: 20000
 - assertVisible: "Página inicial"
+- assertVisible: "Esta etiqueta é sua"
+- assertNotVisible: "Avisar o dono"
 - back
 - scrollUntilVisible:
     element: "Abrir ${QA_OBJECT_NAME}"
