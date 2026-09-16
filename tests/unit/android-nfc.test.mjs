@@ -10,13 +10,13 @@ const compiled = ts.transpileModule(readFileSync(new URL('../../src/platform/nfc
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const url = 'https://seekertag.example/t/test-tag';
-function harness({ status, discovery } = {}) {
+function harness({ status, discovery, canCancel = () => true } = {}) {
   const cancellations = [], writes = [];
   let requests = 0;
   const manager = {
     isSupported: async () => true, start: async () => {}, isEnabled: async () => true,
     requestTechnology: async () => { requests++; await discovery?.promise; },
-    cancelTechnologyRequest: async options => { cancellations.push(options); discovery?.reject(new Error('cancelled')); },
+    cancelTechnologyRequest: async options => { cancellations.push(options); if (canCancel()) discovery?.reject(new Error('cancelled')); },
     ndefHandler: { getNdefStatus: async () => status ? status.promise : { status: 1, capacity: 1000 }, writeNdefMessage: async bytes => { writes.push(bytes); } },
   };
   const module = { exports: {} };
@@ -64,4 +64,21 @@ test('cancelling before the NFC module loads never starts discovery', async () =
   assert.equal(h.writes.length, 0);
   await h.writeTagUrl(url);
   assert.equal(h.writes.length, 1);
+});
+
+test('cancellation also stops a native discovery request that finishes registering after the first cancel', async () => {
+  const discovery = deferred();
+  let registered = false;
+  const h = harness({ discovery, canCancel: () => registered });
+  const write = assert.rejects(h.writeTagUrl(url), /cancelada/);
+  await tick();
+  const cancellation = h.cancelNfcWrite();
+  registered = true;
+  const deadline = setTimeout(() => discovery.reject(new Error('Test deadline')), 800);
+  try {
+    const started = Date.now();
+    await Promise.all([write, cancellation]);
+    assert.ok(Date.now() - started < 500, 'Cancellation should catch late native registration, without waiting for the discovery timeout.');
+    assert.equal(h.writes.length, 0);
+  } finally { clearTimeout(deadline); }
 });

@@ -5,6 +5,7 @@ type WriteOperation = {
   module: NfcModule | null;
   cancelled: boolean;
   cancellation?: Promise<void>;
+  stopping?: Promise<void>;
   finished: Promise<void>;
 };
 let activeWrite: WriteOperation | null = null;
@@ -65,8 +66,18 @@ export async function cancelNfcWrite(): Promise<void> {
   const operation = activeWrite;
   if (!operation) return;
   operation.cancelled = true;
-  if (operation.module && !operation.cancellation) {
-    operation.cancellation = operation.module.default.cancelTechnologyRequest({ delayMsAndroid: 0 }).catch(() => {});
-  }
-  await operation.finished;
+  if (!operation.stopping) operation.stopping = (async () => {
+    // requestTechnology registers Android discovery asynchronously. A cancellation
+    // during that registration can arrive before the native request exists.
+    while (activeWrite === operation) {
+      operation.cancellation = operation.module?.default.cancelTechnologyRequest({ delayMsAndroid: 0 }).catch(() => {});
+      await operation.cancellation;
+      if (activeWrite !== operation) break;
+      await new Promise<void>(resolve => {
+        const retry = setTimeout(resolve, 50);
+        void operation.finished.then(() => { clearTimeout(retry); resolve(); });
+      });
+    }
+  })();
+  await operation.stopping;
 }
