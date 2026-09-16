@@ -198,6 +198,8 @@ Para conferir o teclado sem criar dados, selecione Português em Idioma, comece 
 
 Para conferir o menu do objeto e cancelar NFC sem alterar dados, mantenha NFC ativado e execute `maestro test -e QA_OBJECT_NAME="Nome do objeto" tests/android/tag-details.yaml`. O fluxo usa uma etiqueta existente e verifica nova tentativa e fechamento pelo Voltar do Android.
 
+O fluxo `tests/android/visitor-keyboard.yaml`, com o mesmo `QA_OBJECT_NAME`, abre o visitante a partir do menu do objeto e confere o campo de mensagem com o teclado aberto, sem enviar o rascunho. Ele cobre a transição entre a janela nativa de detalhes e a tela principal do app.
+
 O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
 
 `npm run build:bundle` confirma que o JavaScript empacota para Android; não substitui testes no aparelho, compilação do binário ou testes físicos de câmera/NFC/carteira.

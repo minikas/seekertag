@@ -1,0 +1,19 @@
+appId: app.seekertag.mobile
+name: Visitor message remains visible after leaving the native tag modal
+---
+# Signed-in Portuguese dashboard. The message is a draft and is never submitted.
+- tapOn: "Meus objetos"
+- scrollUntilVisible:
+    element: "Abrir ${QA_OBJECT_NAME}"
+    direction: DOWN
+- tapOn: "Abrir ${QA_OBJECT_NAME}"
+- tapOn: "Opções do objeto"
+- tapOn: "Ver como visitante"
+- tapOn: "Mensagem para o dono"
+- inputText: "QA keyboard draft"
+- assertVisible: "QA keyboard draft"
+- takeScreenshot: visitor-message-above-keyboard
+- hideKeyboard
+- assertVisible: "QA keyboard draft"
+- tapOn: "Página inicial"
+- assertVisible: "Adicionar objeto"
