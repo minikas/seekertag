@@ -3,6 +3,7 @@ import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Share, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import Pressable from './HapticPressable';
 import * as Clipboard from 'expo-clipboard';
 import { nativeTagUrl } from './links';
 import { api, API_URL, Tag, User } from './api';
@@ -98,7 +99,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   function copyLink() {
     void run('copy', async () => {
       await Clipboard.setStringAsync(tag.publicUrl);
-      return () => setNotice('Link da etiqueta copiado.');
+      return () => ToastAndroid.show(t('Link da etiqueta copiado.'), ToastAndroid.SHORT);
     });
   }
 
@@ -177,9 +178,14 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     </View>
 
     <View style={{ gap: 10 }}>
-      <Field label={t("Link da etiqueta")} value={tag.publicUrl} editable={false} selectTextOnFocus autoCapitalize="none" style={{ fontSize: 15 }} />
-      <Button variant="secondary" icon="copy" onPress={copyLink} busy={busy === 'copy'} disabled={!!busy}>{t("Copiar link")}</Button>
-      <Button variant="secondary" icon="share-2" onPress={shareLink} busy={busy === 'share'} disabled={!!busy}>{t("Compartilhar link")}</Button>
+      <Text style={s.label}>{t("Link da etiqueta")}</Text>
+      <View style={styles.linkRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("Copiar link")} accessibilityHint={tag.publicUrl} disabled={!!busy} onPress={copyLink} style={({ pressed }) => [styles.linkField, pressed && { opacity: 0.65 }]}>
+          <Text numberOfLines={1} ellipsizeMode="middle" style={styles.linkText}>{tag.publicUrl}</Text>
+          <Icon name="copy" size={18} color={C.muted} />
+        </Pressable>
+        <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58, height: 58 }} />
+      </View>
     </View>
 
     {error && !transferOpen ? <Notice text={error} error /> : null}
@@ -213,6 +219,9 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  linkField: { flex: 1, minHeight: 58, borderRadius: 18, backgroundColor: C.input, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
+  linkText: { flex: 1, fontSize: 16, color: C.ink },
   itemIcon: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   qrCard: { paddingVertical: 28, alignItems: 'center', gap: 20 },
   qrPaper: { backgroundColor: 'white', padding: 8 },
