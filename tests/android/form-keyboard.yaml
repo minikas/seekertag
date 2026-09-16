@@ -37,6 +37,9 @@ name: Form focus stays visible and dismissing the keyboard preserves the section
 - tapOn:
     id: "object-reward"
 - assertVisible: "25"
+# Maestro scrollUntilVisible swipes across the window midpoint; with the IME
+# open that crosses the fixed submit footer instead of the scrollable content.
+- hideKeyboard
 - scrollUntilVisible:
     element:
       id: "object-message"
