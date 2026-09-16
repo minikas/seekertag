@@ -15,7 +15,7 @@ name: Home browsing preserves search through details and the object editor
 - takeScreenshot: object-filters
 - tapOn: "Protegidos"
 - tapOn: "Abrir ${QA_OBJECT_NAME}"
-- assertVisible: "Link da etiqueta"
+- assertVisible: "Compartilhar link"
 - back
 - assertVisible: "${QA_OBJECT_NAME}"
 - assertVisible: "Limpar filtro"
@@ -25,7 +25,7 @@ name: Home browsing preserves search through details and the object editor
 - assertVisible:
     id: "object-name"
 - back
-- assertVisible: "Link da etiqueta"
+- assertVisible: "Compartilhar link"
 - back
 - assertVisible: "${QA_OBJECT_NAME}"
 - assertVisible: "Limpar filtro"

@@ -5,7 +5,6 @@ import { ActivityIndicator, Linking, Share, StyleSheet, Text, ToastAndroid, View
 import QRCode from 'react-native-qrcode-svg';
 import Pressable from './HapticPressable';
 import ScreenBottomSheet from './ScreenBottomSheet';
-import * as Clipboard from 'expo-clipboard';
 import { nativeTagUrl } from './links';
 import { api, API_URL, Tag, User } from './api';
 import { tagCategoryLabel, categoryInk } from './category.model';
@@ -23,7 +22,7 @@ type Props = {
   onEdit: (tag: Tag) => void;
   onTransferred: () => void;
 };
-type Action = 'status' | 'download' | 'sharePdf' | 'copy' | 'share' | 'transfer' | 'nfc' | null;
+type Action = 'status' | 'download' | 'sharePdf' | 'share' | 'transfer' | 'nfc' | null;
 
 export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdit, onTransferred }: Props) {
   const { C, s, t, locale } = useUI();
@@ -96,13 +95,6 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     void run('sharePdf', async () => {
       await shareLabel({ dialogTitle: t("Compartilhar ou imprimir etiqueta"), url: `${API_URL}/tags/${tag.id}/label.pdf?lang=${locale.slice(0, 2)}`, token, fileName: `SeekerTag-${tag.code}.pdf` });
       return () => {};
-    });
-  }
-
-  function copyLink() {
-    void run('copy', async () => {
-      await Clipboard.setStringAsync(tag.publicUrl);
-      return () => ToastAndroid.show(t('Link da etiqueta copiado.'), ToastAndroid.SHORT);
     });
   }
 
@@ -202,19 +194,10 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       <View style={styles.qrCard}>
         <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={210} backgroundColor="white" color="#101918" ecl="M" quietZone={10} /></View>
       </View>
-      <View style={{ gap: 10 }}>
-        <Text style={s.label}>{t("Link da etiqueta")}</Text>
-        <View style={styles.linkRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t("Copiar link")} accessibilityHint={tag.publicUrl} accessibilityState={{ disabled: !!busy }} disabled={!!busy} onPress={copyLink} style={({ pressed }) => [styles.linkField, pressed && { opacity: 0.65 }]}>
-            <Text numberOfLines={1} ellipsizeMode="middle" style={styles.linkText}>{tag.publicUrl}</Text>
-            <Icon name="copy" size={18} color={C.muted} />
-          </Pressable>
-          <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58, height: 58 }} />
-        </View>
-      </View>
       <View style={styles.buttonRow}>
-        <Button style={styles.halfButton} onPress={download} busy={busy === 'download'} disabled={!!busy} icon="download">{t("Baixar PDF")}</Button>
-        <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy || nfcStopping} icon="wifi">{t("Gravar NFC")}</Button>
+        <Button style={styles.halfButton} onPress={download} busy={busy === 'download'} disabled={!!busy}>{t("Baixar PDF")}</Button>
+        <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy || nfcStopping}>{t("Gravar NFC")}</Button>
+        <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58 }} />
       </View>
       {tag.status === 'paused' ? <View style={{ gap: 12 }}><Text style={s.body}>{t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")}</Text><Button variant="secondary" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="play-circle">{t("Reativar etiqueta")}</Button></View> : tag.status === 'lost' ? <Button variant="secondary" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="check-circle">{t("Já está comigo")}</Button> : null}
       {localOnly && <View style={styles.localNote}><Icon name="info" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Link local. Outros aparelhos precisam de um endereço público.")}</Text></View>}
@@ -254,9 +237,6 @@ function ActionRow({ icon, title, onPress }: { icon: IconName; title: string; on
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({
-  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  linkField: { flex: 1, minHeight: 58, borderRadius: 18, backgroundColor: C.input, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
-  linkText: { flex: 1, fontSize: 16, color: C.ink },
   itemIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   qrCard: { paddingVertical: 20, alignItems: 'center' },
   qrPaper: { backgroundColor: 'white', padding: 14, borderRadius: 24 },

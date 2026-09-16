@@ -8,7 +8,7 @@ name: Tag actions and NFC cancellation preserve the current item
     element: "Abrir ${QA_OBJECT_NAME}"
     direction: DOWN
 - tapOn: "Abrir ${QA_OBJECT_NAME}"
-- assertVisible: "Link da etiqueta"
+- assertVisible: "Compartilhar link"
 - assertNotVisible: "Transferir etiqueta"
 - tapOn: "Opções do objeto"
 - tapOn: "Detalhes do objeto"
@@ -22,11 +22,11 @@ name: Tag actions and NFC cancellation preserve the current item
       - assertVisible: "Aproxime a etiqueta NFC"
       - tapOn: "Cancelar gravação"
       - assertNotVisible: "Aproxime a etiqueta NFC"
-      - assertVisible: "Link da etiqueta"
+      - assertVisible: "Compartilhar link"
 - tapOn: "Gravar NFC"
 - assertVisible: "Aproxime a etiqueta NFC"
 - back
 - assertNotVisible: "Aproxime a etiqueta NFC"
-- assertVisible: "Link da etiqueta"
+- assertVisible: "Compartilhar link"
 - takeScreenshot: tag-details-after-nfc-cancellation
 - back
