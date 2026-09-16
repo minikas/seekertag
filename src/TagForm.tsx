@@ -8,12 +8,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, Tag } from './api';
 import { Button, categories, C, Field, Icon, Notice, s } from './ui';
-import KeyboardAwareSheetScrollView, { KeyboardAwareSheetScrollViewRef } from './KeyboardAwareSheetScrollView';
+import KeyboardAwareSheetScrollView from './KeyboardAwareSheetScrollView';
 
 export default function TagForm({ token, tag, onClose, onSaved }: { token: string; tag?: Tag; onClose: () => void; onSaved: (tag: Tag) => void }) {
   const sheet = useRef<BottomSheetModal>(null);
-  const scroll = useRef<KeyboardAwareSheetScrollViewRef>(null);
-  const focusFrame = useRef<number | null>(null);
   const insets = useSafeAreaInsets();
   const snapPoints = useMemo(() => ['78%', '96%'], []);
   const saving = useRef(false);
@@ -29,23 +27,6 @@ export default function TagForm({ token, tag, onClose, onSaved }: { token: strin
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
-
-  // The sheet moves independently of the keyboard. Refresh input coordinates
-  // after both layouts settle, including refocusing with an already open IME.
-  const ensureFocusedField = useCallback(() => {
-    if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
-    focusFrame.current = requestAnimationFrame(() => {
-      focusFrame.current = requestAnimationFrame(() => {
-        focusFrame.current = null;
-        if (!closing.current && Keyboard.isVisible()) scroll.current?.assureFocusedInputVisible();
-      });
-    });
-  }, []);
-  useEffect(() => {
-    const keyboard = Keyboard.addListener('keyboardDidShow', ensureFocusedField);
-    return () => { keyboard.remove(); if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current); };
-  }, [ensureFocusedField]);
-  useEffect(ensureFocusedField, [ensureFocusedField, footerHeight]);
 
   const close = useCallback(() => {
     if (saving.current || closing.current) return;
@@ -126,7 +107,8 @@ export default function TagForm({ token, tag, onClose, onSaved }: { token: strin
     enableContentPanningGesture={!busy}
     enableBlurKeyboardOnGesture={false}
     keyboardBehavior="interactive"
-    keyboardBlurBehavior="restore"
+    // Keep the expanded sheet and scroll position when the keyboard closes.
+    keyboardBlurBehavior="none"
     android_keyboardInputMode="adjustPan"
     topInset={insets.top + 8}
     backdropComponent={backdrop}
@@ -135,27 +117,26 @@ export default function TagForm({ token, tag, onClose, onSaved }: { token: strin
     backgroundStyle={styles.background}
     handleIndicatorStyle={styles.handle}
     onDismiss={finishDismiss}
-    onChange={ensureFocusedField}
     accessibilityLabel={tag ? 'Editar objeto' : 'Adicionar objeto'}
   >
     <KeyboardAwareSheetScrollView
-      ref={scroll}
       mode="layout"
+      disableScrollOnKeyboardHide
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
       bottomOffset={footerHeight + 20}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="none"
       enableFooterMarginAdjustment
     >
-      <Field inSheet testID="object-name" onFocus={ensureFocusedField} label="Nome do objeto" placeholder="Ex.: Minha mochila verde" value={name} onChangeText={setName} maxLength={80} editable={!busy} />
+      <Field inSheet testID="object-name" label="Nome do objeto" placeholder="Ex.: Minha mochila verde" value={name} onChangeText={setName} maxLength={80} editable={!busy} />
       <View style={{ gap: 12 }}><Text style={s.label}>Categoria</Text><View style={styles.categories}>{categories.map(c => <Pressable key={c.name} accessibilityRole="button" accessibilityLabel={c.name} accessibilityState={{ selected: c.name === category, disabled: busy }} disabled={busy} onPress={() => setCategory(c.name)} style={({ pressed }) => [styles.category, { backgroundColor: c.name === category ? C.primary : C.secondary, opacity: pressed || busy ? 0.65 : 1 }]}><Icon name={c.icon} size={20} color={c.name === category ? C.onPrimary : C.ink} /><Text style={{ color: c.name === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{c.name}</Text></Pressable>)}</View></View>
-      <Field inSheet testID="object-note" onFocus={ensureFocusedField} label="Anotação particular (opcional)" placeholder="Modelo, cor ou algum detalhe" value={description} onChangeText={setDescription} maxLength={500} help="Só você vê esta anotação." editable={!busy} />
-      <Field inSheet testID="object-message" onFocus={ensureFocusedField} onContentSizeChange={ensureFocusedField} label="Mensagem na etiqueta" multiline scrollEnabled style={{ maxHeight: 160 }} value={publicMessage} onChangeText={setPublicMessage} maxLength={500} help="Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço." editable={!busy} />
+      <Field inSheet testID="object-note" label="Anotação particular (opcional)" placeholder="Modelo, cor ou algum detalhe" value={description} onChangeText={setDescription} maxLength={500} help="Só você vê esta anotação." editable={!busy} />
+      <Field inSheet testID="object-message" label="Mensagem na etiqueta" multiline scrollEnabled style={{ maxHeight: 160 }} value={publicMessage} onChangeText={setPublicMessage} maxLength={500} help="Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço." editable={!busy} />
       <View style={s.divider} />
       <View style={{ gap: 13 }}>
         <View style={s.row}><Icon name="gift" color={C.accent} /><Text style={[s.h3, { flex: 1 }]}>Recompensa opcional</Text></View>
         <Text style={s.small}>Você pode oferecer uma recompensa e combinar o pagamento na conversa. Este valor é uma promessa: nenhum dinheiro é depositado ou transferido pelo app.</Text>
-        <Field inSheet testID="object-reward" onFocus={ensureFocusedField} label="Valor da recompensa (opcional)" value={reward} onChangeText={setReward} keyboardType="decimal-pad" placeholder="0,00" maxLength={12} editable={!busy} />
+        <Field inSheet testID="object-reward" label="Valor da recompensa (opcional)" value={reward} onChangeText={setReward} keyboardType="decimal-pad" placeholder="0,00" maxLength={12} editable={!busy} />
         <View style={s.row}>{['BRL', 'USDC', 'SKR'].map(c => <Button key={c} variant={c === currency ? 'primary' : 'secondary'} onPress={() => setCurrency(c)} disabled={busy}>{c === 'BRL' ? 'R$' : c}</Button>)}</View>
       </View>
     </KeyboardAwareSheetScrollView>

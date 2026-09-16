@@ -1,6 +1,6 @@
 import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
 import { api, ApiError, Report, Tag, User } from './api';
 import { Button, C, categoryInfo, Field, formatDate, Icon, IconName, Notice, Pill, s } from './ui';
@@ -24,7 +24,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const [headerHeight, setHeaderHeight] = useState(72);
   const header = useScrollHeader(headerHeight);
   const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); } }, [token]);
-  useEffect(() => { void refresh(); const timer = setInterval(() => void refresh(true), 6000); return () => clearInterval(timer); }, [refresh]);
+  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    // Do not refresh and rerender the covered dashboard while editing a form.
+    if (form || selected || account) return;
+    const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(true); }, 6000);
+    return () => clearInterval(timer);
+  }, [refresh, form, selected, account]);
   const openReports = reports.filter(r => r.status === 'open');
   const filtered = tags.filter(t => (filter === 'all' || t.status === filter) && `${t.name} ${t.category}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const switchTab = (key: Tab) => { setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };

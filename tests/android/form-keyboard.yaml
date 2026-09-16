@@ -1,0 +1,49 @@
+appId: app.seekertag.mobile
+name: Form focus stays visible and dismissing the keyboard preserves the section
+---
+# Start on the signed-in dashboard. This flow only edits and discards a draft.
+- tapOn: "Meus objetos"
+- tapOn: "Adicionar objeto"
+- scrollUntilVisible:
+    element:
+      id: "object-reward"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "object-reward"
+- inputText: "25"
+- assertVisible: "25"
+- takeScreenshot: reward-keyboard
+# An unhandled tap in the form dismisses the IME, just as a user taps outside.
+- tapOn: "Recompensa opcional"
+- assertVisible: "25"
+- assertNotVisible: "Nome do objeto"
+- takeScreenshot: reward-keyboard-dismissed
+- tapOn:
+    id: "object-reward"
+- assertVisible: "25"
+- scrollUntilVisible:
+    element:
+      id: "object-message"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "object-message"
+- inputText: " QA"
+- assertVisible:
+    id: "object-message"
+- takeScreenshot: message-keyboard
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "object-reward"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "object-reward"
+- assertVisible: "25"
+- hideKeyboard
+- assertVisible: "25"
+- assertNotVisible: "Nome do objeto"
+- tapOn: "Fechar"
+- assertVisible: "Adicionar objeto"
