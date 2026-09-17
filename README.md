@@ -4,6 +4,34 @@ Aplicativo **exclusivamente Android, com foco no Solana Seeker**, feito com Expo
 
 O projeto tem um app Android e uma API Node.js com SQLite. Não há projeto iOS, site, exportação web ou interface de navegador. A API continua necessária para que dois aparelhos compartilhem objetos, avisos e mensagens.
 
+## Monorepo (Turborepo + npm workspaces)
+
+Requer Node.js 24+ e npm 11.8.0. Execute `npm ci` uma única vez na raiz.
+
+- `apps/mobile`: app Expo 57, assets, plugins, configuração EAS e testes mobile.
+- `apps/api`: API Node/SQLite, testes e `.env` local; o banco fica em `apps/api/data/`.
+- `packages/shared`: pacote `@seekertag/shared`, usado pelo app e pela API.
+- `contracts`, `scripts` e `artifacts`: contratos Solana, ferramentas e resultados de build na raiz.
+
+Os comandos existentes continuam disponíveis na raiz: `npm run dev`, `npm run start`,
+`npm run android`, `npm run api`, `npm run test:all`, `npm run build:android` e os testes de escrow/devnet.
+`npm run dev` inicia API e Metro pelo Turbo; `npm run build` exporta o bundle Android para
+`artifacts/android-bundle`. Testes sempre executam; typecheck e bundle usam cache do Turbo.
+`EXPO_PUBLIC_*` e arquivos `.env` do app entram na chave do cache do bundle.
+O desenvolvimento repassa as variáveis do terminal aos dois processos.
+
+Para executar comandos diretamente no app, use `cd apps/mobile` antes de `npx expo …`
+ou `eas …`; `app.json` e `eas.json` ficam nessa pasta. Os comandos da raiz encaminham
+opções, por exemplo `npm run start -- --clear` e `npm run android -- --device Seeker`.
+Após a migração, inicie o Metro uma vez com `--clear`. Antes de reutilizar builds nativos
+incrementais, execute `npm run build:android` sem `--incremental` para atualizar os caminhos
+nativos. Os diretórios nativos e artefatos locais existentes foram preservados.
+
+Dependências são declaradas no workspace que as utiliza. Adicione pacotes com
+`npm install <pacote> --workspace=@seekertag/mobile` ou `--workspace=seekertag-api`.
+O lockfile único é `package-lock.json` na raiz; não instale a API com `--prefix`.
+O Docker continua sendo construído a partir da raiz do repositório.
+
 ## Como funciona
 
 1. O dono entra com sua carteira Seeker/Solana, Google ou Apple; a conta é criada no primeiro acesso. Google/Apple exigem ativação dos provedores. A tela inicial mostra a ilustração e a ação Começar; os três provedores ficam em um sheet Gorhom.
@@ -54,7 +82,7 @@ Em **Adicionar/Editar objeto**, a seção **Recompensa** reúne saldo, SOL/USDC/
 
 Na conversa, quem encontrou confirma uma carteira com assinatura de mensagem. Após receber o objeto, o dono escolhe **Devolução e recompensa → Confirmar devolução e pagar** e assina a transação. A API também assina a carteira destinatária verificada e só encerra a devolução após confirmar o pagamento na rede. Antes do vencimento, não existe cancelamento antecipado pelo dono ou pelo servidor.
 
-A integração é inicialmente **devnet**. USDC e SKR usados pelos scripts são tokens de teste próprios, com 6 casas decimais; não são os ativos reais nem representam saldo mainnet. Detalhes de contrato, recuperação de transações, configuração e testes estão em [server/REWARDS.md](server/REWARDS.md).
+A integração é inicialmente **devnet**. USDC e SKR usados pelos scripts são tokens de teste próprios, com 6 casas decimais; não são os ativos reais nem representam saldo mainnet. Detalhes de contrato, recuperação de transações, configuração e testes estão em [apps/api/REWARDS.md](apps/api/REWARDS.md).
 
 ## Executar no celular
 
@@ -62,7 +90,6 @@ Requer Node.js 24, npm e uma compilação de desenvolvimento instalada no aparel
 
 ```sh
 npm ci
-npm ci --prefix server
 npm run dev:lan
 ```
 
@@ -88,7 +115,7 @@ Em **Minha conta → Formas de entrar**, vincule uma carteira ou provedor à con
 
 Google e Apple usam a autenticação oficial em uma aba do navegador Android e retornam ao aplicativo. Só são habilitados quando a API tem as credenciais completas e `PUBLIC_URL` HTTPS. Sem essa configuração, aparecem como **Em breve**. Nenhum projeto web ou iOS é necessário no repositório; os callbacks pertencem à API.
 
-Para ativar, configure o ambiente da API (ou `server/.env`, carregado por `npm run api`); os nomes estão em [server/.env.example](server/.env.example). Não coloque segredos em `EXPO_PUBLIC_*` ou no aplicativo:
+Para ativar, configure o ambiente da API (ou `apps/api/.env`, carregado por `npm run api`); os nomes estão em [apps/api/.env.example](apps/api/.env.example). Não coloque segredos em `EXPO_PUBLIC_*` ou no aplicativo:
 
 1. **Google:** configure a tela de consentimento e um cliente OAuth do tipo **Web application**, pois a troca de código acontece na API. Registre `https://SEU-DOMINIO/api/auth/oauth/google/callback` e configure `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Enquanto o projeto estiver em teste, adicione suas contas de teste no Google Cloud.
 2. **Apple:** configure um Services ID associado a um App ID elegível com Sign in with Apple, seu domínio e `https://SEU-DOMINIO/api/auth/oauth/apple/callback`. Configure `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` e `APPLE_PRIVATE_KEY` com a chave `.p8`. A elegibilidade e associação a um aplicativo Apple são requisitos da conta Apple Developer; remover o projeto iOS deste repositório não elimina esses requisitos.
@@ -154,7 +181,7 @@ Use um domínio HTTPS estável antes de imprimir etiquetas definitivas. Links an
 PUBLIC_URL=https://seu-dominio.example npm run api
 ```
 
-Nos builds, use `EXPO_PUBLIC_API_URL=https://seu-dominio.example/api`. Substitua o domínio de exemplo por um domínio real. O banco padrão fica em `server/data/seekertag.sqlite`, acompanhado dos arquivos WAL/SHM.
+Nos builds, use `EXPO_PUBLIC_API_URL=https://seu-dominio.example/api`. Substitua o domínio de exemplo por um domínio real. O banco padrão fica em `apps/api/data/seekertag.sqlite`, acompanhado dos arquivos WAL/SHM.
 
 O Docker empacota somente o backend:
 
@@ -164,7 +191,7 @@ docker run --rm -p 4318:4318 -v seekertag-data:/data \
   -e PUBLIC_URL=https://seu-dominio.example seekertag-api
 ```
 
-Use HTTPS no proxy e armazenamento persistente com backup. Nenhum serviço é publicado automaticamente. Rotas e contratos estão em [server/API.md](server/API.md).
+Use HTTPS no proxy e armazenamento persistente com backup. Nenhum serviço é publicado automaticamente. Rotas e contratos estão em [apps/api/API.md](apps/api/API.md).
 
 ## Build Android
 
@@ -174,7 +201,7 @@ Android exige JDK 17 e Android SDK/NDK:
 EXPO_PUBLIC_API_URL=https://seu-dominio.example/api npm run build:android
 ```
 
-O script gera `artifacts/SeekerTag-preview.apk`, arm64, com assinatura de desenvolvimento e JavaScript embutido. Sem URL explícita, tenta detectar a rede local. `-- --incremental` pode ser usado após mudanças somente em JavaScript/TypeScript. O plugin Android permite HTTP para desenvolvimento; ajuste `allowCleartext: false` em `app.json` para distribuição com API HTTPS.
+O script gera `artifacts/SeekerTag-preview.apk`, arm64, com assinatura de desenvolvimento e JavaScript embutido. Sem URL explícita, tenta detectar a rede local. `-- --incremental` pode ser usado após mudanças somente em JavaScript/TypeScript. O plugin Android permite HTTP para desenvolvimento; ajuste `allowCleartext: false` em `apps/mobile/app.json` para distribuição com API HTTPS.
 
 `eas.json` mantém os perfis Android development, preview APK e production AAB. APKs produzidos antes desta mudança precisam ser recompilados. Não há alvo, configuração ou script de build iOS.
 
@@ -203,19 +230,19 @@ NATIVE_DEVICE_ID=emulator-5554 \
 EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run test:android
 ```
 
-Antes de executar, entre no app com uma conta exclusiva de QA via um provedor suportado e disponibilize sua sessão na variável privada `NATIVE_QA_OWNER_TOKEN`. O fluxo não efetua login nem aprova a carteira. Esse comando usa essa sessão e cria uma conta de fixture e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica a sessão existente, criação de objeto, compartilhamento nativo do link, prévia do dono sem envio de aviso, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
+Antes de executar, entre no app com uma conta exclusiva de QA via um provedor suportado e disponibilize sua sessão na variável privada `NATIVE_QA_OWNER_TOKEN`. O fluxo não efetua login nem aprova a carteira. Esse comando usa essa sessão e cria uma conta de fixture e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica a sessão existente, criação de objeto, compartilhamento nativo do link, prévia do dono sem envio de aviso, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `apps/mobile/tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
 
-Para conferir o teclado sem criar dados, selecione Português em Idioma, comece no painel com a conta conectada e execute `maestro test tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
+Para conferir o teclado sem criar dados, selecione Português em Idioma, comece no painel com a conta conectada e execute `maestro test apps/mobile/tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
 
-Para conferir o menu do objeto e cancelar NFC sem alterar dados, mantenha NFC ativado e execute `maestro test -e QA_OBJECT_NAME="Nome do objeto" tests/android/tag-details.yaml`. O fluxo usa uma etiqueta existente e verifica nova tentativa e fechamento pelo Voltar do Android.
+Para conferir o menu do objeto e cancelar NFC sem alterar dados, mantenha NFC ativado e execute `maestro test -e QA_OBJECT_NAME="Nome do objeto" apps/mobile/tests/android/tag-details.yaml`. O fluxo usa uma etiqueta existente e verifica nova tentativa e fechamento pelo Voltar do Android.
 
-O fluxo `tests/android/owner-preview.yaml`, com o mesmo `QA_OBJECT_NAME`, abre a prévia pelo menu do objeto e verifica que o dono não recebe formulário nem botão para avisar a si mesmo. A API também rejeita a criação de aviso pela sessão do dono.
+O fluxo `apps/mobile/tests/android/owner-preview.yaml`, com o mesmo `QA_OBJECT_NAME`, abre a prévia pelo menu do objeto e verifica que o dono não recebe formulário nem botão para avisar a si mesmo. A API também rejeita a criação de aviso pela sessão do dono.
 
-`tests/android/home-browse.yaml` confere busca, filtros e retorno do editor; `tests/android/home-account.yaml` confere os indicadores, a ajuda e a navegação de Minha conta. Use `QA_OBJECT_NAME` de um objeto protegido e uma conta sem conversas para esses fluxos, que não salvam dados nem saem da conta.
+`apps/mobile/tests/android/home-browse.yaml` confere busca, filtros e retorno do editor; `apps/mobile/tests/android/home-account.yaml` confere os indicadores, a ajuda e a navegação de Minha conta. Use `QA_OBJECT_NAME` de um objeto protegido e uma conta sem conversas para esses fluxos, que não salvam dados nem saem da conta.
 
 Minha conta é uma tela normal, sem navegação inferior. Aparência, Idioma e Receber etiquetas abrem sheets Gorhom ajustados ao conteúdo, mantendo a posição da tela ao fundo. Selecionar idioma/tema salva a preferência e fecha o sheet; arrastar para baixo, tocar fora ou usar Voltar apenas fecha. Formas de entrar e o gerenciamento de categorias continuam em telas próprias.
 
-O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
+O fluxo `apps/mobile/tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO apps/mobile/tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
 
 `npm run build:bundle` confirma que o JavaScript empacota para Android; não substitui testes no aparelho, compilação do binário ou testes físicos de câmera/NFC/carteira.
 
@@ -232,9 +259,11 @@ O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectad
 
 | Caminho | Responsabilidade |
 |---|---|
-| `App.tsx`, `src/` | Interface mobile, conta, objetos e conversas |
-| `src/links.ts` | Validação de links e abertura no app |
-| `src/platform/` | Câmera, SecureStore, PDF, NFC e carteira nativos |
-| `server/` | API, SQLite, QR/PDF e redirecionamentos para o app |
+| `apps/mobile/App.tsx`, `apps/mobile/src/` | Interface mobile, conta, objetos e conversas |
+| `apps/mobile/src/links.ts` | Validação de links e abertura no app |
+| `apps/mobile/src/platform/` | Câmera, SecureStore, PDF, NFC e carteira nativos |
+| `apps/api/` | API, SQLite, QR/PDF e redirecionamentos para o app |
+| `packages/shared/` | Tipos, validações e instruções de escrow compartilhados |
+| `turbo.json`, `package.json` | Tarefas Turbo e workspaces npm |
 | `scripts/` | Desenvolvimento na rede, builds e testes nativos |
-| `tests/unit/`, `server/test/`, `tests/android/` | Testes unitários, de API e de interface mobile |
+| `apps/mobile/tests/unit/`, `apps/api/test/`, `apps/mobile/tests/android/` | Testes unitários, de API e de interface mobile |

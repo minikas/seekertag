@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, randomBytes } from 'node:crypto';
-import { nativeTagUrl } from '../src/links.ts';
+import { nativeTagUrl } from '../apps/mobile/src/links.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const platform = 'android';
@@ -51,7 +51,7 @@ let passed = false;
 try {
   const args = ['test', '--device', device, '--platform', platform, '--no-ansi', '--test-output-dir', work, '--debug-output', work, '--format', 'JUNIT', '--output', join(work, 'report.xml')];
   for (const [key, value] of Object.entries(variables)) args.push('-e', `${key}=${value}`);
-  args.push(resolve(root, 'tests/android/core.yaml'));
+  args.push(resolve(root, 'apps/mobile/tests/android/core.yaml'));
   const result = spawnSync('maestro', args, { cwd: root, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024, timeout: 15 * 60 * 1000 });
   const log = redact(`${result.stdout || ''}\n${result.stderr || ''}`);
   writeFileSync(join(output, 'maestro.log'), log);

@@ -4,7 +4,7 @@ const { resolve } = require('node:path');
 // Keyboard Controller 1.21.9 overrides RN's StatusBarManager but only updates
 // the Activity window. RN 0.86 also tracks Modal windows, so delegate styling
 // to its original manager. Keyboard/inset handling remains in the controller.
-const file = resolve(__dirname, '../node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt');
+const file = resolve(require.resolve('react-native-keyboard-controller/package.json', { paths: [resolve(__dirname, '../apps/mobile')] }), '../android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt');
 const original = `  fun setStyle(style: String) {
     if (!isEnabled()) {
       return original.setStyle(style)

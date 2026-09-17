@@ -37,11 +37,11 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+/apps/mobile/ios
+/apps/mobile/android
 
 # Local test sessions, private data and build artifacts
-server/data/
+apps/api/data/
 artifacts/
 qa/artifacts/
 test-results/
@@ -53,3 +53,6 @@ playwright-report/
 # Solana build output and deployment keys
 contracts/**/target/
 **/*-keypair.json
+
+# Turborepo
+.turbo/

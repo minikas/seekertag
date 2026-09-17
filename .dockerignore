@@ -1,10 +1,10 @@
 node_modules
-server/node_modules
-server/data
+**/node_modules
+apps/api/data
 .git
-.expo
-android
-ios
+**/.expo
+**/android
+**/ios
 dist
 artifacts
 test-results
@@ -14,3 +14,5 @@ playwright-report
 qa
 *.log
 .env*
+
+**/.turbo

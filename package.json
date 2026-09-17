@@ -1,69 +1,41 @@
 {
   "name": "seekertag",
   "version": "1.0.0",
-  "main": "index.ts",
-  "dependencies": {
-    "@expo/vector-icons": "^15.0.2",
-    "@gorhom/bottom-sheet": "^5.2.14",
-    "@solana-mobile/mobile-wallet-adapter-protocol": "^2.3.0",
-    "@solana/web3.js": "1.99.0",
-    "buffer": "^6.0.3",
-    "expo": "~57.0.20",
-    "expo-camera": "~57.0.4",
-    "expo-clipboard": "~57.0.2",
-    "expo-constants": "~57.0.17",
-    "expo-crypto": "~57.0.2",
-    "expo-dev-client": "~57.0.18",
-    "expo-file-system": "~57.0.6",
-    "expo-haptics": "~57.0.3",
-    "expo-localization": "~57.0.2",
-    "expo-navigation-bar": "~57.0.2",
-    "expo-secure-store": "~57.0.3",
-    "expo-sharing": "~57.0.18",
-    "expo-splash-screen": "~57.0.8",
-    "expo-status-bar": "~57.0.1",
-    "expo-system-ui": "~57.0.3",
-    "expo-web-browser": "~57.0.3",
-    "react": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-gesture-handler": "~2.32.0",
-    "react-native-keyboard-controller": "1.21.9",
-    "react-native-nfc-manager": "^4.0.0-beta.7",
-    "react-native-qrcode-svg": "^6.3.22",
-    "react-native-reanimated": "4.5.1",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-svg": "15.15.4",
-    "react-native-worklets": "0.10.1"
-  },
-  "devDependencies": {
-    "@types/react": "~19.2.2",
-    "concurrently": "^10.0.5",
-    "typescript": "~6.0.3"
+  "private": true,
+  "packageManager": "npm@11.8.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24"
   },
   "scripts": {
     "postinstall": "node scripts/patch-android-statusbar.cjs",
-    "start": "expo start --dev-client",
-    "android": "expo run:android",
-    "dev": "concurrently -k -n API,EXPO \"npm --prefix server start\" \"expo start --dev-client --lan\"",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run test:unit && npm run test:api",
-    "api": "npm --prefix server start",
+    "start": "npm run start --workspace=@seekertag/mobile --",
+    "android": "npm run android --workspace=@seekertag/mobile --",
+    "dev": "turbo run dev --env-mode=loose",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "api": "npm run start --workspace=seekertag-api --",
     "dev:lan": "node scripts/start-lan.mjs",
     "build:android": "node scripts/build-preview.mjs",
-    "test:unit": "node --test tests/unit/*.test.mjs",
-    "test:api": "npm --prefix server test",
+    "test:unit": "turbo run test --filter=@seekertag/mobile",
+    "test:api": "turbo run test --filter=seekertag-api",
     "test:all": "npm run typecheck && npm test",
     "api:lan": "node scripts/start-lan.mjs --api-only",
     "test:android": "node scripts/test-android.mjs",
-    "build:bundle": "expo export --platform android --output-dir artifacts/android-bundle",
+    "build:bundle": "turbo run build --filter=@seekertag/mobile",
     "build:escrow": "node scripts/build-escrow.mjs",
-    "test:escrow": "npm run build:escrow && npm --prefix server run test:escrow",
-    "api:devnet": "node --env-file-if-exists=server/.env scripts/start-devnet-api.mjs",
-    "test:devnet": "node scripts/test-devnet-rewards.mjs"
+    "test:escrow": "npm run build:escrow && npm run test:escrow --workspace=seekertag-api",
+    "api:devnet": "node --env-file-if-exists=apps/api/.env scripts/start-devnet-api.mjs",
+    "test:devnet": "node scripts/test-devnet-rewards.mjs",
+    "build": "turbo run build"
   },
-  "private": true,
-  "engines": {
-    "node": ">=24"
+  "devDependencies": {
+    "turbo": "2.10.13",
+    "@seekertag/shared": "*",
+    "@solana/web3.js": "1.99.0"
   },
   "overrides": {
     "xcode": {

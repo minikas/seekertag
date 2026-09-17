@@ -3,7 +3,7 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
-import { TOKEN_PROGRAM, tokenAddress, createTokenAccount, PROGRAM } from '../shared/escrow-wire.ts';
+import { TOKEN_PROGRAM, tokenAddress, createTokenAccount, PROGRAM } from '@seekertag/shared/escrow-wire';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export const keyDir = `${root}artifacts/reward-keys`;

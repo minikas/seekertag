@@ -4,10 +4,10 @@ import { createPrivateKey, sign } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { Transaction } from '@solana/web3.js';
-import { createApp } from '../server/app.js';
-import { createRewardChain } from '../server/rewards/chain.js';
+import { createApp } from '../apps/api/app.js';
+import { createRewardChain } from '../apps/api/rewards/chain.js';
 import { root, key, configPath, assertDevnet, topUp, waitFor } from './devnet-rewards.mjs';
-const { createSignInMessage } = createRequire(new URL('../server/package.json', import.meta.url))('@solana/wallet-standard-util');
+const { createSignInMessage } = createRequire(new URL('../apps/api/package.json', import.meta.url))('@solana/wallet-standard-util');
 
 await assertDevnet();
 const config = JSON.parse(readFileSync(configPath, 'utf8'));

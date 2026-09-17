@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { configPath, keyDir, key, assertDevnet } from './devnet-rewards.mjs';
-import { REWARD_PROGRAM } from '../shared/reward.ts';
+import { REWARD_PROGRAM } from '@seekertag/shared/reward';
 
 await assertDevnet();
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
@@ -10,4 +10,4 @@ Object.assign(process.env, {
   REWARD_NETWORK: 'devnet', REWARD_RPC_URL: 'https://api.devnet.solana.com', REWARDS_ALLOW_MAINNET: 'false',
   REWARD_VERIFIER_KEYPAIR: `${keyDir}/verifier.json`, REWARD_TEST_USDC_MINT: config.mints.USDC, REWARD_TEST_SKR_MINT: config.mints.SKR,
 });
-await import('../server/index.js');
+await import('../apps/api/index.js');

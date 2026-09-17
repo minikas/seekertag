@@ -1,0 +1,14 @@
+{
+  "name": "@seekertag/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./reward": "./reward.ts",
+    "./escrow-wire": "./escrow-wire.ts"
+  },
+  "dependencies": {
+    "@solana/web3.js": "1.99.0",
+    "buffer": "^6.0.3"
+  }
+}
