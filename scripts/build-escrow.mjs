@@ -1,0 +1,10 @@
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+const root = fileURLToPath(new URL('../', import.meta.url));
+const localTool = `${root}artifacts/toolchains/solana-release/bin/cargo-build-sbf`;
+const tool = process.env.CARGO_BUILD_SBF || (existsSync(localTool) ? localTool : 'cargo-build-sbf');
+mkdirSync(`${root}artifacts/escrow`, { recursive: true });
+const result = spawnSync(tool, ['--manifest-path', 'contracts/seekertag-escrow/Cargo.toml', '--sbf-out-dir', 'artifacts/escrow', '--', '--locked'], { cwd: root, stdio: 'inherit' });
+if (result.error) console.error('Install the Solana/Agave SDK or set CARGO_BUILD_SBF to cargo-build-sbf. https://docs.anza.xyz/cli/install');
+process.exit(result.status ?? 1);

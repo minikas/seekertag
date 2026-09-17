@@ -1,0 +1,28 @@
+[package]
+name = "seekertag-escrow"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "seekertag_escrow"
+
+[features]
+default = []
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+no-idl = []
+no-log-ix-name = []
+anchor-debug = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = "=0.32.1"
+# Anchor's token-account init macro references Token-2022 helpers internally.
+# Accounts below remain restricted to the original SPL Token program.
+anchor-spl = { version = "=0.32.1", default-features = false, features = ["token", "token_2022"] }
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1

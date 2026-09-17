@@ -49,3 +49,7 @@ playwright-report/
 .playwright/
 .playwright-cli/
 .env
+
+# Solana build output and deployment keys
+contracts/**/target/
+**/*-keypair.json
