@@ -6,6 +6,7 @@ import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import { categoryInk, tagCategoryLabel } from './category.model';
 import Conversation from './Conversation';
+import RewardSummary from './RewardSummary';
 import { secureStorage } from './platform/storage';
 import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
 
@@ -62,10 +63,7 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
           <View style={{ flex: 1, gap: 4 }}><Text accessibilityRole="header" style={s.h2}>{tag.name}</Text><Text style={s.body}>{tagCategoryLabel(tag, t)}</Text></View>
         </View>
         {tag.publicMessage ? <View style={styles.message}><Text style={s.label}>{t("Mensagem do dono")}</Text><Text style={[s.body, { color: C.ink }]}>{tag.publicMessage}</Text></View> : <Text style={s.body}>{t("Envie uma mensagem para combinar a devolução.")}</Text>}
-        {tag.rewardAmount > 0 && <View style={s.row}>
-          <View style={s.settingsIcon}><Icon name="gift" size={20} /></View>
-          <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{tag.rewardCurrency === 'BRL' ? 'R$' : tag.rewardCurrency} {tag.rewardAmount.toLocaleString(locale)} {t("de agradecimento")}</Text><Text style={s.small}>{t("Promessa do dono. Pagamento combinado na conversa.")}</Text></View>
-        </View>}
+        {(tag.rewardAmount > 0 || tag.reward) && <RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} />}
         {viewerIsOwner ? <View style={styles.ownerPreview}><Icon name="eye" color={C.muted} /><Text style={s.h3}>{t("Esta etiqueta é sua")}</Text><Text style={[s.body, { textAlign: 'center' }]}>{t("Você está vendo como seu objeto aparece para quem o encontrar.")}</Text></View> : <>
         <Field label={t("Seu nome (opcional)")} value={finderName} onChangeText={setFinderName} placeholder={t("Seu primeiro nome ou apelido")} maxLength={60} editable={!busy} autoComplete="nickname" />
         <Field label={t("Mensagem para o dono")} value={message} onChangeText={setMessage} placeholder={t("Conte onde encontrou o objeto.")} multiline maxLength={2000} editable={!busy} />

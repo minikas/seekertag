@@ -33,7 +33,7 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
   const owner = new PublicKey(spec.payer); const verifier = new PublicKey(spec.verifier);
   const escrow = escrowAddress(spec.payer, spec.rewardId); const mint = spec.mint ? new PublicKey(spec.mint) : null;
   const vault = vaultAddress(escrow); const setup: TransactionInstruction[] = [];
-  let name: keyof typeof discriminators; let keys; let args = Buffer.alloc(0);
+  let name: keyof typeof discriminators; let keys; let args: Buffer = Buffer.alloc(0);
   if (spec.kind === 'fund') {
     if (!validRewardDays(spec.days) || !/^[1-9]\d{0,19}$/.test(spec.amountUnits)) throw new Error('Dados de depósito inválidos.');
     args = Buffer.alloc(74); hashBytes(spec.rewardId).copy(args); writeUnits(args, BigInt(spec.amountUnits), 32); args.writeUInt16LE(spec.days, 40); verifier.toBuffer().copy(args, 42);

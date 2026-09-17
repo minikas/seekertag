@@ -1,5 +1,7 @@
 // Portuguese source messages, followed by English and Spanish translations.
+import { rewards } from './rewards.ts';
 export const catalog: Record<string, readonly [string, string]> = {
+  ...rewards,
   'Conversa': ['Conversation', 'Conversación'],
   'Devolver objeto': ['Return item', 'Devolver objeto'],
   'Mensagem do dono': ['Owner’s message', 'Mensaje del dueño'],

@@ -13,6 +13,7 @@ import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
 import Categories from './Categories';
 import { categoryLabel } from './category.model';
 import KeyboardAwareSheetScrollView from './KeyboardAwareSheetScrollView';
+import { rewardLocked } from './reward.model';
 
 export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChanged }: { token: string; tag?: Tag; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
   const { C, s, t, locale } = useUI();
@@ -34,7 +35,8 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const [description, setDescription] = useState(tag?.description || '');
   const [publicMessage, setPublicMessage] = useState(tag?.publicMessage || t("Obrigado por cuidar do que é importante para mim. Me envie uma mensagem para combinarmos a devolução."));
   const [reward, setReward] = useState(tag?.rewardAmount ? String(tag.rewardAmount) : '');
-  const [currency, setCurrency] = useState(tag?.rewardCurrency || 'BRL');
+  const [currency, setCurrency] = useState(tag?.rewardCurrency || 'SOL');
+  const lockedReward = rewardLocked(tag?.reward);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
@@ -87,7 +89,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     try {
       const { tag: saved } = await api<{ tag: Tag }>(tag ? `/tags/${tag.id}` : '/tags', token, {
         name: name.trim(), categoryId: category,
-        description, publicMessage, rewardAmount: amount, rewardCurrency: currency,
+        description, publicMessage, ...(!lockedReward ? { rewardAmount: amount, rewardCurrency: currency } : {}),
       }, tag ? 'PATCH' : 'POST');
       if (!mounted.current) return;
       // Keep the sheet mounted through its exit animation before opening the QR.
@@ -163,9 +165,10 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       <View style={s.divider} />
       <View style={{ gap: 13 }}>
         <View style={s.row}><Icon name="gift" color={C.accent} /><Text style={[s.h3, { flex: 1 }]}>{t("Recompensa (Opcional)")}</Text></View>
-        <Text style={s.small}>{t("Você pode oferecer uma recompensa e combinar o pagamento na conversa. Este valor é uma promessa: nenhum dinheiro é depositado ou transferido pelo app.")}</Text>
-        <Field inSheet testID="object-reward" label={t("Valor da recompensa")} value={reward} onChangeText={setReward} keyboardType="decimal-pad" placeholder={(0).toLocaleString(locale, { minimumFractionDigits: 2 })} maxLength={12} editable={!busy} />
-        <View style={s.row}>{['BRL', 'USDC', 'SKR'].map(c => <Button key={c} variant={c === currency ? 'primary' : 'secondary'} onPress={() => setCurrency(c)} disabled={busy}>{c === 'BRL' ? 'R$' : c}</Button>)}</View>
+        <Text style={s.small}>{t("Depois de salvar, abra Recompensa para consultar seu saldo e reservar o valor com sua carteira.")}</Text>
+        <Field inSheet testID="object-reward" label={t("Valor da recompensa")} value={reward} onChangeText={setReward} keyboardType="decimal-pad" placeholder={(0).toLocaleString(locale, { minimumFractionDigits: 2 })} maxLength={24} editable={!busy && !lockedReward} />
+        {lockedReward && <Notice text={t("Para alterar o valor, primeiro libere ou recupere a reserva atual.")} />}
+        <View style={[s.row, { flexWrap: 'wrap' }]}>{[...new Set(['SOL', 'USDC', 'SKR', currency])].map(c => <Button key={c} variant={c === currency ? 'primary' : 'secondary'} onPress={() => setCurrency(c)} disabled={busy || lockedReward}>{c === 'BRL' ? 'R$' : c}</Button>)}</View>
       </View>
     </KeyboardAwareSheetScrollView>
   </BottomSheetModal>;

@@ -12,6 +12,8 @@ import { authenticate, providerNames } from './platform/auth';
 import { Button, Field, formatDate, Icon, IconName, Notice, Pill, Sheet, useUI } from './ui';
 import { downloadLabel, shareLabel } from './platform/labels';
 import { cancelNfcWrite, writeTagUrl } from './platform/nfc';
+import RewardPanel from './RewardPanel';
+import RewardSummary from './RewardSummary';
 
 type Props = {
   tag: Tag;
@@ -30,7 +32,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   const [busy, setBusy] = useState<Action>(null);
   const [error, setError] = useState('');
   const [nfcStopping, setNfcStopping] = useState(false);
-  const [page, setPage] = useState<'overview' | 'info' | 'transfer'>('overview');
+  const [page, setPage] = useState<'overview' | 'info' | 'transfer' | 'reward'>('overview');
   const [overlay, setOverlay] = useState<'actions' | 'nfc' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -183,10 +185,10 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     {busy === 'nfc' ? <Button variant="secondary" onPress={() => void cancelNfc()}>{t("Cancelar gravação")}</Button> : <Button onPress={writeNfc} disabled={nfcStopping}>{t("Tentar novamente")}</Button>}
   </ScreenBottomSheet>;
 
-  return <Sheet title={page === 'transfer' ? t("Transferir etiqueta") : page === 'info' ? t("Detalhes do objeto") : tag.name} contentKey={page} onClose={close} dismissible={busy !== 'transfer'}
+  return <Sheet title={page === 'reward' ? t("Recompensa") : page === 'transfer' ? t("Transferir etiqueta") : page === 'info' ? t("Detalhes do objeto") : tag.name} contentKey={page} onClose={close} dismissible={busy !== 'transfer'}
     headerRight={page === 'overview' ? <Button variant="ghost" icon="more-horizontal" label={t("Opções do objeto")} busy={busy === 'status' || busy === 'sharePdf'} disabled={!!busy} onPress={() => setOverlay('actions')} /> : undefined}
     overlay={overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : undefined}>
-    {page === 'overview' ? <>
+    {page === 'reward' ? <RewardPanel key={tag.id} tagId={tag.id} token={token} amount={tag.rewardAmount} currency={tag.rewardCurrency} onChanged={reward => onUpdated({ ...tag, reward, ...(reward ? { rewardAmount: Number(reward.amount), rewardCurrency: reward.currency } : {}) })} /> : page === 'overview' ? <>
       <View style={s.between}>
         <View style={[s.row, { flex: 1 }]}><View style={[styles.itemIcon, { backgroundColor: info.color }]}><Icon name={info.icon} color={categoryInk(info.color)} size={24} /></View><Text style={[s.body, { flex: 1 }]}>{tagCategoryLabel(tag, t)}</Text></View>
         <Pill status={tag.status} />
@@ -199,6 +201,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
         <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy || nfcStopping}>{t("Gravar NFC")}</Button>
         <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58 }} />
       </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("Recompensa")} onPress={() => { setError(''); setPage('reward'); }} style={[s.between, s.card]}><RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} /><Icon name="chevron-right" size={20} color={C.muted} /></Pressable>
       {tag.status === 'paused' ? <View style={{ gap: 12 }}><Notice tone="warning" text={t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")} /><Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="play-circle">{t("Reativar etiqueta")}</Button></View> : tag.status === 'lost' ? <Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="check-circle">{t("Já está comigo")}</Button> : null}
       {localOnly && <View style={styles.localNote}><Icon name="info" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Link local. Outros aparelhos precisam de um endereço público.")}</Text></View>}
     </> : page === 'info' ? <>
