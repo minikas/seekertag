@@ -56,9 +56,26 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
     </View>
     <KeyboardAwareScrollView mode="layout" bottomOffset={24} disableScrollOnKeyboardHide keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={styles.content}>
       {loading && <View style={styles.loadingState} accessibilityLabel={t('Carregando etiqueta')}>
-        <View style={[styles.skeletonBlock, { height: 64, width: 64, borderRadius: 22 }]} />
-        <View style={{ flex: 1, gap: 10 }}><View style={[styles.skeletonLine, { width: '62%', height: 24 }]} /><View style={[styles.skeletonLine, { width: '38%', height: 16 }]} /></View>
-        <View style={[styles.skeletonCard, { height: 94 }]} /><View style={[styles.skeletonCard, { height: 118 }]} />
+        <View style={styles.skeletonIdentity}>
+          <View style={[styles.skeletonBlock, { height: 64, width: 64, borderRadius: 22 }]} />
+          <View style={{ flex: 1, gap: 10 }}>
+            <View style={[styles.skeletonLine, { width: '62%', height: 24 }]} />
+            <View style={[styles.skeletonLine, { width: '38%', height: 16 }]} />
+          </View>
+        </View>
+        <View style={styles.skeletonMessage}>
+          <View style={[styles.skeletonLine, { width: '34%', height: 18 }]} />
+          <View style={[styles.skeletonLine, { width: '92%', height: 18 }]} />
+          <View style={[styles.skeletonLine, { width: '74%', height: 18 }]} />
+          <View style={[styles.skeletonLine, { width: '58%', height: 18 }]} />
+        </View>
+        <View style={styles.skeletonReward}>
+          <View style={[styles.skeletonBlock, { height: 56, width: 56, borderRadius: 20 }]} />
+          <View style={{ flex: 1, gap: 10 }}>
+            <View style={[styles.skeletonLine, { width: '48%', height: 18 }]} />
+            <View style={[styles.skeletonLine, { width: '28%', height: 24 }]} />
+          </View>
+        </View>
       </View>}
       {!!error && <Notice error text={error} />}
       {chatId && chatToken ? <Conversation id={chatId} token={chatToken} finder /> : tag ? <>
@@ -88,6 +105,9 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   ownerPreview: { alignItems: 'center', gap: 16, padding: 24, borderRadius: 24, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: C.line },
   ownerIcon: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   loadingState: { gap: 18, paddingVertical: 18 },
+  skeletonIdentity: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8 },
+  skeletonMessage: { minHeight: 148, padding: 18, borderRadius: 22, backgroundColor: C.surface, gap: 12 },
+  skeletonReward: { minHeight: 100, padding: 20, borderRadius: 26, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 14 },
   skeletonBlock: { backgroundColor: C.surface },
   skeletonLine: { borderRadius: 8, backgroundColor: C.surface },
   skeletonCard: { width: '100%', borderRadius: 22, backgroundColor: C.surface },
