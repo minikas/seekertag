@@ -11,14 +11,16 @@ name: Language and appearance persist; account categories support create, rename
 - tapOn:
     id: "preference-language-en"
 - assertVisible: "Language"
+- assertNotVisible:
+    id: "preference-language-en"
 - takeScreenshot: language-english
-- back
 - tapOn: "Appearance"
 - tapOn:
     id: "preference-theme-light"
 - assertVisible: "Light"
+- assertNotVisible:
+    id: "preference-theme-light"
 - takeScreenshot: theme-light
-- back
 - back
 - stopApp
 - launchApp
@@ -70,14 +72,13 @@ name: Language and appearance persist; account categories support create, rename
     id: "preference-language-es"
 - assertVisible: "Idioma"
 - takeScreenshot: language-spanish
+- tapOn: "Idioma"
 - tapOn:
     id: "preference-language-pt"
-- back
 - tapOn: "Aparência"
 - tapOn:
     id: "preference-theme-dark"
 - assertVisible: "Escuro"
 - takeScreenshot: theme-dark
-- back
 - back
 - assertVisible: "Meus objetos"

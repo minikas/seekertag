@@ -40,14 +40,17 @@ name: Home shortcuts and account navigation stay in their intended screens
 - back
 - tapOn: "Aparência"
 - assertVisible: "Igual ao dispositivo"
+- takeScreenshot: appearance-sheet
 - back
 - tapOn: "Idioma"
 - assertVisible: "Português"
+- takeScreenshot: language-sheet
 - back
 - takeScreenshot: account-normal-screen
-# Account subpages return through the screen back action, without bottom tabs.
+# Quick-action sheets dismiss back to the same account screen, without bottom tabs.
 - tapOn: "Receber etiquetas"
 - assertNotVisible: "Meus objetos"
+- takeScreenshot: receive-labels-sheet
 - back
 - back
 - tapOn: "Meus objetos"

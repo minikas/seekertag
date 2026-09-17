@@ -201,6 +201,8 @@ O fluxo `tests/android/owner-preview.yaml`, com o mesmo `QA_OBJECT_NAME`, abre a
 
 `tests/android/home-browse.yaml` confere busca, filtros e retorno do editor; `tests/android/home-account.yaml` confere os indicadores, a ajuda e a navegação de Minha conta. Use `QA_OBJECT_NAME` de um objeto protegido e uma conta sem conversas para esses fluxos, que não salvam dados nem saem da conta.
 
+Minha conta é uma tela normal, sem navegação inferior. Aparência, Idioma e Receber etiquetas abrem sheets Gorhom ajustados ao conteúdo, mantendo a posição da tela ao fundo. Selecionar idioma/tema salva a preferência e fecha o sheet; arrastar para baixo, tocar fora ou usar Voltar apenas fecha. Formas de entrar e o gerenciamento de categorias continuam em telas próprias.
+
 O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
 
 `npm run build:bundle` confirma que o JavaScript empacota para Android; não substitui testes no aparelho, compilação do binário ou testes físicos de câmera/NFC/carteira.
