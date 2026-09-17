@@ -2,7 +2,15 @@
 
 Aplicativo **exclusivamente Android, com foco no Solana Seeker**, feito com Expo SDK 57 e React Native 0.86. Etiquetas QR/NFC ajudam a devolver objetos por conversa privada, sem expor os contatos do dono.
 
-O projeto tem um app Android e uma API Node.js com SQLite. Não há projeto iOS, site, exportação web ou interface de navegador. A API continua necessária para que dois aparelhos compartilhem objetos, avisos e mensagens.
+O projeto tem um app Android, uma API Node.js com SQLite e uma landing page institucional independente. Não há projeto iOS nem versão web do aplicativo. A API continua necessária para que dois aparelhos compartilhem objetos, avisos e mensagens.
+
+## Landing page
+
+`npm run dev:landing` abre o servidor em http://localhost:4320. A landing em português fica em `apps/landing/public`, sem dependências de runtime, fontes externas ou integração com a API. `LANDING_PORT` permite alterar a porta.
+
+`npm run build:landing` gera `apps/landing/dist`, pronto para hospedagem estática. Para conferir esse resultado, execute `npm run preview --workspace=@seekertag/landing`. O servidor local fica restrito a loopback e não é um servidor de produção.
+
+Os botões apresentam o status de desenvolvimento e permitem abrir `seekertag:///` em um Android com o app instalado. Não há link público de loja configurado. O celular apresenta uma captura real do app Android (`app-screen.png`). A etiqueta segue a apresentação do PDF do app, com um QR demonstrativo que abre `seekertag:///`, sem vincular um objeto real. A landing não altera o fluxo `/found` da API.
 
 ## Monorepo (Turborepo + npm workspaces)
 
@@ -10,6 +18,7 @@ Requer Node.js 24+ e npm 11.8.0. Execute `npm ci` uma única vez na raiz.
 
 - `apps/mobile`: app Expo 57, assets, plugins, configuração EAS e testes mobile.
 - `apps/api`: API Node/SQLite, testes e `.env` local; o banco fica em `apps/api/data/`.
+- `apps/landing`: site institucional estático, responsivo e independente do app.
 - `packages/shared`: pacote `@seekertag/shared`, usado pelo app e pela API.
 - `contracts`, `scripts` e `artifacts`: contratos Solana, ferramentas e resultados de build na raiz.
 

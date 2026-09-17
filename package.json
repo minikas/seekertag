@@ -11,6 +11,8 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev:landing": "npm run dev --workspace=@seekertag/landing",
+    "build:landing": "npm run build --workspace=@seekertag/landing",
     "postinstall": "node scripts/patch-android-statusbar.cjs",
     "start": "npm run start --workspace=@seekertag/mobile --",
     "android": "npm run android --workspace=@seekertag/mobile --",
