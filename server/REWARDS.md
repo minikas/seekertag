@@ -89,10 +89,11 @@ Todas as rotas do dono exigem a sessão; as do visitante exigem a credencial daq
 
 | Método / caminho (prefixo `/api`) | Resposta / ação |
 |---|---|
+| `GET /rewards/prices` | Cotações informativas USD/BRL por moeda, origem e validade; 503 se indisponíveis |
 | `GET /rewards/config` | Configuração e carteira do dono antes de criar o objeto |
 | `GET /rewards/balance?currency=SOL` | Saldo da carteira do dono antes de criar o objeto |
 | `GET /tags/:id/reward` | `reward`, `config`, `payer`; reconcilia a rede |
-| `GET /tags/:id/reward/balance?currency=SOL` | `availableUnits`, `solLamports`, mint e casas decimais |
+| `GET /tags/:id/reward/balance?currency=SOL` | `availableUnits`, `solLamports`, `fundableUnits`, `reserveLamports`, mint e casas decimais |
 | `POST /tags/:id/reward/prepare` | Prepara `fund`, `renew`, `release` ou `refund`; devolve `operation` |
 | `GET /reward-operations/:operationId` | Operação, estado e reserva reconciliada |
 | `POST /reward-operations/:operationId/submit` | Recebe `{transaction}` em base64; verifica assinaturas e envia a mesma transação |
@@ -109,3 +110,7 @@ O contrato preserva as instruções antigas `fund_sol`, `fund_token` e `renew`, 
 No Android, adicionar/editar objeto mostra um resumo da recompensa. Ao tocar nele, um Gorhom próprio permite configurar valor, moeda, saldo e período, mantendo o rascunho do objeto. A revisão e a confirmação também ficam nesse sheet de recompensa. A ação de renovar aparece apenas depois do vencimento da reserva. O objeto é salvo antes de preparar o depósito, mantendo seu ID ao repetir ou abandonar a revisão. Até a confirmação final, ele continua sem recompensa garantida. A liberação na conversa também usa Gorhom.
 
 Referências: [MWA](https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly), [Anchor 0.32.1](https://www.anchor-lang.com/docs/updates/release-notes/0-32-1), [contas e restrições Anchor](https://www.anchor-lang.com/docs/references/account-constraints), [USDC oficial](https://developers.circle.com/stablecoins/usdc-contract-addresses), [SKR oficial](https://github.com/solana-mobile/react-native-samples/tree/main/skr-staking), [redes Solana](https://solana.com/docs/references/clusters).
+
+O editor oferece 25%, 50%, 75% e Máx. sobre `fundableUnits`, usando aritmética inteira e o limite de um milhão de tokens. Para SOL, deduz aluguel e taxas estimados; para SPL, exige SOL suficiente para esses custos. A preparação recalcula os custos reais antes da assinatura.
+
+As cotações usam a API pública sem chave da CoinGecko (`solana`, `usd-coin`, `seeker`), sob demanda, com cache/backoff de 60 segundos e validade máxima de cinco minutos. Não há polling periódico nem envio de endereços de carteira ao provedor. Cotações inválidas ou indisponíveis não são substituídas por valores fictícios. Em devnet, os preços são apenas referência dos ativos de mercado, não valor dos tokens de teste. O serviço público tem limite por IP e serve ao protótipo; produção exige um plano de dados adequado ao tráfego. Preços não participam da transação nem da validação do depósito.
