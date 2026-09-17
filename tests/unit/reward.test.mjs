@@ -23,3 +23,26 @@ test('renewal adds days after the current deadline, or today when it already exp
   for (const status of ['released', 'refunded']) assert.equal(rewardLocked({ status }), false);
   assert.equal(rewardLocked(null), false);
 });
+
+import { reservationSeconds, reservationDeadline, maskRewardAmount, stepRewardAmount } from '../../src/reward.model.ts';
+import { rewardDuration } from '../../shared/reward.ts';
+test('reservation units have explicit bounds and exact deadlines, without month rollover or DST ambiguity', () => {
+  assert.equal(reservationSeconds('1', 'hours'), 3600);
+  assert.equal(reservationSeconds('2', 'months'), 60 * 86400);
+  assert.equal(reservationSeconds('5', 'years'), 5 * 365 * 86400);
+  for (const [value, unit] of [['0','hours'], ['6','years'], ['43801','hours'], ['1.5','days'], ['1e2','days'], ['-1','hours']]) assert.equal(reservationSeconds(value, unit), null);
+  const now = Date.parse('2026-09-16T12:00:00Z');
+  assert.equal(reservationDeadline(3600, null, now).toISOString(), '2026-09-16T13:00:00.000Z');
+  assert.equal(reservationDeadline(3600, '2026-10-01T12:00:00Z', now).toISOString(), '2026-10-01T13:00:00.000Z');
+  assert.equal(rewardDuration({ days: 30 }), rewardDuration({ durationSeconds: 30 * 86400 }));
+  assert.throws(() => rewardDuration({ days: 30, durationSeconds: 3600 }));
+});
+test('amount mask and steppers preserve base-unit precision and reject ambiguous pastes', () => {
+  assert.equal(maskRewardAmount('01.250001', '', 'USDC', 'pt-BR'), '1,250001');
+  assert.equal(maskRewardAmount(',', '', 'SOL', 'pt-BR'), '0,');
+  for (const value of ['1e3','-10','1,2.3','0.0000001','1000001']) assert.equal(maskRewardAmount(value, '1', 'USDC', 'en-US'), '1');
+  assert.equal(stepRewardAmount('0.000000001','SOL',1,'en-US'), '0.010000001');
+  assert.equal(stepRewardAmount('1,000001','USDC',-1,'pt-BR'), '0,000001');
+  assert.equal(stepRewardAmount('0.5','SKR',-1,'en-US'), '0');
+  assert.equal(stepRewardAmount('1000000','SOL',1,'en-US'), '1000000');
+});
