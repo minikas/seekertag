@@ -2,6 +2,8 @@
 import { rewards } from './rewards.ts';
 export const catalog: Record<string, readonly [string, string]> = {
   ...rewards,
+  'Começar': ['Get started', 'Comenzar'],
+  'Entrar no SeekerTag': ['Sign in to SeekerTag', 'Entrar en SeekerTag'],
   'Conversa': ['Conversation', 'Conversación'],
   'Devolver objeto': ['Return item', 'Devolver objeto'],
   'Mensagem do dono': ['Owner’s message', 'Mensaje del dueño'],
