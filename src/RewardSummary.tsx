@@ -4,8 +4,9 @@ import type { RewardNetwork, RewardView } from '../shared/reward';
 import { Icon, useUI } from './ui';
 import { rewardAwaitingConfirmation } from './reward.model';
 
-export default function RewardSummary({ reward, amount = 0, currency = 'SOL' }: { reward?: RewardView | null; amount?: number; currency?: string }) {
+export default function RewardSummary({ reward, amount = 0, currency = 'SOL', loading = false }: { reward?: RewardView | null; amount?: number; currency?: string; loading?: boolean }) {
   const { C, s, t, locale } = useUI();
+  if (loading) return <View style={[s.row, { alignItems: 'center', flex: 1, gap: 12 }]}><View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: C.raised }} /><View style={{ flex: 1, gap: 10 }}><View style={{ width: '48%', height: 18, borderRadius: 9, backgroundColor: C.raised }} /><View style={{ width: '28%', height: 24, borderRadius: 8, backgroundColor: C.raised }} /></View></View>;
   const waiting = rewardAwaitingConfirmation(reward);
   const label = waiting ? t('Aguardando confirmação') : reward?.status === 'reserved' ? t('Recompensa reservada') : reward?.status === 'pending' ? t('Depósito pendente') : reward?.status === 'expired' ? t('Prazo encerrado') : reward?.status === 'released' ? t('Recompensa entregue') : reward?.status === 'refunded' ? t('Depósito recuperado') : reward?.status === 'unverified' ? t('Reserva não verificada') : t('Recompensa');
   const success = !waiting && (reward?.status === 'reserved' || reward?.status === 'released');

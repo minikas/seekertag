@@ -267,7 +267,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       </>}> 
       {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : <>
         {lockedReward ? <>
-          <View style={s.card}><RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} /></View>
+          <View style={s.card}><RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} loading={wallet.loading} /></View>
           {wallet.operation ? <Button variant="accent" icon="shield" onPress={() => { Keyboard.dismiss(); setReviewing(true); }}>{t('Retomar revisão')}</Button> : <>
             {!renewing && activeReward?.refundAfter && <Text style={s.small}>{t('Cancelamento a partir de {date}', { date: new Date(activeReward.refundAfter).toLocaleString(locale) })}</Text>}
             {activeReward?.status === 'expired' && <>
