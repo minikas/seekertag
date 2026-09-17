@@ -15,6 +15,7 @@ import TagDetails from './TagDetails';
 import Conversation from './Conversation';
 import Account from './Account';
 import Animated from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useScrollHeader } from './useScrollHeader';
 
 type Tab = 'items' | 'messages';
@@ -62,6 +63,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
           <Text style={styles.statValue}>{stat.value.toLocaleString(locale)}</Text><Text style={styles.statLabel}>{stat.label}</Text>
         </Pressable>)}</View>
         <Button onPress={() => setForm('new')} icon="plus">{t("Adicionar objeto")}</Button>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
+          <Icon name="shield" size={23} color={C.accent} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <View style={s.between}><Text style={s.h3}>{t("Como funciona")}</Text><View style={styles.tipBadge}><Text style={styles.tipText}>{t("Dica")}</Text></View></View>
+            <Text style={s.body}>{t("Imprima o QR ou grave uma etiqueta NFC.")}</Text>
+          </View>
+        </Pressable>
         {openReports.length > 0 && <Pressable accessibilityRole="button" onPress={() => switchTab('messages')} style={({ pressed }) => [styles.alert, pressed && styles.pressed]}>
           <View style={[s.circle, { backgroundColor: C.soft }]}><Icon name="message-circle" color={C.accent} /></View>
           <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Tem um reencontro a caminho")}</Text><Text style={s.small}>{conversationCount(t, openReports.length, locale)}</Text></View><Icon name="chevron-right" color={C.muted} />
@@ -74,7 +82,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
           <Text style={[s.h2, styles.center]}>{t("Sua primeira etiqueta")}</Text>
           <Text style={[s.body, styles.center]}>{t("Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.")}</Text>
         </View>}
-        <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}><View style={s.settingsIcon}><Icon name="help-circle" size={20} /></View><Text style={[s.body, { flex: 1, color: C.ink }]}>{t("Como funciona")}</Text><Icon name="chevron-right" color={C.muted} size={20} /></Pressable>
+
       </> : <>
         {reports.length > 0 && <Text accessibilityRole="header" style={s.h1}>{t("Conversas")}</Text>}
         {chat ? <View style={{ gap: 24 }}><Button variant="ghost" icon="arrow-left" onPress={() => setChat(undefined)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>{t("Todas as conversas")}</Button><Conversation key={chat} id={chat} token={token} onResolved={() => void refresh()} /></View> : reports.length > 0 ? <View>{reports.map(report => <Pressable key={report.id} accessibilityRole="button" accessibilityLabel={t("Conversa sobre {name}", { name: report.tagName })} onPress={() => setChat(report.id)} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
@@ -84,6 +92,9 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
       </>}
       </View>
     </KeyboardAwareScrollView>
+    <View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants" style={styles.bottomFade}>
+      <Svg width="100%" height="100%"><Defs><LinearGradient id="bottomFade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor={C.bg} stopOpacity={0} /><Stop offset="0.7" stopColor={C.bg} stopOpacity={0.9} /><Stop offset="1" stopColor={C.bg} /></LinearGradient></Defs><Rect width="100%" height="100%" fill="url(#bottomFade)" /></Svg>
+    </View>
     </View>
     {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} />}
     {!account && <View style={styles.navigation}>{tabs.map(tabItem => <Pressable key={tabItem.key} accessibilityRole="tab" accessibilityLabel={t(tabItem.label)} accessibilityState={{ selected: tab === tabItem.key }} onPress={() => switchTab(tabItem.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
@@ -101,13 +112,16 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
 const makeStyles = (C: Colors) => StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' }, topBar: { position: 'absolute', top: 0, width: '100%', maxWidth: 720, alignSelf: 'center', zIndex: 2, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   scrollContent: { flexGrow: 1, width: '100%', maxWidth: 720, alignSelf: 'center' },
-  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 24, gap: 26 }, center: { textAlign: 'center' },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 84, gap: 26 }, center: { textAlign: 'center' },
   stats: { flexDirection: 'row', gap: 16 }, stat: { flex: 1, gap: 5 }, statValue: { color: C.ink, fontSize: 28, fontWeight: '500', lineHeight: 34 }, statLabel: { color: C.muted, fontSize: 14, lineHeight: 21 },
   viewAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 12 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, minHeight: 106, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
-  helpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginTop: 'auto', minHeight: 72, padding: 16, backgroundColor: C.surface, borderRadius: 24 },
+  helpRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, padding: 18, backgroundColor: C.surface, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, borderColor: C.line },
+  tipBadge: { backgroundColor: C.raised, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
+  tipText: { color: C.ink, fontSize: 12, fontWeight: '500' },
+  bottomFade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 64 },
   alert: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 }, pressed: { opacity: 0.65 },
-  navigation: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 12, paddingBottom: 8 }, tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 56 },
+  navigation: { flexDirection: 'row', backgroundColor: C.bg, paddingTop: 12, paddingBottom: 8 }, tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 56 },
   tabIcon: { width: 72, height: 52, alignItems: 'center', justifyContent: 'center' },
   // Mount the rounded background with its final color so Android preserves its corners when switching tabs.
   tabSelection: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 20, backgroundColor: C.primary },

@@ -2,6 +2,9 @@
 import { rewards } from './rewards.ts';
 export const catalog: Record<string, readonly [string, string]> = {
   ...rewards,
+  'Dica': ['Tip', 'Consejo'],
+  'Escaneie para abrir a página deste objeto.': ['Scan to open this item’s page.', 'Escanea para abrir la página de este objeto.'],
+  'Compartilhar': ['Share', 'Compartir'],
   'Preferências': ['Preferences', 'Preferencias'],
   'Automático': ['Automatic', 'Automático'],
   'Conta e objetos': ['Account and items', 'Cuenta y objetos'],
