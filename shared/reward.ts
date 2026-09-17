@@ -25,6 +25,18 @@ export function unitsToAmount(units: string | bigint, decimals: number): string 
 }
 export function validRewardDays(value: unknown): value is number { return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 365; }
 
+export const MIN_REWARD_SECONDS = 3_600;
+export const MAX_REWARD_SECONDS = 5 * 365 * 86_400;
+export function validRewardSeconds(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= MIN_REWARD_SECONDS && value <= MAX_REWARD_SECONDS;
+}
+// Old day-based transactions retain their original ABI and limits.
+export function rewardDuration(spec: { durationSeconds?: number; days?: number }): number {
+  if (spec.durationSeconds !== undefined && spec.days === undefined && validRewardSeconds(spec.durationSeconds)) return spec.durationSeconds;
+  if (spec.durationSeconds === undefined && validRewardDays(spec.days)) return spec.days * 86_400;
+  throw new Error('Prazo inválido. Escolha de 1 hora a 5 anos.');
+}
+
 export type RewardStatus = 'pending' | 'reserved' | 'expired' | 'released' | 'refunded' | 'unverified';
 export type RewardView = {
   id: string; status: RewardStatus; currency: RewardCurrency; amount: string; amountUnits: string;
@@ -34,9 +46,9 @@ export type RewardView = {
 export type RewardAction = 'fund' | 'renew' | 'release' | 'refund';
 export type RewardInstructionSpec = {
   kind: RewardAction; payer: string; verifier: string; rewardId: string; mint: string | null;
-  amountUnits: string; days?: number; recipient?: string; reportHash?: string; previousRefundAfter?: number;
+  amountUnits: string; days?: number; durationSeconds?: number; recipient?: string; reportHash?: string; previousRefundAfter?: number;
 };
-export type RewardConfig = { network: RewardNetwork; verifier: string; program: string; currencies: RewardCurrency[]; mints: Partial<Record<RewardCurrency, string>>; minDays: number; maxDays: number };
+export type RewardConfig = { network: RewardNetwork; verifier: string; program: string; currencies: RewardCurrency[]; mints: Partial<Record<RewardCurrency, string>>; minDays: number; maxDays: number; minSeconds: number; maxSeconds: number };
 export type RewardBalance = { currency: RewardCurrency; decimals: number; mint: string | null; availableUnits: string; solLamports: string };
 export type RewardOperationStatus = 'prepared' | 'submitted' | 'confirmed' | 'expired' | 'failed';
 export type RewardOperation = {

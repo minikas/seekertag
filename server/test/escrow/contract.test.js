@@ -157,3 +157,27 @@ test('wallet inspection preserves the signed message across different JS locale 
     assert.throws(() => verifyRewardTransaction(changed.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64'), f.spec));
   } finally { String.prototype.localeCompare = sort; }
 });
+
+for (const mint of [null, MAINNET_MINTS.USDC, MAINNET_MINTS.SKR]) {
+  test(`hour-based ${mint || 'SOL'} reserves keep funds locked, renew and refund exactly at the deadline`, () => {
+    const f = fixture(mint); const timed = { days: undefined, durationSeconds: 3_600 };
+    f.expectOK(f.send(timed));
+    assert.equal(f.state().refundAfter, f.state().depositedAt + 3_600);
+    f.expectFail(f.send({ kind: 'refund' }));
+    f.expectOK(f.send({ ...timed, kind: 'renew', durationSeconds: 2 * 365 * 86_400 }));
+    assert.equal(f.state().refundAfter, f.state().depositedAt + 3_600 + 2 * 365 * 86_400);
+    f.setClock(f.state().refundAfter - 1); f.expectFail(f.send({ kind: 'refund' }));
+    f.setClock(f.state().refundAfter); f.expectOK(f.send({ kind: 'refund' }));
+    assert.equal(f.state().status, 3);
+  });
+}
+test('timed instruction boundaries are enforced by the actual program, including renewal horizon', () => {
+  const f = fixture(); const timed = { days: undefined, durationSeconds: 3_600 };
+  for (const seconds of [0, 3_599, 5 * 365 * 86_400 + 1, 0xffffffff]) {
+    f.expectFail(f.send(timed, [f.owner], tx => { tx.instructions[0].data.writeUInt32LE(seconds, 48); return tx; }));
+  }
+  f.expectOK(f.send(timed));
+  f.expectFail(f.send({ ...timed, kind: 'renew', durationSeconds: 5 * 365 * 86_400 }));
+  f.expectOK(f.send({ ...timed, kind: 'renew', durationSeconds: 5 * 365 * 86_400 - 3_600 }));
+  assert.equal(f.state().refundAfter - f.state().depositedAt, 5 * 365 * 86_400);
+});

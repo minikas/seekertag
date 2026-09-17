@@ -31,7 +31,7 @@ export function createRewardChain({ network, rpcUrl, verifier, testMints = {} })
     if ((network !== 'localnet' && genesis !== GENESIS[network]) || !program?.executable) throw new RewardChainError('O contrato de recompensa ainda não está disponível nesta rede.');
     readyUntil = Date.now() + 60_000;
   }
-  const config = { network, verifier: verifier.publicKey.toBase58(), currencies: ['SOL', ...['USDC', 'SKR'].filter(c => !!mints[c])], mints, program: PROGRAM.toBase58(), minDays: 1, maxDays: 365 };
+  const config = { network, verifier: verifier.publicKey.toBase58(), currencies: ['SOL', ...['USDC', 'SKR'].filter(c => !!mints[c])], mints, program: PROGRAM.toBase58(), minDays: 1, maxDays: 365, minSeconds: 3_600, maxSeconds: 5 * 365 * 86_400 };
   function asset(currency) {
     if (!config.currencies.includes(currency)) throw new RewardChainError('Esta moeda não está disponível para depósito nesta rede.');
     return { currency, decimals: REWARD_DECIMALS[currency], mint: currency === 'SOL' ? null : mints[currency] };

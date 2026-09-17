@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PublicKey } from '@solana/web3.js';
 import { verifySignIn } from '@solana/wallet-standard-util';
 import bs58 from 'bs58';
-import { amountToUnits, unitsToAmount, validRewardDays } from '../../shared/reward.ts';
+import { amountToUnits, unitsToAmount, rewardDuration, MAX_REWARD_SECONDS } from '../../shared/reward.ts';
 import { escrowAddress } from '../../shared/escrow-wire.ts';
 import { RewardChainError } from './chain.js';
 
@@ -84,7 +84,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     function reflected() {
       if (!operation || !state) return false;
       const spec = JSON.parse(operation.spec);
-      return operation.kind === 'fund' || (operation.kind === 'release' && state.status === 2 && state.reportHash === spec.reportHash && state.recipient === spec.recipient) || (operation.kind === 'refund' && state.status === 3) || (operation.kind === 'renew' && state.refundAfter >= spec.previousRefundAfter + spec.days * 86_400);
+      return operation.kind === 'fund' || (operation.kind === 'release' && state.status === 2 && state.reportHash === spec.reportHash && state.recipient === spec.recipient) || (operation.kind === 'refund' && state.status === 3) || (operation.kind === 'renew' && state.refundAfter >= spec.previousRefundAfter + rewardDuration(spec));
     }
     if (!operationStatus && reflected()) operationStatus = 'confirmed';
     if (operation && !operationStatus) {
@@ -138,6 +138,12 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     if (get("SELECT id FROM rewards WHERE tag_id=? AND status IN ('pending','reserved')", tagId)) fail(409, 'Libere ou cancele a reserva antes de alterar a recompensa ou transferir a etiqueta.', 'REWARD_LOCKED');
   }
   function install(app) {
+    app.get('/api/rewards/config', requireOwner, (req, res) => {
+      res.json({ reward: null, config: chain?.config || null, payer: get("SELECT subject FROM auth_identities WHERE user_id=? AND provider='solana'", req.user.id)?.subject || null });
+    });
+    app.get('/api/rewards/balance', requireOwner, route(async (req, res) => {
+      configured(); res.json(await chain.balance(payer(req.user.id), req.query.currency || 'SOL'));
+    }));
     app.get('/api/tags/:id/reward', requireOwner, route(async (req, res) => {
       const tag = ownerTag(req);
       res.json({ reward: await getState(tag), config: chain?.config || null, payer: get("SELECT subject FROM auth_identities WHERE user_id=? AND provider='solana'", req.user.id)?.subject || null });
@@ -152,7 +158,9 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       if (!['fund', 'renew', 'release', 'refund'].includes(kind)) fail(400, 'Operação de recompensa inválida.');
       let reward = await refresh(current(tag));
       if (reward && inflight(reward)) fail(409, 'Uma transação está em andamento. Aguarde a confirmação ou retome o pedido.', 'REWARD_PENDING');
-      if (['fund', 'renew'].includes(kind) && !validRewardDays(req.body.days)) fail(400, 'Prazo inválido. Escolha de 1 a 365 dias.');
+      if (['fund', 'renew'].includes(kind)) {
+        try { rewardDuration(req.body); } catch { fail(400, 'Prazo inválido. Escolha de 1 hora a 5 anos.'); }
+      }
       if (kind === 'fund') {
         if (reward && activeStatuses.includes(reward.status)) fail(409, 'Este objeto já tem uma reserva.', 'REWARD_LOCKED');
         const asset = chain.asset(req.body.currency);
@@ -164,10 +172,13 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       } else if (!reward || reward.status !== 'reserved') fail(409, 'Não há uma reserva disponível para esta ação.', 'REWARD_NOT_RESERVED');
       if (wallet !== reward.payer) fail(409, 'Use a carteira que fez o depósito.', 'REWARD_WALLET_MISMATCH');
       const spec = { kind, payer: reward.payer, verifier: reward.verifier, rewardId: reward.seed, mint: reward.mint, amountUnits: reward.amount_units };
-      if (['fund', 'renew'].includes(kind)) spec.days = req.body.days;
+      if (['fund', 'renew'].includes(kind)) {
+        if (req.body.durationSeconds !== undefined) spec.durationSeconds = req.body.durationSeconds;
+        else spec.days = req.body.days;
+      }
       if (kind === 'renew') spec.previousRefundAfter = reward.refund_after;
       const networkTime = ['renew', 'refund'].includes(kind) ? await chain.clock() : null;
-      if (kind === 'renew' && Math.max(reward.refund_after, networkTime) + spec.days * 86_400 > networkTime + 365 * 86_400) fail(400, 'A renovação não pode ultrapassar 365 dias a partir de hoje.');
+      if (kind === 'renew' && Math.max(reward.refund_after, networkTime) + rewardDuration(spec) > networkTime + (spec.durationSeconds !== undefined ? MAX_REWARD_SECONDS : 365 * 86_400)) fail(400, 'A renovação não pode ultrapassar 5 anos a partir de hoje.');
       if (kind === 'refund' && reward.refund_after > networkTime) fail(409, 'A reserva só pode ser cancelada após o vencimento.', 'REWARD_LOCKED');
       if (kind === 'release') {
         if (typeof req.body.reportId !== 'string' || req.body.reportId.length > 80) fail(400, 'Conversa inválida.');

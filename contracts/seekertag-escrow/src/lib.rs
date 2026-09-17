@@ -5,6 +5,8 @@ use anchor_spl::token::{self, CloseAccount, Mint, Token, TokenAccount, TransferC
 declare_id!("4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB");
 const DAY: i64 = 86_400;
 const MAX_DAYS: u16 = 365;
+const MIN_SECONDS: u32 = 3_600;
+const MAX_SECONDS: u32 = 5 * 365 * 86_400;
 const RESERVED: u8 = 1;
 const RELEASED: u8 = 2;
 const REFUNDED: u8 = 3;
@@ -20,6 +22,7 @@ pub mod seekertag_escrow {
         days: u16,
         verifier: Pubkey,
     ) -> Result<()> {
+        valid_days(days)?;
         init(
             &mut ctx.accounts.escrow,
             ctx.accounts.owner.key(),
@@ -27,7 +30,7 @@ pub mod seekertag_escrow {
             Pubkey::default(),
             reward_id,
             amount,
-            days,
+            u32::from(days) * DAY as u32,
             ctx.bumps.escrow,
         )?;
         system_program::transfer(
@@ -49,6 +52,7 @@ pub mod seekertag_escrow {
         days: u16,
         verifier: Pubkey,
     ) -> Result<()> {
+        valid_days(days)?;
         init(
             &mut ctx.accounts.escrow,
             ctx.accounts.owner.key(),
@@ -56,7 +60,7 @@ pub mod seekertag_escrow {
             ctx.accounts.mint.key(),
             reward_id,
             amount,
-            days,
+            u32::from(days) * DAY as u32,
             ctx.bumps.escrow,
         )?;
         token::transfer_checked(
@@ -86,6 +90,85 @@ pub mod seekertag_escrow {
             .ok_or(EscrowError::InvalidDuration)?;
         require!(
             end <= now + i64::from(MAX_DAYS) * DAY,
+            EscrowError::InvalidDuration
+        );
+        escrow.refund_after = end;
+        Ok(())
+    }
+
+    pub fn fund_sol_timed(
+        ctx: Context<FundSol>,
+        reward_id: [u8; 32],
+        amount: u64,
+        duration_seconds: u32,
+        verifier: Pubkey,
+    ) -> Result<()> {
+        init(
+            &mut ctx.accounts.escrow,
+            ctx.accounts.owner.key(),
+            verifier,
+            Pubkey::default(),
+            reward_id,
+            amount,
+            duration_seconds,
+            ctx.bumps.escrow,
+        )?;
+        system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                SolTransfer {
+                    from: ctx.accounts.owner.to_account_info(),
+                    to: ctx.accounts.escrow.to_account_info(),
+                },
+            ),
+            amount,
+        )
+    }
+
+    pub fn fund_token_timed(
+        ctx: Context<FundToken>,
+        reward_id: [u8; 32],
+        amount: u64,
+        duration_seconds: u32,
+        verifier: Pubkey,
+    ) -> Result<()> {
+        init(
+            &mut ctx.accounts.escrow,
+            ctx.accounts.owner.key(),
+            verifier,
+            ctx.accounts.mint.key(),
+            reward_id,
+            amount,
+            duration_seconds,
+            ctx.bumps.escrow,
+        )?;
+        token::transfer_checked(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                TransferChecked {
+                    from: ctx.accounts.source.to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.vault.to_account_info(),
+                    authority: ctx.accounts.owner.to_account_info(),
+                },
+            ),
+            amount,
+            ctx.accounts.mint.decimals,
+        )
+    }
+
+    pub fn renew_timed(ctx: Context<Manage>, duration_seconds: u32) -> Result<()> {
+        let escrow = &mut ctx.accounts.escrow;
+        reserved(escrow)?;
+        valid_duration(duration_seconds)?;
+        let now = Clock::get()?.unix_timestamp;
+        let end = escrow
+            .refund_after
+            .max(now)
+            .checked_add(i64::from(duration_seconds))
+            .ok_or(EscrowError::InvalidDuration)?;
+        require!(
+            end <= now + i64::from(MAX_SECONDS),
             EscrowError::InvalidDuration
         );
         escrow.refund_after = end;
@@ -221,6 +304,10 @@ fn valid_days(days: u16) -> Result<()> {
     require!((1..=MAX_DAYS).contains(&days), EscrowError::InvalidDuration);
     Ok(())
 }
+fn valid_duration(seconds: u32) -> Result<()> {
+    require!((MIN_SECONDS..=MAX_SECONDS).contains(&seconds), EscrowError::InvalidDuration);
+    Ok(())
+}
 fn init(
     escrow: &mut Account<Escrow>,
     owner: Pubkey,
@@ -228,7 +315,7 @@ fn init(
     mint: Pubkey,
     reward_id: [u8; 32],
     amount: u64,
-    days: u16,
+    duration_seconds: u32,
     bump: u8,
 ) -> Result<()> {
     require!(
@@ -239,7 +326,7 @@ fn init(
         verifier != Pubkey::default() && verifier != owner,
         EscrowError::InvalidVerifier
     );
-    valid_days(days)?;
+    valid_duration(duration_seconds)?;
     let now = Clock::get()?.unix_timestamp;
     escrow.set_inner(Escrow {
         owner,
@@ -248,7 +335,7 @@ fn init(
         reward_id,
         amount,
         deposited_at: now,
-        refund_after: now + i64::from(days) * DAY,
+        refund_after: now + i64::from(duration_seconds),
         status: RESERVED,
         recipient: Pubkey::default(),
         report: [0; 32],
@@ -410,7 +497,7 @@ impl Escrow {
 pub enum EscrowError {
     #[msg("Amount and reward ID must be nonzero")]
     InvalidAmount,
-    #[msg("Choose 1 to 365 days; renewal cannot exceed 365 days from now")]
+    #[msg("Choose 1 hour to 5 years; renewal cannot exceed 5 years from now")]
     InvalidDuration,
     #[msg("The reservation has already been settled")]
     AlreadySettled,

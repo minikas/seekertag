@@ -150,3 +150,28 @@ test('finder wallet proof is report-bound; confirmed payout resolves exactly one
   assert.equal((await h.request(`/tags/${tag.id}`, owner.token)).data.tag.recoveryCount, 1);
   assert.equal((await h.prepare(owner, tag, { kind: 'refund' })).status, 409);
 });
+
+test('new object reward setup is authenticated and timed reservations preserve exact hours through renewal', async t => {
+  const h = await harness(t); const owner = await h.account();
+  assert.equal((await h.request('/rewards/config')).status, 401);
+  assert.equal((await h.request('/rewards/balance?currency=SOL')).status, 401);
+  const setup = await h.request('/rewards/config', owner.token);
+  assert.equal(setup.data.config.minSeconds, 3_600); assert.equal(setup.data.config.maxSeconds, 5 * 365 * 86_400);
+  assert.equal(setup.data.payer, owner.wallet.publicKey.toBase58());
+  assert.equal((await h.request('/rewards/balance?currency=SOL', owner.token)).data.availableUnits, '10000000000');
+  const tag = await h.tag(owner);
+  for (const durationSeconds of [0, 3_599, 3_600.5, '3600', 5 * 365 * 86_400 + 1]) {
+    assert.equal((await h.prepare(owner, tag, { days: undefined, durationSeconds })).status, 400);
+  }
+  assert.equal((await h.prepare(owner, tag, { days: 30, durationSeconds: 3_600 })).status, 400);
+  const prepared = await h.prepare(owner, tag, { days: undefined, durationSeconds: 7_200 });
+  assert.equal(prepared.status, 201, JSON.stringify(prepared));
+  assert.equal(prepared.data.operation.spec.durationSeconds, 7_200);
+  await h.submit(owner, prepared.data.operation);
+  const reserved = (await h.state(owner, tag)).data.reward;
+  const renewal = await h.prepare(owner, tag, { kind: 'renew', days: undefined, durationSeconds: 3_600 });
+  assert.equal(renewal.status, 201, JSON.stringify(renewal)); await h.submit(owner, renewal.data.operation);
+  const renewed = (await h.state(owner, tag)).data.reward;
+  assert.equal(Date.parse(renewed.refundAfter) - Date.parse(reserved.refundAfter), 3_600_000);
+  assert.equal((await h.prepare(owner, tag, { kind: 'renew', days: undefined, durationSeconds: 5 * 365 * 86_400 })).status, 400);
+});

@@ -1,12 +1,12 @@
 import { Buffer } from 'buffer';
 import { PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
-import { ESCROW_SPACE, REWARD_PROGRAM, validRewardDays } from './reward.ts';
+import { ESCROW_SPACE, REWARD_PROGRAM, rewardDuration } from './reward.ts';
 import type { RewardInstructionSpec } from './reward.ts';
 
 export const PROGRAM = new PublicKey(REWARD_PROGRAM);
 export const TOKEN_PROGRAM = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 export const ATA_PROGRAM = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-const discriminators = { fund_sol: '9c81db22a1d6e738', fund_token: '6175994b50771134', renew: '2bef0f2e1b07a349', release_sol: '3a4017c2d49c8909', release_token: 'c0b00f2c436b608f', refund_sol: '9e4483726a4d380d', refund_token: 'c6c25dd10cd32eae' };
+const discriminators = { fund_sol_timed: '6802660e4e4b3ddd', fund_token_timed: '68108583de536a1a', renew_timed: '0a96388e58bace0f', fund_sol: '9c81db22a1d6e738', fund_token: '6175994b50771134', renew: '2bef0f2e1b07a349', release_sol: '3a4017c2d49c8909', release_token: 'c0b00f2c436b608f', refund_sol: '9e4483726a4d380d', refund_token: 'c6c25dd10cd32eae' };
 const key = (pubkey: PublicKey, isWritable = false, isSigner = false) => ({ pubkey, isWritable, isSigner });
 function writeUnits(buffer: Buffer, value: bigint, offset: number) {
   if (value < 0n || value > 0xffffffffffffffffn) throw new Error('Valor de recompensa inválido.');
@@ -35,13 +35,17 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
   const vault = vaultAddress(escrow); const setup: TransactionInstruction[] = [];
   let name: keyof typeof discriminators; let keys; let args: Buffer = Buffer.alloc(0);
   if (spec.kind === 'fund') {
-    if (!validRewardDays(spec.days) || !/^[1-9]\d{0,19}$/.test(spec.amountUnits)) throw new Error('Dados de depósito inválidos.');
-    args = Buffer.alloc(74); hashBytes(spec.rewardId).copy(args); writeUnits(args, BigInt(spec.amountUnits), 32); args.writeUInt16LE(spec.days, 40); verifier.toBuffer().copy(args, 42);
-    name = mint ? 'fund_token' : 'fund_sol';
+    const seconds = rewardDuration(spec); const timed = spec.durationSeconds !== undefined;
+    if (!/^[1-9]\d{0,19}$/.test(spec.amountUnits)) throw new Error('Dados de depósito inválidos.');
+    args = Buffer.alloc(timed ? 76 : 74); hashBytes(spec.rewardId).copy(args); writeUnits(args, BigInt(spec.amountUnits), 32);
+    if (timed) args.writeUInt32LE(seconds, 40); else args.writeUInt16LE(spec.days!, 40);
+    verifier.toBuffer().copy(args, timed ? 44 : 42);
+    name = timed ? (mint ? 'fund_token_timed' : 'fund_sol_timed') : (mint ? 'fund_token' : 'fund_sol');
     keys = mint ? [key(owner, true, true), key(escrow, true), key(mint), key(tokenAddress(owner, mint), true), key(vault, true), key(TOKEN_PROGRAM), key(SystemProgram.programId)] : [key(owner, true, true), key(escrow, true), key(SystemProgram.programId)];
   } else if (spec.kind === 'renew') {
-    if (!validRewardDays(spec.days)) throw new Error('Prazo inválido. Escolha de 1 a 365 dias.');
-    name = 'renew'; args = Buffer.alloc(2); args.writeUInt16LE(spec.days, 0);
+    const seconds = rewardDuration(spec); const timed = spec.durationSeconds !== undefined;
+    name = timed ? 'renew_timed' : 'renew'; args = Buffer.alloc(timed ? 4 : 2);
+    if (timed) args.writeUInt32LE(seconds, 0); else args.writeUInt16LE(spec.days!, 0);
     keys = [key(owner, true, true), key(escrow, true)];
   } else if (spec.kind === 'release') {
     if (!spec.recipient || !spec.reportHash) throw new Error('Carteira de recebimento não confirmada.');
