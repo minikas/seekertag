@@ -1,7 +1,7 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Linking, Share, StyleSheet, Text, ToastAndroid, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Linking, Share, StyleSheet, Text, ToastAndroid, useWindowDimensions, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Pressable from './HapticPressable';
 import ScreenBottomSheet from './ScreenBottomSheet';
@@ -218,7 +218,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     <View style={styles.nfcContent}>
       <Text style={[s.h2, { textAlign: 'center' }]}>{t("Aproxime a etiqueta NFC")}</Text>
       <Text style={[s.body, { textAlign: 'center' }]}>{t("Encoste uma etiqueta NFC regravável na parte de trás do celular.")}</Text>
-      {busy === 'nfc' && <ActivityIndicator size="large" color={C.accent} accessibilityLabel={t('Gravando etiqueta NFC')} />}
+      {busy === 'nfc' && <NfcSpinner color={C.accent} label={t('Gravando etiqueta NFC')} />}
     </View>
     {error ? <Notice text={error} error /> : <Text style={[s.small, { textAlign: 'center' }]}>{t("O link gravado na etiqueta será substituído.")}</Text>}
     {busy === 'nfc' ? <Button variant="secondary" onPress={() => void cancelNfc()}>{t("Cancelar gravação")}</Button> : <Button onPress={writeNfc} disabled={nfcStopping}>{t("Tentar novamente")}</Button>}
@@ -282,6 +282,16 @@ function QrAction({ icon, label, accessibilityLabel, onPress, busy = false, disa
 function InfoBlock({ label, value }: { label: string; value: string }) {
   const { s } = useUI();
   return <View style={{ gap: 8 }}><Text style={s.label}>{label}</Text><Text style={[s.body, { color: s.h3.color }]}>{value}</Text></View>;
+}
+
+function NfcSpinner({ color, label }: { color: string; label: string }) {
+  const rotation = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(rotation, { toValue: 1, duration: 850, useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [rotation]);
+  return <Animated.View accessibilityLabel={label} style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 4, borderColor: `${color}33`, borderTopColor: color, borderRightColor: color, transform: [{ rotate: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }} />;
 }
 
 function ActionRow({ icon, title, onPress, tone, disabled = false }: { icon: IconName; title: string; onPress: () => void; tone?: 'success' | 'warning' | 'danger'; disabled?: boolean }) {
