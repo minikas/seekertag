@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, SYSVAR_CLOCK_PUBKEY } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { PROGRAM, TOKEN_PROGRAM, escrowAddress, vaultAddress, tokenAddress, rewardInstructions, decodeEscrow, verifyRewardTransaction } from '../../shared/escrow-wire.ts';
-import { ESCROW_SPACE, MAINNET_MINTS, REWARD_DECIMALS } from '../../shared/reward.ts';
+import { ESCROW_SPACE, MAINNET_MINTS, REWARD_DECIMALS, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE } from '../../shared/reward.ts';
 
 const GENESIS = { mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG' };
 export class RewardChainError extends Error {}
@@ -56,7 +56,13 @@ export function createRewardChain({ network, rpcUrl, verifier, testMints = {} })
       if (!mint?.owner.equals(TOKEN_PROGRAM) || mint.data.length !== 82 || mint.data[44] !== selected.decimals || mint.data[45] !== 1) throw new RewardChainError('O token configurado não corresponde à moeda da recompensa.');
       available = token(accounts[2], selected.mint, payer);
     }
-    return { ...selected, availableUnits: available.toString(), solLamports: sol.toString() };
+    // Preview budget only: the actual fee/rent is rechecked when preparing the deposit.
+    // Funding has one signature and uses the fixed-v2 compute budget.
+    const rent = await connection.getMinimumBalanceForRentExemption(ESCROW_SPACE)
+      + (selected.mint ? await connection.getMinimumBalanceForRentExemption(165) : 0);
+    const reserve = BigInt(rent) + 5_000n + BigInt(Math.ceil(REWARD_COMPUTE_UNITS * REWARD_COMPUTE_UNIT_PRICE / 1_000_000));
+    const fundable = sol < reserve ? 0n : selected.mint ? available : sol - reserve;
+    return { ...selected, availableUnits: available.toString(), solLamports: sol.toString(), fundableUnits: fundable.toString(), reserveLamports: reserve.toString() };
   }
   async function prepare(spec) {
     await ready();

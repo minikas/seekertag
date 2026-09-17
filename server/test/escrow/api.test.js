@@ -40,6 +40,28 @@ async function harness(t) {
   return { rpc, app, request, account, tag, prepare, submit, state };
 }
 
+test('spendable balance leaves rent and fees in SOL and requires SOL for token deposits', async t => {
+  const h = await harness(t); const owner = await h.account();
+  const sol = (await h.request('/rewards/balance?currency=SOL', owner.token)).data;
+  assert.ok(BigInt(sol.reserveLamports) > 25000n);
+  assert.equal(BigInt(sol.fundableUnits) + BigInt(sol.reserveLamports), BigInt(sol.availableUnits));
+  const tag = await h.tag(owner);
+  const prepared = await h.prepare(owner, tag);
+  assert.equal(BigInt(sol.reserveLamports), BigInt(prepared.data.operation.rentLamports) + BigInt(prepared.data.operation.feeLamports));
+  for (const currency of ['USDC', 'SKR']) {
+    const rich = await h.rpc.chain.balance(owner.wallet.publicKey.toBase58(), currency);
+    assert.equal(rich.fundableUnits, rich.availableUnits);
+    assert.ok(BigInt(rich.reserveLamports) > BigInt(sol.reserveLamports));
+  }
+  const poor = Keypair.generate(); h.rpc.fund(poor);
+  h.rpc.svm.setAccount({ address: poor.publicKey.toBase58(), executable: false, programAddress: SystemProgram.programId.toBase58(), lamports: 10000n, data: new Uint8Array() });
+  for (const currency of ['SOL', 'USDC', 'SKR']) {
+    const balance = await h.rpc.chain.balance(poor.publicKey.toBase58(), currency);
+    assert.ok(BigInt(balance.availableUnits) > 0n);
+    assert.equal(balance.fundableUnits, '0');
+  }
+});
+
 test('API checks balance, signs exactly the prepared deposit, and waits for on-chain finality', async t => {
   const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
   assert.equal((await h.request(`/tags/${tag.id}/reward/balance?currency=SOL`, owner.token)).data.availableUnits, '10000000000');

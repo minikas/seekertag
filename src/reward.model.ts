@@ -1,4 +1,4 @@
-import { amountToUnits, MAINNET_MINTS, REWARD_DECIMALS, REWARD_PROGRAM, validRewardSeconds } from '../shared/reward.ts';
+import { amountToUnits, unitsToAmount, MAINNET_MINTS, REWARD_DECIMALS, REWARD_PROGRAM, validRewardSeconds } from '../shared/reward.ts';
 import type { RewardAction, RewardConfig, RewardCurrency, RewardOperation, RewardView } from '../shared/reward.ts';
 
 export type RewardIntent = { kind: RewardAction; currency: RewardCurrency; amount: string; days?: number; durationSeconds?: number; recipient?: string; reportHash?: string };
@@ -47,4 +47,12 @@ export function stepRewardAmount(value: string, currency: RewardCurrency, direct
   const next = changed < 0n ? 0n : changed > 1_000_000n * scale ? 1_000_000n * scale : changed;
   const fraction = (next % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
   return rewardInput(`${next / scale}${fraction ? `.${fraction}` : ''}`, locale);
+}
+
+// Round down in base units; percentages must never exceed the spendable balance.
+export function percentageRewardAmount(fundableUnits: string, currency: RewardCurrency, percent: number, locale: string) {
+  if (![25, 50, 75, 100].includes(percent) || !/^\d+$/.test(fundableUnits)) throw new Error('Percentual inválido.');
+  const units = BigInt(fundableUnits) * BigInt(percent) / 100n;
+  const maximum = 1_000_000n * 10n ** BigInt(REWARD_DECIMALS[currency]);
+  return rewardInput(unitsToAmount(units > maximum ? maximum : units, REWARD_DECIMALS[currency]), locale);
 }

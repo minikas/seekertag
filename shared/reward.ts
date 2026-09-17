@@ -53,9 +53,11 @@ export type RewardInstructionSpec = {
   computeBudget?: 'fixed-v1' | 'fixed-v2';
 };
 export type RewardConfig = { network: RewardNetwork; verifier: string; program: string; currencies: RewardCurrency[]; mints: Partial<Record<RewardCurrency, string>>; minDays: number; maxDays: number; minSeconds: number; maxSeconds: number };
-export type RewardBalance = { currency: RewardCurrency; decimals: number; mint: string | null; availableUnits: string; solLamports: string };
+export type RewardBalance = { currency: RewardCurrency; decimals: number; mint: string | null; availableUnits: string; solLamports: string; fundableUnits?: string; reserveLamports?: string };
 export type RewardOperationStatus = 'prepared' | 'submitted' | 'confirmed' | 'expired' | 'failed';
 export type RewardOperation = {
   id: string; rewardId: string; network: RewardNetwork; currency: RewardCurrency; spec: RewardInstructionSpec;
   transaction: string; feeLamports: string; rentLamports: string; lastValidBlockHeight: number;
 };
+
+export type RewardPrices = { source: 'CoinGecko'; quotes: Partial<Record<RewardCurrency, { usd: number; brl: number; updatedAt: number }>>; fetchedAt: number; expiresAt: number };
