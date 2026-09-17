@@ -6,7 +6,7 @@ O projeto tem um app Android e uma API Node.js com SQLite. Não há projeto iOS,
 
 ## Como funciona
 
-1. O dono entra com sua carteira Seeker/Solana, Google ou Apple; a conta é criada no primeiro acesso. Google/Apple exigem ativação dos provedores. O acesso existente por e-mail continua disponível.
+1. O dono entra com sua carteira Seeker/Solana, Google ou Apple; a conta é criada no primeiro acesso. Google/Apple exigem ativação dos provedores. A tela inicial mostra a ilustração e a ação Começar; os três provedores ficam em um sheet Gorhom.
 2. Cadastra um objeto, gera seu QR e compartilha/imprime o PDF ou grava uma etiqueta NFC.
 3. Quem encontra usa o SeekerTag instalado para ler a etiqueta. **Não precisa criar conta**, mas precisa do aplicativo.
 4. Envia um aviso e conversa com o dono. O acesso à conversa fica salvo no armazenamento seguro do aparelho.
@@ -94,7 +94,7 @@ Para ativar, configure o ambiente da API (ou `server/.env`, carregado por `npm r
 2. **Apple:** configure um Services ID associado a um App ID elegível com Sign in with Apple, seu domínio e `https://SEU-DOMINIO/api/auth/oauth/apple/callback`. Configure `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` e `APPLE_PRIVATE_KEY` com a chave `.p8`. A elegibilidade e associação a um aplicativo Apple são requisitos da conta Apple Developer; remover o projeto iOS deste repositório não elimina esses requisitos.
 3. Use a mesma origem HTTPS em `PUBLIC_URL` e `EXPO_PUBLIC_API_URL` (com `/api` no aplicativo), reinicie a API e recarregue o app. Teste consentimento, cancelamento e retorno em cada provedor antes de publicar.
 
-Os callbacks validam estado, nonce, assinatura, emissor, destinatário e validade do token. O retorno `seekertag://auth/callback` contém apenas um código temporário, vinculado ao segredo de prova mantido no aplicativo; os tokens dos provedores e a sessão SeekerTag não trafegam nesse link. Cancelar não cria conta. Senha e recuperação continuam disponíveis no acesso por e-mail.
+Os callbacks validam estado, nonce, assinatura, emissor, destinatário e validade do token. O retorno `seekertag://auth/callback` contém apenas um código temporário, vinculado ao segredo de prova mantido no aplicativo; os tokens dos provedores e a sessão SeekerTag não trafegam nesse link. Cancelar não cria conta. A interface não oferece login por e-mail. Erros de entrada aparecem em toasts temporários.
 
 Referências: [Sign In With Solana](https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly#sign-in-with-solana), [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect), [Apple em outras plataformas](https://developer.apple.com/documentation/signinwithapple/incorporating-sign-in-with-apple-into-other-platforms), [configuração Apple](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web), [Expo WebBrowser SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/webbrowser/).
 
@@ -203,7 +203,7 @@ NATIVE_DEVICE_ID=emulator-5554 \
 EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run test:android
 ```
 
-Esse comando cria duas contas e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica login, criação de objeto, compartilhamento nativo do link, prévia do dono sem envio de aviso, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
+Antes de executar, entre no app com uma conta exclusiva de QA via um provedor suportado e disponibilize sua sessão na variável privada `NATIVE_QA_OWNER_TOKEN`. O fluxo não efetua login nem aprova a carteira. Esse comando usa essa sessão e cria uma conta de fixture e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica a sessão existente, criação de objeto, compartilhamento nativo do link, prévia do dono sem envio de aviso, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
 
 Para conferir o teclado sem criar dados, selecione Português em Idioma, comece no painel com a conta conectada e execute `maestro test tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
 
