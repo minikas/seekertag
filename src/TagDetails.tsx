@@ -290,7 +290,7 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   center: { textAlign: 'center' },
   metadata: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 },
   qrCard: { paddingTop: 12, alignItems: 'center', gap: 20 },
-  qrPaper: { backgroundColor: 'white', padding: 4, borderRadius: 20, marginTop: 8 },
+  qrPaper: { backgroundColor: 'white', padding: 12, borderRadius: 20, marginTop: 8 },
   buttonRow: { flexDirection: 'row', gap: 10 },
   qrAction: { flex: 1, minHeight: 84, paddingHorizontal: 8, paddingVertical: 14, borderRadius: 20, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', gap: 9 },
   qrActionLabel: { color: C.ink, fontSize: 14, lineHeight: 20, fontWeight: '500', textAlign: 'center' },
