@@ -44,6 +44,7 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
   const alive = useRef(true); const acting = useRef(false); const fetching = useRef(false);
   const callbacks = useRef({ onChanged, onReleased, onCompleted }); callbacks.current = { onChanged, onReleased, onCompleted };
   const completed = useRef<string | null>(null);
+  const dismissedReviews = useRef<Set<string>>(new Set());
   const currentOperation = useRef(operation); currentOperation.current = operation;
   const base = tagId ? `/tags/${tagId}/reward` : '/rewards/config';
   const activeBase = useRef(base); activeBase.current = base;
@@ -78,6 +79,7 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
         }
       }
       if (!alive.current || acting.current || activeBase.current !== base || started !== revision.current) return;
+      if (op && dismissedReviews.current.has(op.operation.id)) op = undefined;
       if (op && next.reward && next.reward.id !== op.operation.rewardId) op = undefined;
       if (op) next.reward = op.reward;
       setData(next);
@@ -142,6 +144,7 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
         ...(kind === 'release' && reportId && recipient ? { recipient, reportHash: await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, reportId) } : {}) };
       const result = await api<{ operation: RewardOperation }>(`/tags/${savedTagId}/reward/prepare`, token, { ...intent, reportId });
       validateRewardIntent(result.operation, intent, data.config!, data.payer!);
+      dismissedReviews.current.delete(result.operation.id);
       if (alive.current) setOperation({ ...result, status: 'prepared', reward });
     });
   }
@@ -203,6 +206,7 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
   }
   function discardReview() {
     if (!operation || acting.current || operation.status === 'submitted') return;
+    dismissedReviews.current.add(operation.operation.id);
     void secureStorage.remove(storageKey(operation.operation.id)).catch(() => {});
     currentOperation.current = undefined; setOperation(undefined);
   }
