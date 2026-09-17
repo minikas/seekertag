@@ -1,20 +1,23 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Pressable from './HapticPressable';
 import { Button, Icon, IconName, useUI } from './ui';
 
-const steps: { icon: IconName; title: string; text: string }[] = [
-  { icon: 'tag', title: '1. Adicione seu objeto', text: 'Crie uma etiqueta com QR.' },
-  { icon: 'maximize', title: '2. Prenda a etiqueta', text: 'Imprima o QR ou grave uma etiqueta NFC.' },
-  { icon: 'message-circle', title: '3. Combine a devolução', text: 'Quem encontrar fala com você pelo app.' },
+const steps: { icon: IconName; title: string; text: string; preview: string }[] = [
+  { icon: 'tag', title: 'Seu objeto ganha uma identidade', text: 'Adicione um nome e crie sua etiqueta com QR.', preview: 'Minha mochila' },
+  { icon: 'maximize', title: 'Leve a etiqueta com seu objeto', text: 'Baixe e imprima o QR ou grave uma etiqueta NFC. Prenda no objeto.', preview: 'QR ou NFC' },
+  { icon: 'message-circle', title: 'Encontrou. Escaneou. Conversou.', text: 'Quem encontrar escaneia a etiqueta e envia uma mensagem. Vocês combinam a devolução pelo chat.', preview: 'Encontrei seu objeto!' },
 ];
 
 export default function HelpSheet({ onClose }: { onClose: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
+  const [page, setPage] = useState(0);
+  const step = steps[page];
   const sheet = useRef<BottomSheetModal>(null);
   const mounted = useRef(false);
   const insets = useSafeAreaInsets();
@@ -31,9 +34,18 @@ export default function HelpSheet({ onClose }: { onClose: () => void }) {
   return <BottomSheetModal ref={sheet} name="how-it-works" enableDynamicSizing enablePanDownToClose topInset={insets.top + 8} maxDynamicContentSize={height - insets.top - 32} backdropComponent={backdrop} backgroundStyle={styles.background} handleIndicatorStyle={styles.handle} onDismiss={() => { if (mounted.current) onClose(); }}>
     <BottomSheetScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
       <Text accessibilityRole="header" style={s.h2}>{t("Como funciona")}</Text>
-      {steps.map(step => <View key={step.title} style={styles.step}><View style={s.settingsIcon}><Icon name={step.icon} size={20} /></View><View style={{ flex: 1, gap: 6 }}><Text style={s.h3}>{t(step.title)}</Text><Text style={s.body}>{t(step.text)}</Text></View></View>)}
-      <Text style={[s.small, { textAlign: 'center' }]}>{t("Seus contatos ficam privados. As etiquetas não têm GPS.")}</Text>
-      <Button onPress={close}>{t("Entendi")}</Button>
+      <View style={{ flexDirection: 'row', gap: 8 }}>{steps.map((item, index) => <Pressable key={item.title} accessibilityRole="button" accessibilityLabel={t('Etapa {number}', { number: index + 1 })} accessibilityState={{ selected: page === index }} onPress={() => setPage(index)} style={{ flex: 1, paddingVertical: 10 }}><View style={{ height: 4, borderRadius: 2, backgroundColor: index <= page ? C.accent : C.line }} /></Pressable>)}</View>
+      <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 180, backgroundColor: C.surface, borderRadius: 28, padding: 24, gap: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 }}>
+          <Icon name={page === 0 ? 'briefcase' : page === 1 ? 'smartphone' : 'user'} size={40} color={C.muted} />
+          <Icon name="arrow-right" size={20} color={C.accent} />
+          <View style={{ backgroundColor: C.input, padding: 20, borderRadius: 20 }}><Icon name={step.icon} size={44} color={C.accent} /></View>
+        </View>
+        <Text style={[s.body, { color: C.accent, textAlign: 'center' }]}>{t(step.preview)}</Text>
+      </View>
+      <View accessibilityLiveRegion="polite" style={{ gap: 12 }}><Text style={[s.h2, { textAlign: 'center' }]}>{t(step.title)}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t(step.text)}</Text></View>
+      {page === 2 && <Text style={[s.small, { textAlign: 'center' }]}>{t("Seus contatos ficam privados. As etiquetas não têm GPS.")}</Text>}
+      <View style={{ flexDirection: 'row', gap: 12 }}>{page > 0 && <Button variant="secondary" icon="arrow-left" label={t('Voltar')} onPress={() => setPage(page - 1)} />}<Button style={{ flex: 1 }} onPress={() => page === steps.length - 1 ? close() : setPage(page + 1)}>{t(page === steps.length - 1 ? 'Entendi' : 'Continuar')}</Button></View>
     </BottomSheetScrollView>
   </BottomSheetModal>;
 }
