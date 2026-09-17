@@ -31,6 +31,9 @@ export async function signReward(operation: RewardOperation): Promise<string | n
     });
   } catch (error) {
     if (cancelled(error)) return null;
+    if (/timed?\s*out|timeout/i.test(error instanceof Error ? error.message : String(error))) {
+      throw new Error('A carteira não respondeu a tempo. Toque em Assinar na carteira para tentar novamente.');
+    }
     throw error instanceof Error ? error : new Error('Não foi possível abrir a carteira. Tente novamente.');
   }
 }

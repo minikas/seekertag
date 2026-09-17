@@ -1,5 +1,6 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  'A carteira não respondeu a tempo. Toque em Assinar na carteira para tentar novamente.': ['The wallet did not respond in time. Tap Sign in wallet to try again.', 'La cartera no respondió a tiempo. Toca Firmar en la cartera para volver a intentarlo.'],
   "Horas": ["Hours", "Horas"],
   "Dias": ["Days", "Días"],
   "Meses": ["Months", "Meses"],
