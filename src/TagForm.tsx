@@ -90,9 +90,9 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     else if (!wallet.loading) setReviewing(false);
   }, [operationId, wallet.loading]);
   useEffect(() => {
-    if (!focusReward || focusedReward.current || sheetIndex < 0 || wallet.loading) return;
+    if (!focusReward || focusedReward.current || sheetIndex < 0) return;
     focusedReward.current = true; setRewardOpen(true);
-  }, [focusReward, sheetIndex, wallet.loading]);
+  }, [focusReward, sheetIndex]);
   const [error, setError] = useState('');
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
   const applyCategories = useCallback((next: Category[]) => {
