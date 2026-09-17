@@ -201,7 +201,12 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
     void secureStorage.remove(storageKey(operation.operation.id)).catch(() => {});
     currentOperation.current = undefined; setOperation(undefined);
   }
-  return { data, prices, pricesLoading, refreshPrices: () => setPriceRevision(n => n + 1), operation, editExpiredReview, busy, loading, error: error || loadError, balance, balanceLoading, balanceError,
+  function discardReview() {
+    if (!operation || acting.current || operation.status === 'submitted') return;
+    void secureStorage.remove(storageKey(operation.operation.id)).catch(() => {});
+    currentOperation.current = undefined; setOperation(undefined);
+  }
+  return { data, prices, pricesLoading, refreshPrices: () => setPriceRevision(n => n + 1), operation, editExpiredReview, discardReview, busy, loading, error: error || loadError, balance, balanceLoading, balanceError,
     load, review, approve, retry, refreshBalance: () => setBalanceRevision(n => n + 1) };
 }
 export type RewardController = ReturnType<typeof useReward>;

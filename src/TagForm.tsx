@@ -258,7 +258,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         }
         if (closing.current) sheet.current?.dismiss();
       }}
-      onBack={reviewing && !waiting ? () => { wallet.editExpiredReview(); setReviewing(false); } : undefined}
+      onBack={reviewing && !waiting ? () => { wallet.discardReview(); setReviewing(false); } : undefined}
       footer={<>
         {!!footerError && <Notice error text={footerError} />}
         {reviewing && operationId ? <Button variant={reviewPrepared ? reviewKind === 'refund' ? 'warning' : 'success' : 'secondary'} icon={reviewPrepared ? 'check' : 'refresh-cw'} busy={busy} disabled={reviewPrepared && reviewKind === 'release'} onPress={() => { if (reviewPrepared) void walletAction.current.approve(); else void walletAction.current.retry(); }}>{reviewPrepared ? t('Assinar na carteira') : t('Verificar transação')}</Button>
