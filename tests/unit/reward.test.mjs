@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateRewardIntent, rewardDeadline, rewardLocked } from '../../src/reward.model.ts';
+import { validateRewardIntent, rewardDeadline, rewardLocked, rewardAwaitingConfirmation } from '../../src/reward.model.ts';
 import { MAINNET_MINTS, REWARD_PROGRAM } from '../../shared/reward.ts';
 
 test('wallet review binds the transaction to the amount, currency, network, verifier and intended recipient', () => {
@@ -22,6 +22,17 @@ test('renewal adds days after the current deadline, or today when it already exp
   for (const status of ['pending', 'unverified', 'reserved', 'expired']) assert.equal(rewardLocked({ status }), true);
   for (const status of ['released', 'refunded']) assert.equal(rewardLocked({ status }), false);
   assert.equal(rewardLocked(null), false);
+});
+
+test('editing stays locked for submitted actions even when the reserve exists or the RPC is unavailable', () => {
+  for (const kind of ['fund', 'renew', 'release', 'refund']) {
+    for (const status of ['pending', 'reserved', 'expired', 'unverified']) {
+      assert.equal(rewardAwaitingConfirmation({ status, operation: { kind, status: 'submitted' } }), true);
+    }
+  }
+  for (const status of ['prepared', 'expired', 'failed', 'confirmed']) assert.equal(rewardAwaitingConfirmation({ status: 'reserved', operation: { status } }), false);
+  assert.equal(rewardAwaitingConfirmation({ status: 'reserved', operation: null }), false);
+  assert.equal(rewardAwaitingConfirmation(null), false);
 });
 
 import { reservationSeconds, reservationDeadline, maskRewardAmount, stepRewardAmount } from '../../src/reward.model.ts';

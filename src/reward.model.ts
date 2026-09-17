@@ -3,6 +3,7 @@ import type { RewardAction, RewardConfig, RewardCurrency, RewardOperation, Rewar
 
 export type RewardIntent = { kind: RewardAction; currency: RewardCurrency; amount: string; days?: number; durationSeconds?: number; recipient?: string; reportHash?: string };
 export const rewardLocked = (reward?: RewardView | null) => !!reward && !['released', 'refunded'].includes(reward.status);
+export const rewardAwaitingConfirmation = (reward?: RewardView | null) => reward?.operation?.status === 'submitted';
 export function rewardDeadline(days: number, refundAfter?: string | null, now = Date.now()) {
   return new Date(Math.max(now, refundAfter ? Date.parse(refundAfter) : now) + days * 86_400_000);
 }

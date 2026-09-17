@@ -1,5 +1,9 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  'Aguardando confirmação': ['Awaiting confirmation', 'Esperando confirmación'],
+  'Aguarde a confirmação da transação para editar este objeto.': ['Wait for transaction confirmation before editing this item.', 'Espera la confirmación de la transacción antes de editar este objeto.'],
+  'Edição bloqueada até a rede confirmar o resultado. Você pode sair desta tela.': ['Editing is locked until the network confirms the outcome. You can leave this screen.', 'La edición está bloqueada hasta que la red confirme el resultado. Puedes salir de esta pantalla.'],
+  'A transação expirou sem confirmação. Nenhum depósito foi confirmado.': ['The transaction expired without confirmation. No deposit was confirmed.', 'La transacción caducó sin confirmación. No se confirmó ningún depósito.'],
   'A carteira não respondeu a tempo. Toque em Assinar na carteira para tentar novamente.': ['The wallet did not respond in time. Tap Sign in wallet to try again.', 'La cartera no respondió a tiempo. Toca Firmar en la cartera para volver a intentarlo.'],
   "Horas": ["Hours", "Horas"],
   "Dias": ["Days", "Días"],

@@ -34,6 +34,14 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
   const activeBase = useRef(base); activeBase.current = base;
   const storageKey = (id: string) => `reward-signed-${id}`;
 
+  function markSubmitted(current: OperationState) {
+    const reward = current.reward ? { ...current.reward, operation: { id: current.operation.id, kind: current.operation.spec.kind, status: 'submitted' } } : null;
+    const pending: OperationState = { ...current, status: 'submitted', reward };
+    currentOperation.current = pending; setOperation(pending);
+    setData(previous => previous ? { ...previous, reward } : previous);
+    callbacks.current.onChanged?.(reward);
+  }
+
   const load = useCallback(async () => {
     if (fetching.current || acting.current || AppState.currentState !== 'active') return;
     fetching.current = true; const started = revision.current;
@@ -42,6 +50,18 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
       let op: OperationState | undefined;
       const operationId = next.reward?.operation?.id || currentOperation.current?.operation.id;
       if (operationId) op = await api<OperationState>(`/reward-operations/${operationId}`, token);
+      if (!alive.current || acting.current || activeBase.current !== base || started !== revision.current) return;
+      if (op?.status === 'prepared') {
+        const signed = await secureStorage.get(storageKey(op.operation.id));
+        if (!alive.current || acting.current || activeBase.current !== base || started !== revision.current) return;
+        if (signed) {
+          // A lost submit response must not reopen the editor or ask for another
+          // signature. Recover the exact signed request stored before sending.
+          markSubmitted(op);
+          const result = await api<{ status: RewardOperationStatus; reward: RewardView | null }>(`/reward-operations/${op.operation.id}/submit`, token, { transaction: signed });
+          op = { ...op, ...result };
+        }
+      }
       if (!alive.current || acting.current || activeBase.current !== base || started !== revision.current) return;
       if (op && next.reward && next.reward.id !== op.operation.rewardId) op = undefined;
       if (op) next.reward = op.reward;
@@ -60,6 +80,8 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
             ToastAndroid.show(kind === 'fund' ? t('Depósito confirmado.') : kind === 'renew' ? t('Reserva renovada.') : kind === 'refund' ? t('Depósito recuperado.') : t('Recompensa entregue.'), ToastAndroid.LONG);
             if (kind === 'release') callbacks.current.onReleased?.();
             callbacks.current.onCompleted?.();
+          } else if (op?.status === 'expired' && previous.status === 'submitted' && previous.operation.spec.kind === 'fund') {
+            ToastAndroid.show(t('A transação expirou sem confirmação. Nenhum depósito foi confirmado.'), ToastAndroid.LONG);
           }
         }
       }
@@ -142,17 +164,20 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
       // Save before sending: if the API times out or Android closes the app, the
       // same signed transaction can be submitted again without another debit.
       await secureStorage.set(storageKey(op.id), signed);
+      if (alive.current) markSubmitted(current);
       const result = await api<{ status: RewardOperationStatus; reward: RewardView | null }>(`/reward-operations/${op.id}/submit`, token, { transaction: signed });
-      if (alive.current) { setOperation({ ...current, ...result }); setData(prev => prev ? { ...prev, reward: result.reward } : prev); }
+      if (alive.current) { setOperation({ ...current, ...result }); setData(prev => prev ? { ...prev, reward: result.reward } : prev); callbacks.current.onChanged?.(result.reward); }
     });
   }
 
   async function retry() {
     if (!operation) return;
     await act(async () => {
-      await api(`/reward-operations/${operation.operation.id}/retry`, token, {});
+      const signed = await secureStorage.get(storageKey(operation.operation.id));
+      if (signed) await api(`/reward-operations/${operation.operation.id}/submit`, token, { transaction: signed });
+      else await api(`/reward-operations/${operation.operation.id}/retry`, token, {});
       const next = await api<OperationState>(`/reward-operations/${operation.operation.id}`, token);
-      if (alive.current) { setOperation(next); setData(prev => prev ? { ...prev, reward: next.reward } : prev); }
+      if (alive.current) { setOperation(next); setData(prev => prev ? { ...prev, reward: next.reward } : prev); callbacks.current.onChanged?.(next.reward); }
     });
   }
 

@@ -7,6 +7,7 @@ import { Button, Notice, useUI } from './ui';
 import { reservationDeadline } from './reward.model';
 import type { RewardController } from './useReward';
 import type { Translate } from './i18n';
+import { RewardPendingNotice } from './RewardSummary';
 
 export const reviewTitle = (kind: RewardAction, t: Translate) => kind === 'fund' ? t('Revisar depósito') : kind === 'renew' ? t('Revisar renovação') : kind === 'release' ? t('Confirmar devolução e pagar') : t('Cancelar e recuperar');
 export default function RewardReview({ controller }: { controller: RewardController }) {
@@ -15,6 +16,7 @@ export default function RewardReview({ controller }: { controller: RewardControl
   const timed = op.spec.kind === 'fund' || op.spec.kind === 'renew';
   const date = timed ? reservationDeadline(rewardDuration(op.spec), op.spec.kind === 'renew' && op.spec.previousRefundAfter ? new Date(op.spec.previousRefundAfter * 1_000).toISOString() : null) : null;
   return <View style={{ gap: 20 }}>
+    {controller.operation?.status === 'submitted' && <RewardPendingNotice />}
     <View style={{ gap: 6 }}><Text style={s.small}>{t('Valor da recompensa')}</Text><Text style={s.h1}>{unitsToAmount(op.spec.amountUnits, REWARD_DECIMALS[op.currency]).replace('.', locale.startsWith('en') ? '.' : ',')} {op.currency}</Text></View>
     {op.network !== 'mainnet' && <Notice tone="warning" text={t('Devnet: apenas tokens de teste. Nenhum saldo real será movimentado.')} />}
     {date && <Detail label={t('Cancelamento previsto a partir de')} value={date.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />}
@@ -26,7 +28,6 @@ export default function RewardReview({ controller }: { controller: RewardControl
     {op.spec.kind === 'renew' && <Text style={s.small}>{t('A renovação estende o prazo atual. O valor continua reservado.')}</Text>}
     {op.spec.kind === 'release' && <Notice tone="warning" text={t('Confirme somente se o objeto já estiver com você. O pagamento é definitivo e encerra as conversas deste objeto.')} />}
     {op.spec.kind === 'refund' && <Text style={s.body}>{t('O depósito voltará para a carteira que o financiou. A recompensa deixará de estar reservada.')}</Text>}
-    {controller.operation?.status === 'submitted' && <Notice text={t('Aguardando confirmação final. Você pode sair desta tela; a reserva só muda depois da confirmação na rede.')} />}
   </View>;
 }
 export function RewardReviewAction({ controller, releaseAllowed = true }: { controller: RewardController; releaseAllowed?: boolean }) {
