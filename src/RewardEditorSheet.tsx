@@ -29,7 +29,7 @@ export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ 
     </View>
   </View>, [C.muted, title, onBack, busy, s, t]);
   return <BottomSheetModal ref={value => { sheet.current = value; if (typeof forwardedRef === 'function') forwardedRef(value); else if (forwardedRef) forwardedRef.current = value; }}
-    name="object-reward" stackBehavior="switch" snapPoints={snapPoints} index={0} enableDynamicSizing={false}
+    name="object-reward" stackBehavior="push" snapPoints={snapPoints} index={0} enableDynamicSizing={false}
     enablePanDownToClose={!busy} enableHandlePanningGesture={!busy} enableContentPanningGesture={!busy}
     keyboardBehavior="interactive" keyboardBlurBehavior="none" android_keyboardInputMode="adjustPan" enableBlurKeyboardOnGesture={false}
     topInset={insets.top + 8} backdropComponent={backdrop} footerComponent={renderFooter} handleComponent={handle}
