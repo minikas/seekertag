@@ -58,13 +58,33 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
   return [...setup, new TransactionInstruction({ programId: PROGRAM, keys, data: Buffer.concat([Buffer.from(discriminators[name], 'hex'), args]) })];
 }
 
-// Reconstruct the entire message locally; extra transfers, changed fees/payers,
-// instructions, recipients or signing accounts cannot slip into a wallet prompt.
+// Verify instructions and the complete account privilege set without reordering
+// public keys. web3's compiler uses localeCompare; Node and Hermes can order the
+// same base58 keys differently. The signed wire message must remain untouched.
 export function verifyRewardTransaction(encoded: string, spec: RewardInstructionSpec): Transaction {
   const transaction = Transaction.from(Buffer.from(encoded, 'base64'));
   if (!transaction.recentBlockhash) throw new Error('Transação de recompensa inválida.');
-  const expected = new Transaction({ feePayer: new PublicKey(spec.payer), recentBlockhash: transaction.recentBlockhash }).add(...rewardInstructions(spec));
-  if (!transaction.serializeMessage().equals(expected.serializeMessage())) throw new Error('A transação não corresponde à recompensa exibida.');
+  const expected = rewardInstructions(spec);
+  const message = transaction.compileMessage();
+  const privileges = new Map<string, { isSigner: boolean; isWritable: boolean }>();
+  const account = (pubkey: PublicKey, isSigner: boolean, isWritable: boolean) => {
+    const key = pubkey.toBase58(); const previous = privileges.get(key);
+    privileges.set(key, { isSigner: isSigner || !!previous?.isSigner, isWritable: isWritable || !!previous?.isWritable });
+  };
+  account(new PublicKey(spec.payer), true, true);
+  for (const ix of expected) {
+    account(ix.programId, false, false);
+    for (const key of ix.keys) account(key.pubkey, key.isSigner, key.isWritable);
+  }
+  const exactAccounts = message.accountKeys.length === privileges.size && new Set(message.accountKeys.map(key => key.toBase58())).size === privileges.size
+    && message.accountKeys.every((key, i) => {
+      const expected = privileges.get(key.toBase58());
+      return expected && expected.isSigner === message.isAccountSigner(i) && expected.isWritable === message.isAccountWritable(i);
+    });
+  const exactInstructions = transaction.instructions.length === expected.length && transaction.instructions.every((ix, i) =>
+    ix.programId.equals(expected[i].programId) && Buffer.from(ix.data).equals(Buffer.from(expected[i].data))
+    && ix.keys.length === expected[i].keys.length && ix.keys.every((key, j) => key.pubkey.equals(expected[i].keys[j].pubkey)));
+  if (!transaction.feePayer?.equals(new PublicKey(spec.payer)) || !exactAccounts || !exactInstructions) throw new Error('A transação não corresponde à recompensa exibida.');
   return transaction;
 }
 

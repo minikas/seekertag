@@ -141,3 +141,19 @@ test('reward amounts use exact integers with per-token precision', () => {
   assert.equal(unitsToAmount('999999999999999', 9), '999999.999999999');
   for (const value of ['0', '-1', '1e3', '0.0000001', '1000000.000001', 'NaN', 'Infinity', '1,5']) assert.throws(() => amountToUnits(value, 6), value);
 });
+
+test('wallet inspection preserves the signed message across different JS locale sorting implementations', () => {
+  const f = fixture(MAINNET_MINTS.SKR);
+  const tx = new Transaction({ feePayer: f.owner.publicKey, recentBlockhash: f.svm.latestBlockhash() }).add(...rewardInstructions(f.spec));
+  tx.sign(f.owner); const encoded = tx.serialize().toString('base64'); const originalMessage = tx.serializeMessage();
+  const sort = String.prototype.localeCompare;
+  try {
+    String.prototype.localeCompare = function (other) { return -sort.call(this, other); };
+    const checked = verifyRewardTransaction(encoded, f.spec);
+    assert.ok(checked.verifySignatures());
+    assert.ok(checked.serializeMessage().equals(originalMessage));
+    const changed = Transaction.from(Buffer.from(encoded, 'base64'));
+    changed.instructions[0].keys[2].isWritable = true;
+    assert.throws(() => verifyRewardTransaction(changed.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64'), f.spec));
+  } finally { String.prototype.localeCompare = sort; }
+});
