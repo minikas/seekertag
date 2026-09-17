@@ -4,7 +4,7 @@ import bs58 from 'bs58';
 import { PROGRAM, TOKEN_PROGRAM, escrowAddress, vaultAddress, tokenAddress, rewardInstructions, decodeEscrow, verifyRewardTransaction } from '../../shared/escrow-wire.ts';
 import { ESCROW_SPACE, MAINNET_MINTS, REWARD_DECIMALS } from '../../shared/reward.ts';
 
-const GENESIS = { mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1' };
+const GENESIS = { mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG' };
 export class RewardChainError extends Error {}
 export function rewardChainFromEnv() {
   if (!process.env.REWARD_VERIFIER_KEYPAIR) return null;

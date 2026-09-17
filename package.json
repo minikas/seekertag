@@ -57,7 +57,9 @@
     "test:android": "node scripts/test-android.mjs",
     "build:bundle": "expo export --platform android --output-dir artifacts/android-bundle",
     "build:escrow": "node scripts/build-escrow.mjs",
-    "test:escrow": "npm run build:escrow && npm --prefix server run test:escrow"
+    "test:escrow": "npm run build:escrow && npm --prefix server run test:escrow",
+    "api:devnet": "node --env-file-if-exists=server/.env scripts/start-devnet-api.mjs",
+    "test:devnet": "node scripts/test-devnet-rewards.mjs"
   },
   "private": true,
   "engines": {
