@@ -231,7 +231,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     {page === 'overview' ? <>
       <View style={styles.qrCard}>
         <Text accessibilityRole="header" style={[s.h2, styles.center]}>{tag.name}</Text>
-        <View style={styles.metadata}><Icon name={info.icon} color={C.muted} size={18} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text><Pill status={tag.status} /></View>
+        <View style={styles.metadata}><View style={styles.categoryMeta}><Icon name={info.icon} color={C.muted} size={18} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text></View><Pill status={tag.status} /></View>
         <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={qrSize} backgroundColor="white" color="#101918" ecl="M" quietZone={12} /></View>
         <Text style={[s.small, styles.center]}>{t("Escaneie para abrir a página deste objeto.")}</Text>
       </View>
@@ -295,7 +295,8 @@ function ActionRow({ icon, title, onPress, tone, disabled = false }: { icon: Ico
 
 const makeStyles = (C: Colors) => StyleSheet.create({
   center: { textAlign: 'center' },
-  metadata: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 },
+  metadata: { alignItems: 'center', justifyContent: 'center', gap: 12 },
+  categoryMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   qrCard: { paddingTop: 12, alignItems: 'center', gap: 20 },
   qrPaper: { backgroundColor: 'white', padding: 12, borderRadius: 20, marginTop: 8 },
   buttonRow: { flexDirection: 'row', gap: 10 },
