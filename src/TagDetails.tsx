@@ -218,7 +218,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     <View style={styles.nfcContent}>
       <Text style={[s.h2, { textAlign: 'center' }]}>{t("Aproxime a etiqueta NFC")}</Text>
       <Text style={[s.body, { textAlign: 'center' }]}>{t("Encoste uma etiqueta NFC regravável na parte de trás do celular.")}</Text>
-      {busy === 'nfc' && <View style={{ alignItems: 'center', gap: 10 }}><ActivityIndicator size="large" color={C.accent} accessibilityLabel={t('Gravando etiqueta NFC')} /><Text style={s.small}>{t('Gravando etiqueta NFC')}</Text></View>}
+      {busy === 'nfc' && <ActivityIndicator size="large" color={C.accent} accessibilityLabel={t('Gravando etiqueta NFC')} />}
     </View>
     {error ? <Notice text={error} error /> : <Text style={[s.small, { textAlign: 'center' }]}>{t("O link gravado na etiqueta será substituído.")}</Text>}
     {busy === 'nfc' ? <Button variant="secondary" onPress={() => void cancelNfc()}>{t("Cancelar gravação")}</Button> : <Button onPress={writeNfc} disabled={nfcStopping}>{t("Tentar novamente")}</Button>}
