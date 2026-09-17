@@ -167,9 +167,9 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       <ActionRow icon="edit-2" title={t("Editar objeto")} onPress={() => choose(() => onEdit(tag))} />
       <ActionRow icon="external-link" title={t("Ver como visitante")} onPress={() => choose(openVisitor)} />
       <ActionRow icon="share-2" title={t("Compartilhar PDF")} onPress={() => choose(sharePdf)} />
-      <ActionRow icon={tag.status === 'active' ? 'alert-circle' : 'check-circle'} title={tag.status === 'active' ? t("Marcar como perdido") : tag.status === 'lost' ? t("Já está comigo") : t("Reativar etiqueta")} onPress={() => choose(() => changeStatus(tag.status === 'active' ? 'lost' : 'active'))} />
-      {tag.status !== 'paused' && <ActionRow icon="pause-circle" title={t("Pausar etiqueta")} onPress={() => choose(() => changeStatus('paused'))} />}
-      <ActionRow icon="arrow-right-circle" title={t("Transferir etiqueta")} onPress={() => choose(() => setPage('transfer'))} />
+      <ActionRow tone={tag.status === 'active' ? 'warning' : 'success'} icon={tag.status === 'active' ? 'alert-circle' : 'check-circle'} title={tag.status === 'active' ? t("Marcar como perdido") : tag.status === 'lost' ? t("Já está comigo") : t("Reativar etiqueta")} onPress={() => choose(() => changeStatus(tag.status === 'active' ? 'lost' : 'active'))} />
+      {tag.status !== 'paused' && <ActionRow tone="warning" icon="pause-circle" title={t("Pausar etiqueta")} onPress={() => choose(() => changeStatus('paused'))} />}
+      <ActionRow tone="danger" icon="arrow-right-circle" title={t("Transferir etiqueta")} onPress={() => choose(() => setPage('transfer'))} />
     </View>
   </ScreenBottomSheet>;
   const nfc = <ScreenBottomSheet title={t("Gravar NFC")} onClose={closeOverlay}>
@@ -199,7 +199,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
         <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy || nfcStopping}>{t("Gravar NFC")}</Button>
         <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58 }} />
       </View>
-      {tag.status === 'paused' ? <View style={{ gap: 12 }}><Text style={s.body}>{t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")}</Text><Button variant="secondary" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="play-circle">{t("Reativar etiqueta")}</Button></View> : tag.status === 'lost' ? <Button variant="secondary" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="check-circle">{t("Já está comigo")}</Button> : null}
+      {tag.status === 'paused' ? <View style={{ gap: 12 }}><Notice tone="warning" text={t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")} /><Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="play-circle">{t("Reativar etiqueta")}</Button></View> : tag.status === 'lost' ? <Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy} icon="check-circle">{t("Já está comigo")}</Button> : null}
       {localOnly && <View style={styles.localNote}><Icon name="info" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Link local. Outros aparelhos precisam de um endereço público.")}</Text></View>}
     </> : page === 'info' ? <>
       <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} /></View>
@@ -228,11 +228,12 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   return <View style={{ gap: 8 }}><Text style={s.label}>{label}</Text><Text style={[s.body, { color: s.h3.color }]}>{value}</Text></View>;
 }
 
-function ActionRow({ icon, title, onPress }: { icon: IconName; title: string; onPress: () => void }) {
-  const { s } = useUI();
+function ActionRow({ icon, title, onPress, tone }: { icon: IconName; title: string; onPress: () => void; tone?: 'success' | 'warning' | 'danger' }) {
+  const { C, s } = useUI();
   const styles = useThemedStyles(makeStyles);
+  const [color, backgroundColor] = tone === 'success' ? [C.green, C.greenSoft] : tone === 'warning' ? [C.amber, C.amberSoft] : tone === 'danger' ? [C.red, C.redSoft] : [C.ink, C.raised];
   return <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.65 }]}>
-    <View style={s.settingsIcon}><Icon name={icon} size={20} /></View><Text style={[s.h3, { flex: 1, fontSize: 18 }]}>{title}</Text>
+    <View style={[s.settingsIcon, { backgroundColor }]}><Icon name={icon} size={20} color={color} /></View><Text style={[s.h3, { flex: 1, fontSize: 18, color }]}>{title}</Text>
   </Pressable>;
 }
 

@@ -21,13 +21,15 @@ export function Brand() {
   return <View style={s.row}><View style={s.brandMark}><Icon name="crosshair" color={C.ink} size={24} /></View><Text style={s.brand}>SeekerTag</Text></View>;
 }
 
-export function Button({ children, onPress, icon, variant = 'primary', busy = false, disabled = false, style, label }: PropsWithChildren<{ onPress: () => void; icon?: IconName; variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; busy?: boolean; disabled?: boolean; style?: ViewStyle; label?: string }>) {
+export function Button({ children, onPress, icon, variant = 'primary', busy = false, disabled = false, style, label }: PropsWithChildren<{ onPress: () => void; icon?: IconName; variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'warning' | 'accent'; busy?: boolean; disabled?: boolean; style?: ViewStyle; label?: string }>) {
   const { C, s, t, locale } = useUI();
   const inactive = busy || disabled;
-  const color = disabled ? C.muted : variant === 'primary' ? C.onPrimary : variant === 'danger' ? C.red : C.ink;
+  const colors = { primary: [C.onPrimary, C.primary], secondary: [C.ink, C.secondary], ghost: [C.ink, 'transparent'], danger: [C.red, C.redSoft], success: [C.green, C.greenSoft], warning: [C.amber, C.amberSoft], accent: [C.accent, C.soft] };
+  const [foreground, backgroundColor] = colors[variant];
+  const color = disabled ? C.muted : foreground;
   const iconOnly = !children;
   return <Pressable accessibilityRole="button" accessibilityLabel={label || (typeof children === 'string' ? children : undefined)} accessibilityState={{ disabled: inactive, busy }} disabled={inactive} onPress={onPress}
-    style={({ pressed }) => [s.button, { backgroundColor: variant === 'primary' ? C.primary : variant === 'secondary' ? C.secondary : variant === 'danger' ? C.redSoft : 'transparent' }, iconOnly && s.iconButton, disabled && { backgroundColor: variant === 'ghost' ? 'transparent' : C.surface }, pressed && { opacity: 0.72 }, style]}>
+    style={({ pressed }) => [s.button, { backgroundColor }, iconOnly && s.iconButton, disabled && { backgroundColor: variant === 'ghost' ? 'transparent' : C.surface }, pressed && { opacity: 0.72 }, style]}>
     {busy ? <ActivityIndicator size="small" color={color} /> : icon ? <Icon name={icon} color={color} size={iconOnly ? 26 : 22} /> : null}
     {!!children && <Text style={[s.buttonText, { color }]}>{children}</Text>}
   </Pressable>;
@@ -46,9 +48,10 @@ export function Field({ label, help, inSheet = false, hideLabel = false, onFocus
   </View>;
 }
 
-export function Notice({ text, error = false }: { text: string; error?: boolean }) {
+export function Notice({ text, error = false, tone = 'info' }: { text: string; error?: boolean; tone?: 'info' | 'success' | 'warning' }) {
   const { C, s, t, locale } = useUI();
-  return <View accessibilityRole={error ? 'alert' : undefined} style={[s.notice, { backgroundColor: error ? C.redSoft : C.soft }]}><Icon name={error ? 'alert-circle' : 'info'} size={21} color={error ? C.red : C.accent} /><Text style={[s.small, { color: error ? C.red : C.ink, flex: 1 }]}>{translateNotice(t, text)}</Text></View>;
+  const [color, backgroundColor] = error ? [C.red, C.redSoft] : tone === 'success' ? [C.green, C.greenSoft] : tone === 'warning' ? [C.amber, C.amberSoft] : [C.accent, C.soft];
+  return <View accessibilityRole={error ? 'alert' : undefined} style={[s.notice, { backgroundColor }]}><Icon name={error || tone === 'warning' ? 'alert-circle' : tone === 'success' ? 'check-circle' : 'info'} size={21} color={color} /><Text style={[s.small, { color: error || tone !== 'info' ? color : C.ink, flex: 1 }]}>{translateNotice(t, text)}</Text></View>;
 }
 
 export function Pill({ status }: { status: 'active' | 'lost' | 'paused' }) {
