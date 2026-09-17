@@ -31,7 +31,7 @@ export default function Auth({ onAuth, onScan }: { onAuth: (token: string, user:
     <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
       <View style={styles.content} accessibilityElementsHidden={methods} importantForAccessibility={methods ? 'no-hide-descendants' : 'auto'}>
         <View style={styles.brand}><Brand /></View>
-        <View style={styles.art}><WelcomeIllustration /></View>
+        <View style={styles.art}><WelcomeIllustration paused={methods} /></View>
         <View style={styles.hero}>
           <Text accessibilityRole="header" style={styles.title}>{t("O que é seu,")}{'\n'}{t("sempre perto")}<Text style={{ color: C.accent }}>.</Text></Text>
           <Text style={[s.body, styles.center]}>{t("Uma etiqueta. Um caminho de volta.")}</Text>
