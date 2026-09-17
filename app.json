@@ -9,7 +9,8 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0D1615",
-        "foregroundImage": "./assets/icon.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.seekertag.mobile"
@@ -49,12 +50,12 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#F5F8F7",
-          "image": "./assets/icon.png",
+          "image": "./assets/splash-icon.png",
           "imageWidth": 120,
           "resizeMode": "contain",
           "dark": {
             "backgroundColor": "#0D1615",
-            "image": "./assets/icon.png"
+            "image": "./assets/splash-icon.png"
           }
         }
       ],
