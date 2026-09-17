@@ -24,7 +24,7 @@ export default forwardRef<AccountActionSheetHandle, PropsWithChildren<{ title: s
     return () => { mounted.current = false; back.remove(); modal?.dismiss(); };
   }, [dismiss]);
   const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.6} pressBehavior={busy ? 'none' : 'close'} accessibilityLabel={t("Fechar")} />, [t, busy]);
-  return <BottomSheetModal ref={sheet} enableDynamicSizing enablePanDownToClose={!busy} enableContentPanningGesture={!busy} enableHandlePanningGesture={!busy} topInset={insets.top + 8} maxDynamicContentSize={height - insets.top - 32}
+  return <BottomSheetModal ref={sheet} stackBehavior="push" enableDynamicSizing enablePanDownToClose={!busy} enableContentPanningGesture={!busy} enableHandlePanningGesture={!busy} topInset={insets.top + 8} maxDynamicContentSize={height - insets.top - 32}
     backdropComponent={backdrop} backgroundStyle={{ backgroundColor: C.popover, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
     handleIndicatorStyle={{ backgroundColor: C.muted, width: 44, height: 5 }} onDismiss={() => { if (mounted.current) onClose(); }}>
     <BottomSheetScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 24, gap: 20 }}>

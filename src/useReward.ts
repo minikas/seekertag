@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Keyboard, ToastAndroid } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { REWARD_DECIMALS, unitsToAmount } from '../shared/reward';
-import type { RewardAction, RewardBalance, RewardConfig, RewardCurrency, RewardOperation, RewardOperationStatus, RewardView } from '../shared/reward';
+import type { RewardAction, RewardBalance, RewardConfig, RewardCurrency, RewardOperation, RewardOperationStatus, RewardPrices, RewardView } from '../shared/reward';
 import { api } from './api';
 import { useUI } from './ui';
 import { validateRewardIntent } from './reward.model';
@@ -17,6 +17,21 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
   const { t } = useUI();
   const [data, setData] = useState<State>();
   const [balance, setBalance] = useState<RewardBalance>();
+  const [prices, setPrices] = useState<RewardPrices>();
+  const [pricesLoading, setPricesLoading] = useState(false);
+  const [priceRevision, setPriceRevision] = useState(0);
+  useEffect(() => {
+    let live = true;
+    let expiry: ReturnType<typeof setTimeout> | undefined;
+    setPricesLoading(true); setPrices(undefined);
+    void api<RewardPrices>('/rewards/prices', token).then(result => {
+      if (live && result.expiresAt > Date.now()) {
+        setPrices(result);
+        expiry = setTimeout(() => setPrices(undefined), result.expiresAt - Date.now());
+      }
+    }).catch(() => {}).finally(() => { if (live) setPricesLoading(false); });
+    return () => { live = false; if (expiry) clearTimeout(expiry); };
+  }, [token, priceRevision]);
   const [balanceError, setBalanceError] = useState('');
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceRevision, setBalanceRevision] = useState(0);
@@ -98,7 +113,7 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
   }, [load]);
 
   useEffect(() => {
-    let current = true; setBalance(undefined); setBalanceError('');
+    let current = true; setBalance(undefined); setBalanceError(''); setBalanceLoading(false);
     if (!data?.config || !data.payer || !data.config.currencies.includes(currency)) return;
     setBalanceLoading(true);
     void api<RewardBalance>(`/rewards/balance?currency=${currency}`, token).then(result => { if (current) setBalance(result); })
@@ -186,7 +201,7 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
     void secureStorage.remove(storageKey(operation.operation.id)).catch(() => {});
     currentOperation.current = undefined; setOperation(undefined);
   }
-  return { data, operation, editExpiredReview, busy, loading, error: error || loadError, balance, balanceLoading, balanceError,
+  return { data, prices, pricesLoading, refreshPrices: () => setPriceRevision(n => n + 1), operation, editExpiredReview, busy, loading, error: error || loadError, balance, balanceLoading, balanceError,
     load, review, approve, retry, refreshBalance: () => setBalanceRevision(n => n + 1) };
 }
 export type RewardController = ReturnType<typeof useReward>;

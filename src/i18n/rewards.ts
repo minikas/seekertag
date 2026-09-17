@@ -1,5 +1,17 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  'Selecionar moeda': ['Select token', 'Seleccionar token'],
+  'Alternar cotação entre USD e BRL': ['Switch quote between USD and BRL', 'Cambiar cotización entre USD y BRL'],
+  'Consultando cotação…': ['Fetching price…', 'Consultando cotización…'],
+  'Cotação indisponível': ['Price unavailable', 'Cotización no disponible'],
+  'Usar {percent}% do saldo disponível': ['Use {percent}% of available balance', 'Usar {percent}% del saldo disponible'],
+  'Máx.': ['Max', 'Máx.'],
+  'Referência de mercado · {network}': ['Market reference · {network}', 'Referencia de mercado · {network}'],
+  'Valor estimado': ['Estimated value', 'Valor estimado'],
+  'Máx. preserva SOL para os custos estimados do depósito.': ['Max keeps SOL for estimated deposit costs.', 'Máx. reserva SOL para los costes estimados del depósito.'],
+  'Atualizar saldo e cotação': ['Refresh balance and price', 'Actualizar saldo y cotización'],
+  'Saldo insuficiente para a recompensa e os custos do depósito.': ['Insufficient balance for the reward and deposit costs.', 'Saldo insuficiente para la recompensa y los costes del depósito.'],
+
   'Voltar à recompensa': ['Back to reward', 'Volver a la recompensa'],
   'Adicionar recompensa': ['Add reward', 'Añadir recompensa'],
   'Concluir': ['Done', 'Listo'],
