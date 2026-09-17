@@ -55,7 +55,11 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
       <View style={{ width: 48 }} />
     </View>
     <KeyboardAwareScrollView mode="layout" bottomOffset={24} disableScrollOnKeyboardHide keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={styles.content}>
-      {loading && <ActivityIndicator color={C.ink} style={{ marginVertical: 40 }} />}
+      {loading && <View style={styles.loadingState} accessibilityLabel={t('Carregando etiqueta')}>
+        <View style={[styles.skeletonBlock, { height: 64, width: 64, borderRadius: 22 }]} />
+        <View style={{ flex: 1, gap: 10 }}><View style={[styles.skeletonLine, { width: '62%', height: 24 }]} /><View style={[styles.skeletonLine, { width: '38%', height: 16 }]} /></View>
+        <View style={[styles.skeletonCard, { height: 94 }]} /><View style={[styles.skeletonCard, { height: 118 }]} />
+      </View>}
       {!!error && <Notice error text={error} />}
       {chatId && chatToken ? <Conversation id={chatId} token={chatToken} finder /> : tag ? <>
         <View style={styles.identity}>
@@ -64,7 +68,11 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
         </View>
         {tag.publicMessage ? <View style={styles.message}><Text style={s.label}>{t("Mensagem do dono")}</Text><Text style={[s.body, { color: C.ink }]}>{tag.publicMessage}</Text></View> : <Text style={s.body}>{t("Envie uma mensagem para combinar a devolução.")}</Text>}
         {(tag.rewardAmount > 0 || tag.reward) && <RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} />}
-        {viewerIsOwner ? <View style={styles.ownerPreview}><Icon name="eye" color={C.muted} /><Text style={s.h3}>{t("Esta etiqueta é sua")}</Text><Text style={[s.body, { textAlign: 'center' }]}>{t("Você está vendo como seu objeto aparece para quem o encontrar.")}</Text></View> : <>
+        {viewerIsOwner ? <View style={styles.ownerPreview}>
+          <View style={[styles.ownerIcon, { backgroundColor: C.soft }]}><Icon name="eye" color={C.accent} size={26} /></View>
+          <Text style={[s.h2, { textAlign: 'center' }]}>{t("Esta etiqueta é sua")}</Text>
+          <Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t("Você está vendo como seu objeto aparece para quem o encontrar.")}</Text>
+        </View> : <>
         <Field label={t("Seu nome (opcional)")} value={finderName} onChangeText={setFinderName} placeholder={t("Seu primeiro nome ou apelido")} maxLength={60} editable={!busy} autoComplete="nickname" />
         <Field label={t("Mensagem para o dono")} value={message} onChangeText={setMessage} placeholder={t("Conte onde encontrou o objeto.")} multiline maxLength={2000} editable={!busy} />
         <Button onPress={submit} busy={busy} disabled={loading || !message.trim()} icon="send">{t("Avisar o dono")}</Button>
@@ -77,7 +85,12 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
 
 const makeStyles = (C: Colors) => StyleSheet.create({
   content: { padding: 20, paddingBottom: 36, gap: 24, width: '100%', maxWidth: 600, alignSelf: 'center' },
-  ownerPreview: { alignItems: 'center', gap: 12, paddingVertical: 28 },
+  ownerPreview: { alignItems: 'center', gap: 16, padding: 24, borderRadius: 24, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: C.line },
+  ownerIcon: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  loadingState: { gap: 18, paddingVertical: 18 },
+  skeletonBlock: { backgroundColor: C.surface },
+  skeletonLine: { borderRadius: 8, backgroundColor: C.surface },
+  skeletonCard: { width: '100%', borderRadius: 22, backgroundColor: C.surface },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8 },
   itemIcon: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   message: { padding: 18, borderRadius: 22, backgroundColor: C.surface, gap: 8 },

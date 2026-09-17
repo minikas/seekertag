@@ -302,6 +302,5 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   qrAction: { flex: 1, minHeight: 84, paddingHorizontal: 8, paddingVertical: 14, borderRadius: 20, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', gap: 9 },
   qrActionLabel: { color: C.ink, fontSize: 14, lineHeight: 20, fontWeight: '500', textAlign: 'center' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
-  nfcContent: { alignItems: 'center', gap: 16, paddingVertical: 12 },
-  nfcIcon: { width: 76, height: 76, borderRadius: 26, backgroundColor: C.raised, alignItems: 'center', justifyContent: 'center' },
+  nfcContent: { alignItems: 'center', gap: 24, paddingVertical: 24 },
 });

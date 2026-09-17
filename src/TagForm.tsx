@@ -22,6 +22,7 @@ import RewardFields, { RewardPeriod } from './RewardFields';
 import RewardReview, { reviewTitle } from './RewardReview';
 import RewardEditorSheet from './RewardEditorSheet';
 import RewardSummary, { RewardPendingNotice, RewardNetworkBadge } from './RewardSummary';
+import AccountActionSheet from './AccountActionSheet';
 
 export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChanged, focusReward = false }: { token: string; tag?: Tag; focusReward?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
   const { C, s, t, locale } = useUI();
@@ -245,7 +246,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   </BottomSheetModal>
     {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
       titleAccessory={reviewing && wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
-      title={waiting ? t('Confirmando na rede') : refundConfirm ? t('Cancelar e recuperar') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
+      title={waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => {
         setRewardOpen(false);
@@ -261,14 +262,9 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         {!!footerError && <Notice error text={footerError} />}
         {reviewing && operationId ? <Button variant={reviewPrepared ? reviewKind === 'refund' ? 'warning' : 'success' : 'secondary'} icon={reviewPrepared ? 'check' : 'refresh-cw'} busy={busy} disabled={reviewPrepared && reviewKind === 'release'} onPress={() => { if (reviewPrepared) void walletAction.current.approve(); else void walletAction.current.retry(); }}>{reviewPrepared ? t('Assinar na carteira') : t('Verificar transação')}</Button>
           : renewing ? <Button onPress={() => void save('renew')} busy={busy} disabled={saveDisabled}>{t('Salvar e revisar renovação')}</Button>
-          : refundConfirm ? null
           : (lockedReward || legacyReward || wantsReward) && <Button icon="check" disabled={busy || !lockedReward && wantsReward && !canReserve} onPress={() => { Keyboard.dismiss(); rewardSheet.current?.dismiss(); }}>{t('Concluir')}</Button>}
-      </>}>
-      {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : refundConfirm ? <View style={{ gap: 18 }}>
-        <Notice tone="warning" text={t('Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.')} />
-        <Button variant="warning" icon="corner-up-left" busy={busy} disabled={busy || editingDisabled} onPress={() => { setRefundConfirm(false); void save('refund'); }}>{t('Confirmar recuperação')}</Button>
-        <Button variant="ghost" disabled={busy} onPress={() => setRefundConfirm(false)}>{t('Voltar')}</Button>
-      </View> : <>
+      </>}> 
+      {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : <>
         {lockedReward ? <>
           <RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} />
           {wallet.operation ? <Button variant="accent" icon="shield" onPress={() => { Keyboard.dismiss(); setReviewing(true); }}>{t('Retomar revisão')}</Button> : <>
@@ -294,6 +290,13 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         </>}
       </>}
     </RewardEditorSheet>}
+    {refundConfirm && <AccountActionSheet title={t('Cancelar e recuperar')} busy={busy} onClose={() => { if (!busy) setRefundConfirm(false); }}>
+      <View style={{ gap: 20 }}>
+        <View style={{ alignItems: 'center', gap: 14 }}><View style={[s.settingsIcon, { backgroundColor: C.amberSoft }]}><Icon name="corner-up-left" color={C.amber} size={24} /></View><Text style={[s.h2, { textAlign: 'center' }]}>{t('Cancelar e recuperar?')}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t('Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.')}</Text></View>
+        <Button variant="warning" icon="corner-up-left" busy={busy} disabled={busy || editingDisabled} onPress={() => { setRefundConfirm(false); void save('refund'); }}>{t('Confirmar recuperação')}</Button>
+        <Button variant="ghost" disabled={busy} onPress={() => setRefundConfirm(false)}>{t('Voltar')}</Button>
+      </View>
+    </AccountActionSheet>}
   </>;
 }
 
