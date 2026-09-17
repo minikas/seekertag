@@ -46,3 +46,13 @@ test('amount mask and steppers preserve base-unit precision and reject ambiguous
   assert.equal(stepRewardAmount('0.5','SKR',-1,'en-US'), '0');
   assert.equal(stepRewardAmount('1000000','SOL',1,'en-US'), '1000000');
 });
+
+test('wallet intent rejects a changed period or a switch back to the legacy day instruction', () => {
+  const config = { network: 'devnet', verifier: 'verifier', program: REWARD_PROGRAM, currencies: ['SOL'], mints: {} };
+  const intent = { kind: 'fund', currency: 'SOL', amount: '0.01', durationSeconds: 3600 };
+  const operation = { network: 'devnet', currency: 'SOL', spec: { kind: 'fund', payer: 'owner', verifier: 'verifier', mint: null, amountUnits: '10000000', durationSeconds: 3600 } };
+  assert.doesNotThrow(() => validateRewardIntent(operation, intent, config, 'owner'));
+  for (const patch of [{ durationSeconds: 86400 }, { days: 1 }, { days: 1, durationSeconds: undefined }]) {
+    assert.throws(() => validateRewardIntent({ ...operation, spec: { ...operation.spec, ...patch } }, intent, config, 'owner'));
+  }
+});
