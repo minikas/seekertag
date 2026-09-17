@@ -31,7 +31,7 @@ export function createRewardChain({ network, rpcUrl, verifier, testMints = {} })
     if ((network !== 'localnet' && genesis !== GENESIS[network]) || !program?.executable) throw new RewardChainError('O contrato de recompensa ainda não está disponível nesta rede.');
     readyUntil = Date.now() + 60_000;
   }
-  const config = { network, verifier: verifier.publicKey.toBase58(), currencies: ['SOL', ...['USDC', 'SKR'].filter(c => !!mints[c])], program: PROGRAM.toBase58(), minDays: 1, maxDays: 365 };
+  const config = { network, verifier: verifier.publicKey.toBase58(), currencies: ['SOL', ...['USDC', 'SKR'].filter(c => !!mints[c])], mints, program: PROGRAM.toBase58(), minDays: 1, maxDays: 365 };
   function asset(currency) {
     if (!config.currencies.includes(currency)) throw new RewardChainError('Esta moeda não está disponível para depósito nesta rede.');
     return { currency, decimals: REWARD_DECIMALS[currency], mint: currency === 'SOL' ? null : mints[currency] };
@@ -80,7 +80,7 @@ export function createRewardChain({ network, rpcUrl, verifier, testMints = {} })
     const escrow = escrowAddress(reward.payer, reward.seed);
     const result = await connection.getAccountInfoAndContext(escrow, 'finalized'); const account = result.value;
     if (!account) return null;
-    if (!account.owner.equals(PROGRAM)) throw new RewardChainError('Não foi possível validar a reserva na rede.');
+    if (!account.owner.equals(PROGRAM) || !Number.isSafeInteger(account.lamports)) throw new RewardChainError('Não foi possível validar a reserva na rede.');
     const value = decodeEscrow(account.data);
     if (value.payer !== reward.payer || value.rewardId !== reward.seed || value.verifier !== reward.verifier || value.mint !== (reward.mint || SystemProgram.programId.toBase58()) || value.amountUnits !== reward.amount_units || !Number.isSafeInteger(value.refundAfter) || value.refundAfter <= value.depositedAt) throw new RewardChainError('Não foi possível validar a reserva na rede.');
     if (value.status === 1) {

@@ -34,8 +34,11 @@ export type RewardView = {
 export type RewardAction = 'fund' | 'renew' | 'release' | 'refund';
 export type RewardInstructionSpec = {
   kind: RewardAction; payer: string; verifier: string; rewardId: string; mint: string | null;
-  amountUnits: string; days?: number; recipient?: string; reportHash?: string;
+  amountUnits: string; days?: number; recipient?: string; reportHash?: string; previousRefundAfter?: number;
 };
+export type RewardConfig = { network: RewardNetwork; verifier: string; program: string; currencies: RewardCurrency[]; mints: Partial<Record<RewardCurrency, string>>; minDays: number; maxDays: number };
+export type RewardBalance = { currency: RewardCurrency; decimals: number; mint: string | null; availableUnits: string; solLamports: string };
+export type RewardOperationStatus = 'prepared' | 'submitted' | 'confirmed' | 'expired' | 'failed';
 export type RewardOperation = {
   id: string; rewardId: string; network: RewardNetwork; currency: RewardCurrency; spec: RewardInstructionSpec;
   transaction: string; feeLamports: string; rentLamports: string; lastValidBlockHeight: number;

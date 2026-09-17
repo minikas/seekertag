@@ -3,10 +3,11 @@ import { assertWalletAddress, encodeBase58, WalletConnection } from './wallet.ty
 import { api } from '../api';
 import type { AuthMode, AuthResult } from './auth';
 import type { SignInPayload } from '@solana-mobile/mobile-wallet-adapter-protocol';
+import { forgetRewardAuthorization } from './reward-wallet';
 
 let authToken: string | null = null;
 
-export function forgetWalletAuthorization() { authToken = null; }
+export function forgetWalletAuthorization() { authToken = null; forgetRewardAuthorization(); }
 
 export async function signInWithWallet(mode: AuthMode, token?: string, language = 'pt'): Promise<AuthResult | null> {
   const { challengeId, payload } = await api<{ challengeId: string; payload: SignInPayload }>('/auth/wallet/challenge', token, { mode, language });
