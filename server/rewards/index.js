@@ -74,18 +74,28 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     if (!reward || !activeStatuses.includes(reward.status)) return reward;
     configured();
     if (reward.network !== chain.config.network) throw new RewardChainError('Esta reserva pertence a outra rede.');
-    const state = await chain.read(reward);
+    let state = await chain.read(reward);
     const operation = inflight(reward);
     let operationStatus;
     if (operation?.signature) {
       const receipt = await chain.signatureState(operation.signature);
       if (receipt?.confirmationStatus === 'finalized') operationStatus = receipt.err ? 'failed' : 'confirmed';
     }
-    if (operation && state && !operationStatus) {
+    function reflected() {
+      if (!operation || !state) return false;
       const spec = JSON.parse(operation.spec);
-      if (operation.kind === 'fund' || (operation.kind === 'release' && state.status === 2 && state.reportHash === spec.reportHash && state.recipient === spec.recipient) || (operation.kind === 'refund' && state.status === 3) || (operation.kind === 'renew' && state.refundAfter >= spec.previousRefundAfter + spec.days * 86_400)) operationStatus = 'confirmed';
+      return operation.kind === 'fund' || (operation.kind === 'release' && state.status === 2 && state.reportHash === spec.reportHash && state.recipient === spec.recipient) || (operation.kind === 'refund' && state.status === 3) || (operation.kind === 'renew' && state.refundAfter >= spec.previousRefundAfter + spec.days * 86_400);
     }
-    if (operation && !operationStatus && await chain.blockHeight() > operation.last_valid_height) operationStatus = 'expired';
+    if (!operationStatus && reflected()) operationStatus = 'confirmed';
+    if (operation && !operationStatus) {
+      const finality = await chain.finality();
+      if (finality.height > operation.last_valid_height) {
+        // A transaction can finalize between the first account read and this
+        // height check. Re-read at that finalized slot before abandoning it.
+        state = await chain.read(reward, finality.slot);
+        operationStatus = reflected() ? 'confirmed' : 'expired';
+      }
+    }
     transaction(() => {
       const live = get('SELECT * FROM rewards WHERE id=?', reward.id);
       if (!activeStatuses.includes(live.status)) return;

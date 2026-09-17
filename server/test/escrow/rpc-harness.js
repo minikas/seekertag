@@ -36,6 +36,7 @@ export async function rpcHarness() {
       else if (method === 'getLatestBlockhash') { svm.expireBlockhash(); result = context({ blockhash: svm.latestBlockhash(), lastValidBlockHeight: h.height + 150 }); }
       else if (method === 'getFeeForMessage') result = context(Message.from(Buffer.from(params[0], 'base64')).header.numRequiredSignatures * 5000);
       else if (method === 'getBlockHeight') result = h.height;
+      else if (method === 'getEpochInfo') { h.onFinalityRead?.(); result = { epoch: 0, slotIndex: 100, slotsInEpoch: 432000, absoluteSlot: 100, blockHeight: h.height }; }
       else if (method === 'getSignatureStatuses') result = context(params[0].map(signature => receipts.get(signature) || null));
       else if (method === 'sendTransaction') {
         h.sends++;

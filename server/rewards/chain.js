@@ -75,10 +75,10 @@ export function createRewardChain({ network, rpcUrl, verifier, testMints = {} })
     if (spec.kind === 'release') transaction.partialSign(verifier);
     return { transaction: transaction.serialize({ requireAllSignatures: false }).toString('base64'), feeLamports: String(fee.value), rentLamports: String(rent), lastValidBlockHeight: latest.lastValidBlockHeight };
   }
-  async function read(reward) {
+  async function read(reward, minContextSlot) {
     await ready();
     const escrow = escrowAddress(reward.payer, reward.seed);
-    const result = await connection.getAccountInfoAndContext(escrow, 'finalized'); const account = result.value;
+    const result = await connection.getAccountInfoAndContext(escrow, { commitment: 'finalized', ...(minContextSlot === undefined ? {} : { minContextSlot }) }); const account = result.value;
     if (!account) return null;
     if (!account.owner.equals(PROGRAM) || !Number.isSafeInteger(account.lamports)) throw new RewardChainError('Não foi possível validar a reserva na rede.');
     const value = decodeEscrow(account.data);
@@ -103,7 +103,7 @@ export function createRewardChain({ network, rpcUrl, verifier, testMints = {} })
   return { config, asset, balance, prepare, read, signedPayload,
     async send(encoded) { return connection.sendRawTransaction(Buffer.from(encoded, 'base64'), { skipPreflight: false, preflightCommitment: 'confirmed', maxRetries: 3 }); },
     async signatureState(signature) { return (await connection.getSignatureStatuses([signature], { searchTransactionHistory: true })).value[0]; },
-    async blockHeight() { return connection.getBlockHeight('finalized'); },
+    async finality() { const epoch = await connection.getEpochInfo('finalized'); return { height: epoch.blockHeight, slot: epoch.absoluteSlot }; },
     async clock() { const value = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY, 'confirmed'); if (!value || value.data.length !== 40) throw new RewardChainError('Não foi possível verificar o horário da rede.'); return Number(value.data.readBigInt64LE(32)); },
   };
 }

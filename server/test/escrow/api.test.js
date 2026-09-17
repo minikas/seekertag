@@ -75,6 +75,29 @@ test('tampered transactions, foreign sessions, and overlapping deposits cannot d
   assert.equal((await h.prepare(owner, tag)).status, 201);
 });
 
+test('finality arriving during expiry reconciliation cannot abandon an actual deposit', async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const op = (await h.prepare(owner, tag)).data.operation;
+  h.rpc.holdFinality = true; await h.submit(owner, op);
+  h.rpc.height = op.lastValidBlockHeight + 1;
+  h.rpc.onFinalityRead = () => h.rpc.finalize();
+  const result = await h.state(owner, tag);
+  assert.equal(result.data.reward.status, 'reserved');
+  assert.equal((await h.prepare(owner, tag)).data.code, 'REWARD_LOCKED');
+});
+
+test('a lost RPC response retries the stored signature without a second debit', async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const op = (await h.prepare(owner, tag)).data.operation;
+  const send = h.rpc.chain.send;
+  h.rpc.chain.send = async encoded => { await send(encoded); throw new Error('Response lost'); };
+  const result = await h.submit(owner, op); assert.equal(result.status, 202);
+  const balance = h.rpc.svm.getBalance(owner.wallet.publicKey.toBase58());
+  assert.equal((await h.request(`/reward-operations/${op.id}/retry`, owner.token, {})).data.status, 'confirmed');
+  assert.equal(h.rpc.svm.getBalance(owner.wallet.publicKey.toBase58()), balance);
+  assert.equal(h.rpc.sends, 1);
+});
+
 for (const currency of ['SOL', 'USDC', 'SKR']) test(`${currency}: funded reward renews, blocks edits/transfer, and refunds after renewed deadline`, async t => {
   const h = await harness(t); const owner = await h.account(); const other = await h.account(); const tag = await h.tag(owner);
   const op = (await h.prepare(owner, tag, { currency })).data.operation;
@@ -108,6 +131,9 @@ test('finder wallet proof is report-bound; confirmed payout resolves exactly one
   assert.equal((await h.request(`/reports/${report.report.id}/resolve`, owner.token, {})).status, 409);
   assert.equal((await h.prepare(owner, tag, { kind: 'release', reportId: report.report.id })).data.code, 'FINDER_WALLET_REQUIRED');
   const challenge = (await h.request(`${base}/challenge`, report.token, { language: 'en' })).data;
+  const another = (await h.request(`/public/tags/${tag.code}/reports`, null, { message: 'Another finder' })).data;
+  assert.equal((await h.request(`/finder/reports/${another.report.id}/reward/wallet/verify`, another.token, { challengeId: challenge.challengeId, ...proof(finder.wallet, challenge.payload) })).status, 401);
+  assert.equal((await h.request(`${base}/verify`, report.token, { challengeId: challenge.challengeId, ...proof(finder.wallet, { ...challenge.payload, nonce: 'wrongnonce12345678' }) })).status, 401);
   assert.equal((await h.request(`${base}/verify`, report.token, { challengeId: challenge.challengeId, ...proof(owner.wallet, challenge.payload) })).status, 403);
   const identity = { challengeId: challenge.challengeId, ...proof(finder.wallet, challenge.payload) };
   assert.equal((await h.request(`${base}/verify`, report.token, identity)).status, 200);

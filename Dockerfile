@@ -2,8 +2,9 @@ FROM node:24-bookworm-slim
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4318 DATABASE_PATH=/data/seekertag.sqlite
 WORKDIR /app
 COPY server/package.json server/package-lock.json ./server/
-RUN npm ci --omit=dev --prefix server && mkdir /data && chown node:node /data
+RUN npm ci --omit=dev --prefix server && ln -s server/node_modules node_modules && mkdir /data && chown node:node /data
 COPY --chown=node:node server ./server
+COPY --chown=node:node shared ./shared
 USER node
 VOLUME ["/data"]
 EXPOSE 4318
