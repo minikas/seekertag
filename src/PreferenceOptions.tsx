@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Pressable from './HapticPressable';
 import { usePreferences } from './PreferencesProvider';
 import { LanguagePreference, ThemePreference } from './preferences.model';
@@ -31,12 +31,12 @@ export default function PreferenceOptions({ section, onSelected }: { section: 'l
   }
   const options = section === 'language' ? languages : themes;
   return <>
-    <View>{options.map((option, index) => {
+    <View>{options.map((option) => {
       const selected = preferences[section] === option.value;
-      return <Pressable key={option.value} testID={`preference-${section}-${option.value}`} accessibilityRole="radio" accessibilityLabel={t(option.title)} accessibilityState={{ checked: selected, disabled: busy }} disabled={busy} onPress={() => void choose(option.value)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 20, borderBottomWidth: index < options.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: C.line, opacity: pressed ? 0.6 : 1 })}>
-        <View style={s.settingsIcon}><Icon name={section === 'language' ? 'globe' : 'sliders'} size={20} /></View>
+      return <Pressable key={option.value} testID={`preference-${section}-${option.value}`} accessibilityRole="radio" accessibilityLabel={t(option.title)} accessibilityState={{ checked: selected, disabled: busy }} disabled={busy} onPress={() => void choose(option.value)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 20, opacity: pressed ? 0.6 : 1 })}>
+        <View style={{ width: 24, alignItems: 'center' }}>{selected && <Icon name="check" size={22} color={C.accent} />}</View>
         <View style={{ flex: 1, gap: 6 }}><Text style={{ color: C.ink, fontSize: 18, lineHeight: 26 }}>{t(option.title)}</Text>{!!option.subtitle && <Text style={s.small}>{t(option.subtitle)}</Text>}</View>
-        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: selected ? C.primary : 'transparent', borderWidth: selected ? 0 : 1, borderColor: C.raised, alignItems: 'center', justifyContent: 'center' }}>{selected && <Icon name="check" size={18} color={C.onPrimary} />}</View>
+
       </Pressable>;
     })}</View>
     {!!error && <Notice error text={error} />}

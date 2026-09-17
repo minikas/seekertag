@@ -42,11 +42,11 @@ export function WalletPanel({ token, user, onUserUpdated }: { token: string; use
   return <View style={{ gap: 22 }}>
     <Text style={s.body}>{t("Escolha como acessar sua conta.")}</Text>
     {(['solana', 'google', 'apple'] as Provider[]).map(provider => user.providers.includes(provider) ? <View key={provider} style={styles.linkedCard}>
-      <View style={styles.row}><View style={s.settingsIcon}><ProviderMark provider={provider} color={C.ink} /></View><View style={{ flex: 1, gap: 4 }}><Text style={styles.title}>{providerNames[provider]}</Text><Text style={s.small}>{t("Vinculado à sua conta")}</Text></View><Icon name="check-circle" color={C.green} size={20} /></View>
+      <View style={styles.row}><View style={styles.icon}><ProviderMark provider={provider} color={C.ink} /></View><View style={{ flex: 1, gap: 4 }}><Text style={styles.title}>{providerNames[provider]}</Text><Text style={s.small}>{t("Vinculado à sua conta")}</Text></View><Icon name="check-circle" color={C.green} size={20} /></View>
       {provider === 'solana' && !!user.walletAddress && <>
         <View style={s.divider} />
         <Pressable accessibilityRole="button" accessibilityLabel={t("Copiar endereço da carteira")} accessibilityHint={t("Copia o endereço público completo da sua carteira Solana.")} onPress={() => void copyAddress()} style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
-          <View style={s.settingsIcon}><Icon name={copied ? 'check' : 'copy'} size={20} /></View><View style={{ flex: 1, gap: 5 }}><Text style={styles.title} accessibilityLiveRegion="polite">{copied ? t("Endereço copiado") : t("Endereço público")}</Text><Text style={s.small}>{user.walletAddress.slice(0, 4)}…{user.walletAddress.slice(-4)}</Text></View>
+          <View style={styles.icon}><Icon name={copied ? 'check' : 'copy'} size={22} color={C.muted} /></View><View style={{ flex: 1, gap: 5 }}><Text style={styles.title} accessibilityLiveRegion="polite">{copied ? t("Endereço copiado") : t("Endereço público")}</Text><Text style={s.small}>{user.walletAddress.slice(0, 4)}…{user.walletAddress.slice(-4)}</Text></View>
         </Pressable>
       </>}
     </View> : <ProviderButton key={provider} provider={provider} align="left" label={t("Vincular {provider}", { provider: providerNames[provider] })} onPress={() => void link(provider)} busy={busy === provider} disabled={!!busy && busy !== provider || (provider !== 'solana' && !availability)} unavailable={provider !== 'solana' && availability?.[provider] === false} />)}
@@ -57,7 +57,8 @@ export function WalletPanel({ token, user, onUserUpdated }: { token: string; use
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({
-  linkedCard: { backgroundColor: C.surface, borderRadius: 24, padding: 18, gap: 20 },
+  linkedCard: { paddingVertical: 12, gap: 20 },
+  icon: { width: 28, alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 48 },
   title: { color: C.ink, fontSize: 18, lineHeight: 25 },
 });
