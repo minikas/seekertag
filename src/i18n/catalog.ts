@@ -90,7 +90,7 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Usa o idioma do seu aparelho': ['Uses your device language', 'Usa el idioma de tu dispositivo'],
   'Usa a aparência do seu aparelho': ['Uses your device appearance', 'Usa la apariencia de tu dispositivo'],
   'Não foi possível salvar a preferência. Tente novamente.': ['Could not save your preference. Try again.', 'No se pudo guardar tu preferencia. Inténtalo de nuevo.'],
-  'Como funciona': ['How it works', 'Cómo funciona'], 'Fechar ajuda': ['Close help', 'Cerrar ayuda'], 'Não mostrar novamente': ['Don’t show again', 'No volver a mostrar'], 'Carregando etiqueta': ['Loading tag', 'Cargando etiqueta'],
+  'Como funciona': ['How it works', 'Cómo funciona'], 'Fechar ajuda': ['Close help', 'Cerrar ayuda'], 'Não mostrar novamente': ['Don’t show again', 'No volver a mostrar'], 'Carregando etiqueta': ['Loading tag', 'Cargando etiqueta'], 'Gravando etiqueta NFC': ['Writing NFC tag', 'Grabando etiqueta NFC'], 'Renovar reserva': ['Renew reservation', 'Renovar reserva'],
   'Cancelar e recuperar?': ['Cancel and recover?', '¿Cancelar y recuperar?'],
   '1. Adicione seu objeto': ['1. Add your item', '1. Añade tu objeto'], '2. Prenda a etiqueta': ['2. Attach the tag', '2. Coloca la etiqueta'],
   '3. Combine a devolução': ['3. Arrange the return', '3. Acuerda la devolución'],
