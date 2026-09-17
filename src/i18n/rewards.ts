@@ -1,5 +1,6 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  "Prazo inválido. Escolha pelo menos 60 minutos e no máximo 5 anos.": ["Invalid duration. Choose at least 60 minutes and at most 5 years.", "Duración no válida. Elige al menos 60 minutos y como máximo 5 años."],
   "Minutos": ["Minutes", "Minutos"],
   "Unidade do prazo": ["Reservation unit", "Unidad del plazo"],
   "Sobre saldo e cotação": ["About balance and prices", "Sobre saldo y cotización"],
