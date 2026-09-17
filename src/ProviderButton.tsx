@@ -20,7 +20,7 @@ export default function ProviderButton({ provider, label, onPress, busy = false,
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const primary = provider === 'solana';
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={unavailable ? t("Este login ainda não está disponível.") : undefined} accessibilityState={{ disabled: disabled || unavailable || busy, busy }} disabled={disabled || unavailable || busy} onPress={onPress} style={({ pressed }) => [styles.button, primary && styles.primary, provider === 'google' && styles.google, { opacity: pressed || disabled ? 0.65 : 1 }]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={unavailable ? t("Este login ainda não está disponível.") : undefined} accessibilityState={{ disabled: disabled || unavailable || busy, busy }} disabled={disabled || unavailable || busy} onPress={onPress} style={({ pressed }) => [styles.button, primary && styles.primary, provider === 'google' && styles.google, provider === 'apple' && styles.apple, { opacity: pressed || disabled ? 0.65 : 1 }]}>
     <View style={styles.mark}>{busy ? <ActivityIndicator color={primary ? C.onPrimary : provider === 'google' ? '#1F1F1F' : '#FFFFFF'} /> : <ProviderMark provider={provider} color={primary ? C.onPrimary : '#FFFFFF'} />}</View>
     <Text style={[styles.label, { textAlign: align, color: primary ? C.onPrimary : provider === 'google' ? '#1F1F1F' : '#FFFFFF' }]}>{label}</Text>
     {unavailable && <View style={[styles.soonBadge, { backgroundColor: provider === 'google' ? '#EEF0F2' : '#262A2B' }]}><Text style={[styles.soon, { color: provider === 'google' ? '#50565A' : '#CDD4D4' }]}>{t("Em breve")}</Text></View>}
@@ -28,5 +28,6 @@ export default function ProviderButton({ provider, label, onPress, busy = false,
 }
 const makeStyles = (C: Colors) => StyleSheet.create({
   button: { minHeight: 60, paddingHorizontal: 18, paddingVertical: 16, borderRadius: 20, flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: '#000000', borderColor: C.raised, borderWidth: 1 },
+  apple: { borderWidth: 0 },
   primary: { backgroundColor: C.primary, borderColor: C.primary, minHeight: 64 }, google: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' }, mark: { width: 27, alignItems: 'center' }, label: { fontSize: 16, fontWeight: '500', flex: 1, textAlign: 'center' }, soonBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, flexShrink: 0 }, soon: { fontSize: 11, fontWeight: '600' },
 });
