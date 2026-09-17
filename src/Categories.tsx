@@ -32,7 +32,7 @@ export default function Categories({ token, onClose, onChanged, presentation = '
   return <Frame contentKey="categories" title={t('Categorias')} onClose={onClose}>
       <Text style={s.body}>{t("Organize seus objetos do seu jeito.")}</Text>
       <Button icon="plus" onPress={() => setEditing('new')}>{t("Criar categoria")}</Button>
-      {loading && <ActivityIndicator color={C.accent} />}
+      {loading && <CategoryListSkeleton />}
       {categories.map(category => <Pressable key={category.id} accessibilityRole="button" accessibilityLabel={t("Editar {name}", { name: categoryLabel(category, t) })} onPress={() => setEditing(category)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: C.line, opacity: pressed ? 0.6 : 1 })}>
         <View style={[s.settingsIcon, { backgroundColor: category.color }]}><Icon name={category.icon as IconName} color={categoryInk(category.color)} size={20} /></View>
         <View style={{ flex: 1, gap: 5 }}><Text style={s.h3}>{categoryLabel(category, t)}</Text><Text style={s.small}>{objectCount(t, category.tagCount, locale)}</Text></View><Icon name="edit-2" size={18} color={C.muted} />
@@ -40,6 +40,16 @@ export default function Categories({ token, onClose, onChanged, presentation = '
       {!loading && !categories.length && <Text style={s.body}>{t("Crie sua primeira categoria.")}</Text>}
       {!!error && <><Notice error text={error} /><Button variant="secondary" onPress={() => { setError(''); void refresh().catch(cause => setError(cause.message)); }}>{t("Tentar novamente")}</Button></>}
   </Frame>;
+}
+
+function CategoryListSkeleton() {
+  const { C } = useUI();
+  return <View accessibilityLabel="Carregando categorias" style={{ gap: 20 }}>
+    {[0, 1, 2].map(index => <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: C.line }}>
+      <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: C.surface }} />
+      <View style={{ flex: 1, gap: 8 }}><View style={{ width: `${48 + index * 9}%`, height: 18, borderRadius: 9, backgroundColor: C.surface }} /><View style={{ width: '30%', height: 14, borderRadius: 7, backgroundColor: C.surface }} /></View>
+    </View>)}
+  </View>;
 }
 
 function CategoryEditor({ token, category, categories, onSaved, onClose, presentation }: { token: string; category?: Category; categories: Category[]; onSaved: () => Promise<void>; onClose: () => void; presentation: 'screen' | 'modal' }) {

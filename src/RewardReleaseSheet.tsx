@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { RewardView } from '../shared/reward';
 import AccountActionSheet from './AccountActionSheet';
 import type { AccountActionSheetHandle } from './AccountActionSheet';
@@ -18,11 +18,21 @@ export default function RewardReleaseSheet({ tagId, token, reportId, recipient, 
     onReleased: () => { released.current = true; }, onCompleted: () => sheet.current?.dismiss() });
   return <AccountActionSheet ref={sheet} title={t('Devolução e recompensa')} busy={wallet.busy} onClose={() => { if (released.current) onReleased(); onClose(); }}>
     {!!wallet.error && <Notice error text={wallet.error} />}
-    {wallet.operation ? <><RewardReview controller={wallet} /><RewardReviewAction controller={wallet} releaseAllowed={!!recipient} /></> : wallet.loading ? <ActivityIndicator color={C.accent} /> : <View style={{ gap: 20 }}>
+    {wallet.operation ? <><RewardReview controller={wallet} /><RewardReviewAction controller={wallet} releaseAllowed={!!recipient} /></> : wallet.loading ? <RewardReleaseSkeleton /> : <View style={{ gap: 20 }}>
       <RewardSummary reward={wallet.data?.reward} />
       {recipient ? <Address label={t('Carteira de quem encontrou')} address={recipient} /> : <Notice text={t('Quem encontrou precisa confirmar a carteira de recebimento na conversa.')} />}
       <Text style={s.small}>{t('Confirme somente se o objeto já estiver com você. O pagamento é definitivo e encerra as conversas deste objeto.')}</Text>
       <Button variant="success" icon="check-circle" busy={wallet.busy} disabled={!recipient || !['reserved', 'expired'].includes(wallet.data?.reward?.status || '')} onPress={() => void wallet.review('release')}>{t('Confirmar devolução e pagar')}</Button>
     </View>}
   </AccountActionSheet>;
+}
+
+function RewardReleaseSkeleton() {
+  const { C } = useUI();
+  return <View accessibilityLabel="Carregando recompensa" style={{ gap: 20 }}>
+    <View style={{ height: 100, borderRadius: 22, backgroundColor: C.surface }} />
+    <View style={{ height: 72, borderRadius: 18, backgroundColor: C.surface }} />
+    <View style={{ width: '86%', height: 16, borderRadius: 8, backgroundColor: C.surface }} />
+    <View style={{ height: 52, borderRadius: 18, backgroundColor: C.surface }} />
+  </View>;
 }

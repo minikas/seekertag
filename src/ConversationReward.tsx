@@ -11,7 +11,7 @@ import { rewardLocked } from './reward.model';
 
 type State = { reward: RewardView | null; recipient: string | null; tagId: string };
 export default function ConversationReward({ id, token, finder, open, onLocked, onReleased }: { id: string; token: string; finder: boolean; open: boolean; onLocked: (locked: boolean) => void; onReleased: () => void }) {
-  const { s, t, locale } = useUI();
+  const { C, s, t, locale } = useUI();
   const [data, setData] = useState<State>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,7 +45,14 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
     } catch (cause) { if (alive.current) setError((cause as Error).message); }
     finally { acting.current = false; if (alive.current) setBusy(false); }
   }
-  if (!data?.reward && !error) return null;
+  if (!data?.reward && !error) return <View style={{ gap: 16 }} accessibilityLabel={t('Carregando recompensa')}>
+    <View style={[s.card, { gap: 14 }]}>
+      <View style={{ width: '44%', height: 18, borderRadius: 9, backgroundColor: C.surface }} />
+      <View style={{ width: '32%', height: 28, borderRadius: 8, backgroundColor: C.surface }} />
+      <View style={{ width: '24%', height: 14, borderRadius: 7, backgroundColor: C.surface }} />
+    </View>
+    {open && <View style={{ width: '100%', height: 52, borderRadius: 18, backgroundColor: C.surface }} />}
+  </View>;
   return <View style={{ gap: 16 }}>
     {data?.reward && <RewardSummary reward={data.reward} />}
     {!!error && <><Notice error text={error} /><Button variant="ghost" onPress={() => void load()}>{t('Tentar novamente')}</Button></>}
