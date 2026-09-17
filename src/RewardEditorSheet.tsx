@@ -25,7 +25,9 @@ export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ 
     <BottomSheetHandle {...props} indicatorStyle={{ backgroundColor: C.muted, width: 44, height: 5 }} />
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 }}>
       {onBack && <Button variant="ghost" icon="arrow-left" label={t('Voltar à recompensa')} disabled={busy} onPress={onBack} />}
-      <Text accessibilityRole="header" style={[s.h2, { flex: 1 }]}>{title}</Text>{titleAccessory}
+      <View style={{ flex: 1, flexDirection: titleAccessory ? 'row' : 'column', alignItems: titleAccessory ? 'center' : 'flex-start', justifyContent: titleAccessory ? 'center' : 'flex-start', gap: titleAccessory ? 10 : 0 }}>
+        <Text accessibilityRole="header" style={s.h2}>{title}</Text>{titleAccessory}
+      </View>
     </View>
   </View>, [C.muted, title, titleAccessory, onBack, busy, s, t]);
   return <BottomSheetModal ref={value => { sheet.current = value; if (typeof forwardedRef === 'function') forwardedRef(value); else if (forwardedRef) forwardedRef.current = value; }}

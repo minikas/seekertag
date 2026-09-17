@@ -243,7 +243,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     </KeyboardAwareSheetScrollView>
   </BottomSheetModal>
     {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
-      titleAccessory={wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
+      titleAccessory={reviewing && wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
       title={waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => {
