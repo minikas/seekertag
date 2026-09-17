@@ -32,17 +32,21 @@ async function account(role) {
   secrets.push(result.token, result.recoveryCode);
   return { email, password, token: result.token };
 }
-const owner = await account('owner');
+const ownerToken = process.env.NATIVE_QA_OWNER_TOKEN;
+if (!ownerToken) throw new Error('Entre no app com uma conta exclusiva de QA via carteira/Google/Apple e defina NATIVE_QA_OWNER_TOKEN com a sessão dessa mesma conta. O teste não realiza login nem aprova a carteira.');
+secrets.push(ownerToken);
+await request('/auth/me', ownerToken);
+const owner = { token: ownerToken };
 const fixture = await account('fixture');
 const objectName = `Chaves QA ${run}`;
 const publicName = `Mochila QA ${run}`;
 const message = `Encontrei o objeto no teste ${run}.`;
 const { tag } = await request('/tags', fixture.token, { name: publicName, category: 'Mochila' });
-const variables = { QA_EMAIL: owner.email, QA_PASSWORD: owner.password, QA_OBJECT_NAME: objectName, QA_PUBLIC_URL: tag.publicUrl, QA_APP_URL: nativeTagUrl(tag.publicUrl), QA_PUBLIC_OBJECT_NAME: publicName, QA_MESSAGE: message };
+const variables = { QA_OBJECT_NAME: objectName, QA_PUBLIC_URL: tag.publicUrl, QA_APP_URL: nativeTagUrl(tag.publicUrl), QA_PUBLIC_OBJECT_NAME: publicName, QA_MESSAGE: message };
 const work = mkdtempSync(join(tmpdir(), 'seekertag-native-'));
 const output = resolve(root, `artifacts/native-${platform}`);
 mkdirSync(output, { recursive: true });
-console.log(`Executando Maestro ${platform} contra ${url.origin}; cria duas contas e objetos sintéticos nessa API. Não usa banco isolado automaticamente.`);
+console.log(`Executando Maestro ${platform} contra ${url.origin}; usa a sessão de QA existente e cria uma conta visitante e objetos sintéticos nessa API. Não usa banco isolado automaticamente.`);
 let passed = false;
 try {
   const args = ['test', '--device', device, '--platform', platform, '--no-ansi', '--test-output-dir', work, '--debug-output', work, '--format', 'JUNIT', '--output', join(work, 'report.xml')];
@@ -63,7 +67,7 @@ try {
   if (existsSync(join(work, 'report.xml'))) writeFileSync(join(output, 'report.xml'), redact(readFileSync(join(work, 'report.xml'), 'utf8')));
   function screenshots(dir) { for (const entry of readdirSync(dir, { withFileTypes: true })) { const path = join(dir, entry.name); if (entry.isDirectory()) screenshots(path); else if (/^native-.*\.png$/.test(entry.name)) copyFileSync(path, join(output, entry.name)); } }
   screenshots(work);
-  writeFileSync(join(output, 'result.json'), JSON.stringify({ platform, device, apiOrigin: url.origin, run, passed, checks: ['login', 'create object in UI and verify API', 'generated QR display', 'native link sharing', 'owner preview blocks self reports', 'cancel PDF folder picker', 'owner session after process restart', 'manual label URL', 'finder report and verify API', 'finder access after process restart and rescan', 'warm and cold app links'], hardwareNotTested: ['optical QR scan', 'physical NFC write', 'wallet authorization'], finishedAt: new Date().toISOString() }, null, 2));
+  writeFileSync(join(output, 'result.json'), JSON.stringify({ platform, device, apiOrigin: url.origin, run, passed, checks: ['existing provider session', 'create object in UI and verify API', 'generated QR display', 'native link sharing', 'owner preview blocks self reports', 'cancel PDF folder picker', 'owner session after process restart', 'manual label URL', 'finder report and verify API', 'finder access after process restart and rescan', 'warm and cold app links'], hardwareNotTested: ['optical QR scan', 'physical NFC write', 'wallet authorization'], finishedAt: new Date().toISOString() }, null, 2));
   // Maestro's full command dump can contain synthetic credentials. Only keep
   // redacted reports and explicitly named screenshots, never that private dump.
   rmSync(work, { recursive: true, force: true });

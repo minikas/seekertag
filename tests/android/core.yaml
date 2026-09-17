@@ -6,31 +6,8 @@ name: Android account, label, sharing, PDF picker, visitor and app links
 - tapOn:
     text: "Ahora no|Agora não|Not Now|Never"
     optional: true
-- runFlow:
-    when:
-      visible: "Minha conta"
-    commands:
-      - tapOn: "Minha conta"
-      - scrollUntilVisible:
-          element: "Sair da conta"
-          direction: DOWN
-      - tapOn: "Sair da conta"
-- scrollUntilVisible:
-    element: "Entrar com e-mail"
-    direction: DOWN
-- tapOn: "Entrar com e-mail"
-- tapOn: "email@example.com"
-- inputText: ${QA_EMAIL}
-- pressKey: Enter
-- scrollUntilVisible:
-    element: "Sua senha"
-    direction: DOWN
-- tapOn: "Sua senha"
-- inputText: ${QA_PASSWORD}
-- pressKey: Enter
-- tapOn:
-    text: "Ahora no|Agora não|Not Now|Never"
-    optional: true
+# Start with a dedicated QA account already signed in through a supported provider.
+# Wallet and social-provider approvals remain manual; this flow never signs for the user.
 - extendedWaitUntil:
     visible: "Adicionar objeto"
     timeout: 20000
