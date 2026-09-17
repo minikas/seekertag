@@ -1,13 +1,13 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Linking, Share, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import { ActivityIndicator, AppState, Linking, Share, StyleSheet, Text, ToastAndroid, useWindowDimensions, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Pressable from './HapticPressable';
 import ScreenBottomSheet from './ScreenBottomSheet';
 import { nativeTagUrl } from './links';
 import { api, API_URL, Tag, User } from './api';
-import { tagCategoryLabel, categoryInk } from './category.model';
+import { tagCategoryLabel } from './category.model';
 import { authenticate, providerNames } from './platform/auth';
 import { Button, Field, formatDate, Icon, IconName, Notice, Pill, Sheet, useUI } from './ui';
 import { downloadLabel, shareLabel } from './platform/labels';
@@ -30,6 +30,8 @@ type Action = 'status' | 'download' | 'sharePdf' | 'share' | 'transfer' | 'nfc' 
 export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdit, onTransferred }: Props) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
+  const { width } = useWindowDimensions();
+  const qrSize = Math.max(160, Math.min(270, width - 104));
   const [busy, setBusy] = useState<Action>(null);
   const [error, setError] = useState('');
   const [nfcStopping, setNfcStopping] = useState(false);
@@ -221,22 +223,21 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     {busy === 'nfc' ? <Button variant="secondary" onPress={() => void cancelNfc()}>{t("Cancelar gravação")}</Button> : <Button onPress={writeNfc} disabled={nfcStopping}>{t("Tentar novamente")}</Button>}
   </ScreenBottomSheet>;
 
-  return <Sheet title={page === 'transfer' ? t("Transferir etiqueta") : page === 'info' ? t("Detalhes do objeto") : tag.name} contentKey={page} onClose={close} dismissible={busy !== 'transfer'}
+  return <Sheet title={page === 'transfer' ? t("Transferir etiqueta") : page === 'info' ? t("Detalhes do objeto") : t("Sua etiqueta")} contentKey={page} onClose={close} dismissible={busy !== 'transfer'}
     headerRight={page === 'overview' ? <Button variant="ghost" icon="more-horizontal" label={t("Opções do objeto")} busy={busy === 'status' || busy === 'sharePdf'} disabled={!!busy} onPress={() => setOverlay('actions')} /> : undefined}
     overlay={overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : undefined}>
     {waiting && <RewardPendingNotice />}
     {page === 'overview' ? <>
-      <View style={s.between}>
-        <View style={[s.row, { flex: 1 }]}><View style={[styles.itemIcon, { backgroundColor: info.color }]}><Icon name={info.icon} color={categoryInk(info.color)} size={24} /></View><Text style={[s.body, { flex: 1 }]}>{tagCategoryLabel(tag, t)}</Text></View>
-        <Pill status={tag.status} />
-      </View>
       <View style={styles.qrCard}>
-        <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={210} backgroundColor="white" color="#101918" ecl="M" quietZone={10} /></View>
+        <Text accessibilityRole="header" style={[s.h2, styles.center]}>{tag.name}</Text>
+        <View style={styles.metadata}><Icon name={info.icon} color={C.muted} size={18} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text><Pill status={tag.status} /></View>
+        <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={qrSize} backgroundColor="white" color="#101918" ecl="M" quietZone={12} /></View>
+        <Text style={[s.small, styles.center]}>{t("Escaneie para abrir a página deste objeto.")}</Text>
       </View>
       <View style={styles.buttonRow}>
-        <Button style={styles.halfButton} onPress={download} busy={busy === 'download'} disabled={!!busy}>{t("Baixar PDF")}</Button>
-        <Button style={styles.halfButton} variant="secondary" onPress={writeNfc} disabled={!!busy || nfcStopping}>{t("Gravar NFC")}</Button>
-        <Button variant="secondary" icon="share-2" label={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} style={{ width: 58 }} />
+        <QrAction icon="download" label={t("Baixar PDF")} onPress={download} busy={busy === 'download'} disabled={!!busy} />
+        <QrAction icon="wifi" label={t("Gravar NFC")} onPress={writeNfc} disabled={!!busy || nfcStopping} />
+        <QrAction icon="share-2" label={t("Compartilhar")} accessibilityLabel={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} />
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={t("Recompensa")} accessibilityState={{ disabled: waiting }} disabled={waiting} onPress={() => onEdit(tag, true)} style={[s.between, s.card]}><RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} /><Icon name={waiting ? 'lock' : 'chevron-right'} size={20} color={waiting ? C.amber : C.muted} /></Pressable>
       {tag.status === 'paused' ? <View style={{ gap: 12 }}><Notice tone="warning" text={t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")} /><Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="play-circle">{t("Reativar etiqueta")}</Button></View> : tag.status === 'lost' ? <Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="check-circle">{t("Já está comigo")}</Button> : null}
@@ -262,6 +263,15 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   </Sheet>;
 }
 
+function QrAction({ icon, label, accessibilityLabel, onPress, busy = false, disabled = false }: { icon: IconName; label: string; accessibilityLabel?: string; onPress: () => void; busy?: boolean; disabled?: boolean }) {
+  const { C } = useUI();
+  const styles = useThemedStyles(makeStyles);
+  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel || label} accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => [styles.qrAction, { opacity: pressed || (disabled && !busy) ? 0.5 : 1 }]}>
+    {busy ? <ActivityIndicator color={C.accent} /> : <Icon name={icon} size={24} color={C.accent} />}
+    <Text style={styles.qrActionLabel}>{label}</Text>
+  </Pressable>;
+}
+
 function InfoBlock({ label, value }: { label: string; value: string }) {
   const { s } = useUI();
   return <View style={{ gap: 8 }}><Text style={s.label}>{label}</Text><Text style={[s.body, { color: s.h3.color }]}>{value}</Text></View>;
@@ -277,11 +287,13 @@ function ActionRow({ icon, title, onPress, tone, disabled = false }: { icon: Ico
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({
-  itemIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  qrCard: { paddingVertical: 20, alignItems: 'center' },
-  qrPaper: { backgroundColor: 'white', padding: 14, borderRadius: 24 },
+  center: { textAlign: 'center' },
+  metadata: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 },
+  qrCard: { paddingTop: 12, alignItems: 'center', gap: 20 },
+  qrPaper: { backgroundColor: 'white', padding: 4, borderRadius: 20, marginTop: 8 },
   buttonRow: { flexDirection: 'row', gap: 10 },
-  halfButton: { flex: 1, paddingHorizontal: 12 },
+  qrAction: { flex: 1, minHeight: 84, paddingHorizontal: 8, paddingVertical: 14, borderRadius: 20, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', gap: 9 },
+  qrActionLabel: { color: C.ink, fontSize: 14, lineHeight: 20, fontWeight: '500', textAlign: 'center' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
   nfcContent: { alignItems: 'center', gap: 16, paddingVertical: 12 },
   nfcIcon: { width: 76, height: 76, borderRadius: 26, backgroundColor: C.raised, alignItems: 'center', justifyContent: 'center' },
