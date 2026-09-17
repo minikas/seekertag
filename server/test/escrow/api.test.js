@@ -138,6 +138,30 @@ test('a lost RPC response retries the stored signature without a second debit', 
   assert.equal(h.rpc.sends, 1);
 });
 
+test('status polling rebroadcasts a dropped send with the same signature and stops after confirmation', async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const op = (await h.prepare(owner, tag)).data.operation;
+  const send = h.rpc.chain.send; const payloads = [];
+  h.rpc.chain.send = async encoded => {
+    payloads.push(encoded);
+    if (payloads.length === 1) throw new Error('First request dropped');
+    return send(encoded);
+  };
+  assert.equal((await h.submit(owner, op)).status, 202);
+  assert.equal((await h.state(owner, tag)).data.reward.operation.status, 'submitted');
+  assert.equal(payloads.length, 1); // polling must not flood the RPC
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() }); t.mock.timers.tick(5_001);
+  await h.state(owner, tag);
+  const confirmed = await h.state(owner, tag);
+  assert.equal(confirmed.data.reward.status, 'reserved');
+  assert.equal(payloads.length, 2); assert.equal(payloads[0], payloads[1]);
+  assert.equal(h.rpc.sends, 1);
+  const balance = h.rpc.svm.getBalance(owner.wallet.publicKey.toBase58());
+  t.mock.timers.tick(5_001); await h.state(owner, tag);
+  assert.equal(payloads.length, 2);
+  assert.equal(h.rpc.svm.getBalance(owner.wallet.publicKey.toBase58()), balance);
+});
+
 for (const currency of ['SOL', 'USDC', 'SKR']) test(`${currency}: funded reward renews, blocks edits/transfer, and refunds after renewed deadline`, async t => {
   const h = await harness(t); const owner = await h.account(); const other = await h.account(); const tag = await h.tag(owner);
   const op = (await h.prepare(owner, tag, { currency })).data.operation;

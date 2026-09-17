@@ -38,6 +38,16 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
   `);
   const current = tag => get("SELECT * FROM rewards WHERE tag_id=? AND owner_id=? AND status!='abandoned' ORDER BY created_at DESC,rowid DESC LIMIT 1", tag.id, tag.owner_id);
   const inflight = reward => get("SELECT * FROM reward_operations WHERE reward_id=? AND status IN ('prepared','submitted')", reward.id);
+  const broadcasts = new Map();
+  async function broadcast(op) {
+    if (op.status !== 'submitted' || !op.signed_tx) return;
+    const previous = broadcasts.get(op.id);
+    if (previous?.busy || previous && Date.now() - previous.at < 5_000) return;
+    const attempt = { at: Date.now(), busy: true }; broadcasts.set(op.id, attempt);
+    try { await chain.send(op.signed_tx); }
+    catch { /* A timeout is ambiguous. Keep the lock and reconcile before retrying. */ }
+    finally { attempt.busy = false; }
+  }
   function configured() { if (!chain) fail(503, 'Os depósitos de recompensa ainda não estão disponíveis.', 'REWARD_UNAVAILABLE'); return chain; }
   const route = fn => async (req, res) => { try { await fn(req, res); } catch (error) { if (error instanceof RewardChainError) fail(409, error.message, 'REWARD_CHAIN_ERROR'); throw error; } };
   function payer(userId) {
@@ -77,8 +87,10 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     let state = await chain.read(reward);
     const operation = inflight(reward);
     let operationStatus;
+    let seenOnChain = false;
     if (operation?.signature) {
       const receipt = await chain.signatureState(operation.signature);
+      seenOnChain = !!receipt;
       if (receipt?.confirmationStatus === 'finalized') operationStatus = receipt.err ? 'failed' : 'confirmed';
     }
     function reflected() {
@@ -113,6 +125,12 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
         if (!state && live.status === 'pending' && ['failed', 'expired'].includes(operationStatus)) run("UPDATE rewards SET status='abandoned' WHERE id=?", live.id);
       }
     });
+    if (operationStatus) broadcasts.delete(operation.id);
+    else if (operation?.status === 'submitted' && !seenOnChain) {
+      // Reads from either the editor or object details keep a dropped send alive.
+      // Only resend the original signature, after verifying it has not expired.
+      await broadcast(get('SELECT * FROM reward_operations WHERE id=?', operation.id));
+    }
     return get('SELECT * FROM rewards WHERE id=?', reward.id);
   }
   function operationView(op) {
@@ -236,14 +254,14 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       });
       // Persist before broadcasting. Timeouts and app restarts can safely retry the
       // exact same signature; a second debit is never created to resolve ambiguity.
-      try { await chain.send(signed.encoded); } catch { /* Reconcile finality on the next read, including failed transactions. */ }
+      await broadcast(get('SELECT * FROM reward_operations WHERE id=?', op.id));
       res.status(202).json({ reward: view(get('SELECT * FROM rewards WHERE id=?', reward.id)), status: 'submitted', signature: signed.signature });
     }));
     app.post('/api/reward-operations/:operationId/retry', requireOwner, writeLimit, route(async (req, res) => {
       const op = ownerOperation(req); configured();
       const reward = await refresh(get('SELECT * FROM rewards WHERE id=?', op.reward_id));
       const fresh = get('SELECT * FROM reward_operations WHERE id=?', op.id);
-      if (fresh.status === 'submitted' && fresh.signed_tx) { try { await chain.send(fresh.signed_tx); } catch {} }
+      await broadcast(fresh);
       res.json({ reward: view(reward, true), status: fresh.status });
     }));
     for (const finder of [false, true]) {
