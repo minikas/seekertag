@@ -45,8 +45,8 @@ test('API checks balance, signs exactly the prepared deposit, and waits for on-c
   assert.equal((await h.request(`/tags/${tag.id}/reward/balance?currency=SOL`, owner.token)).data.availableUnits, '10000000000');
   const insufficient = await h.prepare(owner, tag, { amount: '999' }); assert.equal(insufficient.status, 409); assert.equal(insufficient.data.code, 'INSUFFICIENT_BALANCE');
   const prepared = await h.prepare(owner, tag); assert.equal(prepared.status, 201, JSON.stringify(prepared)); const op = prepared.data.operation;
-  assert.equal(op.spec.computeBudget, 'fixed-v1');
-  assert.equal(op.feeLamports, '5200'); // includes the reviewed 200-lamport priority fee
+  assert.equal(op.spec.computeBudget, 'fixed-v2');
+  assert.equal(op.feeLamports, '25000'); // includes the reviewed 20,000-lamport priority fee
   assert.equal((await h.state(owner, tag)).data.reward.status, 'pending');
   h.rpc.holdFinality = true;
   const result = await h.submit(owner, op); assert.equal(result.status, 202, JSON.stringify(result));

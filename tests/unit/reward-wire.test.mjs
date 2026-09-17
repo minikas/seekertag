@@ -10,12 +10,12 @@ test('reviewed compute budget survives wallet signing and refuses fee or instruc
     for (const kind of ['fund', 'renew', 'release', 'refund']) {
       const spec = { kind, payer: owner.publicKey.toBase58(), verifier: verifier.publicKey.toBase58(),
         recipient: finder.publicKey.toBase58(), rewardId: '12'.repeat(32), reportHash: '34'.repeat(32),
-        mint, amountUnits: '1000000', durationSeconds: 3600, computeBudget: 'fixed-v1' };
+        mint, amountUnits: '1000000', durationSeconds: 3600, computeBudget: 'fixed-v2' };
       const tx = new Transaction({ feePayer: owner.publicKey, recentBlockhash: Keypair.generate().publicKey.toBase58() }).add(...rewardInstructions(spec));
       const budget = tx.instructions.filter(ix => ix.programId.equals(ComputeBudgetProgram.programId));
       assert.equal(budget.length, 2);
       assert.equal(ComputeBudgetInstruction.decodeSetComputeUnitLimit(budget[0]).units, 200_000);
-      assert.equal(ComputeBudgetInstruction.decodeSetComputeUnitPrice(budget[1]).microLamports, 1_000n);
+      assert.equal(ComputeBudgetInstruction.decodeSetComputeUnitPrice(budget[1]).microLamports, 100_000n);
       if (kind === 'release') tx.partialSign(verifier);
       const reviewed = tx.serializeMessage();
       tx.partialSign(owner);
@@ -42,5 +42,28 @@ test('persisted operations without a budget keep their original instruction form
   assert.equal(tx.instructions.length, 1);
   tx.sign(owner);
   assert.ok(verifyRewardTransaction(tx.serialize().toString('base64'), spec).verifySignatures());
+  const previous = { ...spec, computeBudget: 'fixed-v1' };
+  assert.equal(ComputeBudgetInstruction.decodeSetComputeUnitPrice(rewardInstructions(previous)[1]).microLamports, 1_000n);
   assert.throws(() => rewardInstructions({ ...spec, computeBudget: 'unknown' }));
+});
+
+test('replays the Seeker Wallet fee replacement captured after native signing', () => {
+  const owner = Keypair.generate();
+  const base = { kind: 'fund', payer: owner.publicKey.toBase58(), verifier: Keypair.generate().publicKey.toBase58(),
+    rewardId: '78'.repeat(32), mint: MAINNET_MINTS.SKR, amountUnits: '1000000', durationSeconds: 3600 };
+  for (const version of ['fixed-v1', 'fixed-v2']) {
+    const spec = { ...base, computeBudget: version };
+    const prepared = new Transaction({ feePayer: owner.publicKey, recentBlockhash: Keypair.generate().publicKey.toBase58() }).add(...rewardInstructions(spec));
+    const signed = Transaction.from(prepared.serialize({ requireAllSignatures: false }));
+    // Actual returned instruction: 03 a086010000000000 (100,000 micro-lamports).
+    signed.instructions[1].data = Buffer.from('03a086010000000000', 'hex');
+    signed.sign(owner);
+    if (version === 'fixed-v1') {
+      assert.throws(() => verifyRewardTransaction(signed.serialize().toString('base64'), spec));
+    } else {
+      const checked = verifyRewardTransaction(signed.serialize().toString('base64'), spec);
+      assert.ok(checked.serializeMessage().equals(prepared.serializeMessage()));
+      assert.ok(checked.verifySignatures());
+    }
+  }
 });

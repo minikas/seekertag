@@ -34,11 +34,11 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
   const escrow = escrowAddress(spec.payer, spec.rewardId); const mint = spec.mint ? new PublicKey(spec.mint) : null;
   const vault = vaultAddress(escrow); const setup: TransactionInstruction[] = [];
   if (spec.computeBudget !== undefined) {
-    if (spec.computeBudget !== 'fixed-v1') throw new Error('Transação de recompensa inválida.');
+    if (spec.computeBudget !== 'fixed-v1' && spec.computeBudget !== 'fixed-v2') throw new Error('Transação de recompensa inválida.');
     // Seed Vault Wallet fills in missing compute-budget instructions when
     // signing. Supply both up front so its response preserves the reviewed
     // message, including the verifier's partial signature on payouts.
-    setup.push(ComputeBudgetProgram.setComputeUnitLimit({ units: REWARD_COMPUTE_UNITS }), ComputeBudgetProgram.setComputeUnitPrice({ microLamports: REWARD_COMPUTE_UNIT_PRICE }));
+    setup.push(ComputeBudgetProgram.setComputeUnitLimit({ units: REWARD_COMPUTE_UNITS }), ComputeBudgetProgram.setComputeUnitPrice({ microLamports: spec.computeBudget === 'fixed-v1' ? 1_000 : REWARD_COMPUTE_UNIT_PRICE }));
   }
   let name: keyof typeof discriminators; let keys; let args: Buffer = Buffer.alloc(0);
   if (spec.kind === 'fund') {
