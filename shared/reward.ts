@@ -3,6 +3,9 @@ export type RewardNetwork = 'devnet' | 'mainnet' | 'localnet';
 export const REWARD_DECIMALS: Record<RewardCurrency, number> = { SOL: 9, USDC: 6, SKR: 6 };
 export const REWARD_PROGRAM = '4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB';
 export const ESCROW_SPACE = 226;
+// Fixed, bounded execution fee included in the transaction before wallet review.
+export const REWARD_COMPUTE_UNITS = 200_000;
+export const REWARD_COMPUTE_UNIT_PRICE = 1_000; // micro-lamports; 200 lamports total
 export const MAINNET_MINTS = {
   USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   SKR: 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3',
@@ -47,6 +50,7 @@ export type RewardAction = 'fund' | 'renew' | 'release' | 'refund';
 export type RewardInstructionSpec = {
   kind: RewardAction; payer: string; verifier: string; rewardId: string; mint: string | null;
   amountUnits: string; days?: number; durationSeconds?: number; recipient?: string; reportHash?: string; previousRefundAfter?: number;
+  computeBudget?: 'fixed-v1';
 };
 export type RewardConfig = { network: RewardNetwork; verifier: string; program: string; currencies: RewardCurrency[]; mints: Partial<Record<RewardCurrency, string>>; minDays: number; maxDays: number; minSeconds: number; maxSeconds: number };
 export type RewardBalance = { currency: RewardCurrency; decimals: number; mint: string | null; availableUnits: string; solLamports: string };

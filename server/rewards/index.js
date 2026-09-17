@@ -171,7 +171,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
           escrow: escrowAddress(wallet, seed).toBase58(), currency: asset.currency, mint: asset.mint, decimals: asset.decimals, amount_units: units, status: 'pending' };
       } else if (!reward || reward.status !== 'reserved') fail(409, 'Não há uma reserva disponível para esta ação.', 'REWARD_NOT_RESERVED');
       if (wallet !== reward.payer) fail(409, 'Use a carteira que fez o depósito.', 'REWARD_WALLET_MISMATCH');
-      const spec = { kind, payer: reward.payer, verifier: reward.verifier, rewardId: reward.seed, mint: reward.mint, amountUnits: reward.amount_units };
+      const spec = { kind, payer: reward.payer, verifier: reward.verifier, rewardId: reward.seed, mint: reward.mint, amountUnits: reward.amount_units, computeBudget: 'fixed-v1' };
       if (['fund', 'renew'].includes(kind)) {
         if (req.body.durationSeconds !== undefined) spec.durationSeconds = req.body.durationSeconds;
         else spec.days = req.body.days;

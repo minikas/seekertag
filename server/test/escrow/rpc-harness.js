@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { Keypair, PublicKey, Transaction, Message } from '@solana/web3.js';
+import { ComputeBudgetProgram, Keypair, PublicKey, Transaction, Message } from '@solana/web3.js';
 import { getTransactionDecoder } from '@solana/kit';
 import { LiteSVM, FailedTransactionMetadata } from 'litesvm';
 import bs58 from 'bs58';
@@ -34,7 +34,16 @@ export async function rpcHarness() {
       else if (method === 'getMultipleAccounts') result = context(params[0].map(key => account(key, params[1]?.commitment)));
       else if (method === 'getMinimumBalanceForRentExemption') result = Number(svm.minimumBalanceForRentExemption(BigInt(params[0])));
       else if (method === 'getLatestBlockhash') { svm.expireBlockhash(); result = context({ blockhash: svm.latestBlockhash(), lastValidBlockHeight: h.height + 150 }); }
-      else if (method === 'getFeeForMessage') result = context(Message.from(Buffer.from(params[0], 'base64')).header.numRequiredSignatures * 5000);
+      else if (method === 'getFeeForMessage') {
+        const message = Message.from(Buffer.from(params[0], 'base64'));
+        let units = 200_000n; let price = 0n;
+        for (const ix of message.instructions) if (message.accountKeys[ix.programIdIndex].equals(ComputeBudgetProgram.programId)) {
+          const data = Buffer.from(bs58.decode(ix.data));
+          if (data[0] === 2) units = BigInt(data.readUInt32LE(1));
+          if (data[0] === 3) price = data.readBigUInt64LE(1);
+        }
+        result = context(message.header.numRequiredSignatures * 5000 + Number((units * price + 999_999n) / 1_000_000n));
+      }
       else if (method === 'getBlockHeight') result = h.height;
       else if (method === 'getEpochInfo') { h.onFinalityRead?.(); result = { epoch: 0, slotIndex: 100, slotsInEpoch: 432000, absoluteSlot: 100, blockHeight: h.height }; }
       else if (method === 'getSignatureStatuses') result = context(params[0].map(signature => receipts.get(signature) || null));
