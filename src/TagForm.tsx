@@ -295,11 +295,11 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         <Button onPress={() => { setRenewSheetOpen(false); void save('renew'); }} busy={busy} disabled={saveDisabled}>{t('Salvar e revisar renovação')}</Button>
       </View>
     </AccountActionSheet>}
-    {refundConfirm && <AccountActionSheet title={t('Cancelar e recuperar')} busy={busy} onClose={() => { if (!busy) setRefundConfirm(false); }}>
+    {refundConfirm && <AccountActionSheet busy={busy} onClose={() => { if (!busy) setRefundConfirm(false); }}>
       <View style={{ gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 14 }}><View style={[s.settingsIcon, { backgroundColor: C.amberSoft }]}><Icon name="corner-up-left" color={C.amber} size={24} /></View><Text style={[s.h2, { textAlign: 'center' }]}>{t('Cancelar e recuperar?')}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t('Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.')}</Text></View>
         <Button variant="warning" icon="corner-up-left" busy={busy} disabled={busy || editingDisabled} onPress={() => { setRefundConfirm(false); void save('refund'); }}>{t('Confirmar recuperação')}</Button>
-        <Button variant="ghost" disabled={busy} onPress={() => setRefundConfirm(false)}>{t('Voltar')}</Button>
+        <Button variant="ghost" disabled={busy} onPress={() => setRefundConfirm(false)}>{t('Cancelar')}</Button>
       </View>
     </AccountActionSheet>}
   </>;

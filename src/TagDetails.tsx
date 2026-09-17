@@ -260,7 +260,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || waiting || tag.openReportCount > 0 || !email.trim() || (user.hasPassword && password.length < 10)}>{t("Confirmar transferência")}</Button>
     </>}
     {!!error && overlay !== 'nfc' && <Notice text={error} error />}
-    {pendingStatus && <ScreenBottomSheet title={t('Confirmar ação')} onClose={() => setPendingStatus(null)}>
+    {pendingStatus && <ScreenBottomSheet title="" onClose={() => setPendingStatus(null)}>
       <View style={{ gap: 16 }}>
         <Text style={s.body}>{t(pendingStatus === 'lost' ? 'Marcar esta etiqueta como perdida?' : pendingStatus === 'paused' ? 'Pausar esta etiqueta?' : 'Reativar esta etiqueta?')}</Text>
         <Button variant={pendingStatus === 'lost' || pendingStatus === 'paused' ? 'warning' : 'success'} busy={busy === 'status'} disabled={!!busy} onPress={() => { const next = pendingStatus; setPendingStatus(null); changeStatus(next); }}>{t('Confirmar')}</Button>
