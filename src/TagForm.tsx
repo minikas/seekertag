@@ -267,7 +267,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       </>}> 
       {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : <>
         {lockedReward ? <>
-          <RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} />
+          <View style={s.card}><RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} /></View>
           {wallet.operation ? <Button variant="accent" icon="shield" onPress={() => { Keyboard.dismiss(); setReviewing(true); }}>{t('Retomar revisão')}</Button> : <>
             {!renewing && activeReward?.refundAfter && <Text style={s.small}>{t('Cancelamento a partir de {date}', { date: new Date(activeReward.refundAfter).toLocaleString(locale) })}</Text>}
             {activeReward?.status === 'expired' && <>
@@ -277,7 +277,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
             {activeReward?.status === 'unverified' && <Notice tone="warning" text={t('Não foi possível confirmar a reserva agora. Aguarde a conexão com a rede antes de continuar.')} />}
           </>}
         </> : legacyReward ? <>
-          <RewardSummary amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} />
+          <View style={s.card}><RewardSummary amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} /></View>
           <Button variant="secondary" disabled={editingDisabled} onPress={() => setLegacyReward(false)}>{t('Usar recompensa em cripto')}</Button>
         </> : <>
           <RewardFields controller={wallet} value={reward} currency={currency} onValue={setReward} onCurrency={setCurrency} disabled={editingDisabled} />

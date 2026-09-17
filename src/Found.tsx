@@ -67,7 +67,7 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
           <View style={{ flex: 1, gap: 4 }}><Text accessibilityRole="header" style={s.h2}>{tag.name}</Text><Text style={s.body}>{tagCategoryLabel(tag, t)}</Text></View>
         </View>
         {tag.publicMessage ? <View style={styles.message}><Text style={s.label}>{t("Mensagem do dono")}</Text><Text style={[s.body, { color: C.ink }]}>{tag.publicMessage}</Text></View> : <Text style={s.body}>{t("Envie uma mensagem para combinar a devolução.")}</Text>}
-        {(tag.rewardAmount > 0 || tag.reward) && <RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} />}
+        {(tag.rewardAmount > 0 || tag.reward) && <View style={s.card}><RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} /></View>}
         {viewerIsOwner ? <View style={styles.ownerPreview}>
           <View style={[styles.ownerIcon, { backgroundColor: C.soft }]}><Icon name="eye" color={C.accent} size={26} /></View>
           <Text style={[s.h2, { textAlign: 'center' }]}>{t("Esta etiqueta é sua")}</Text>
