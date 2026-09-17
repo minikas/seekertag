@@ -246,7 +246,15 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       titleAccessory={wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
       title={waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
-      onClose={() => { setRewardOpen(false); if (closing.current) sheet.current?.dismiss(); }}
+      onClose={() => {
+        setRewardOpen(false);
+        // A dismissed invalid draft should not surprise the user on the next open.
+        // Keep valid drafts so closing the sheet remains reversible.
+        if (!lockedReward && !reviewing && !wallet.loading && !wallet.balanceLoading && wantsReward && (!amountValid || !durationValid)) {
+          setReward(''); setQuantity('30'); setUnit('days'); setCurrency('SOL');
+        }
+        if (closing.current) sheet.current?.dismiss();
+      }}
       onBack={reviewing && !waiting ? () => { wallet.editExpiredReview(); setReviewing(false); } : undefined}
       footer={<>
         {!!footerError && <Notice error text={footerError} />}

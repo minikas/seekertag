@@ -52,7 +52,6 @@ export default function RewardFields({ controller, value, currency, onValue, onC
 }) {
   const { C, s, t, locale } = useUI();
   const [picker, setPicker] = useState(false);
-  const [info, setInfo] = useState(false);
   const [fiat, setFiat] = useState<'usd' | 'brl'>(locale.startsWith('pt') ? 'brl' : 'usd');
   const pickerRef = useRef<AccountActionSheetHandle>(null);
   const { balanceLoading, balanceError, data, prices, pricesLoading } = controller;
@@ -81,13 +80,8 @@ export default function RewardFields({ controller, value, currency, onValue, onC
           <Pressable accessibilityRole="button" accessibilityLabel={t('Alternar cotação entre USD e BRL')} onPress={() => setFiat(fiat === 'usd' ? 'brl' : 'usd')} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {pricesLoading ? <View style={{ width: 92, height: 14, borderRadius: 7, backgroundColor: C.soft }} /> : <Text style={s.small}>{estimate ? `≈ ${estimate}` : '—'}</Text>}<Text style={[s.small, { color: C.accent }]}>{fiat.toUpperCase()}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('Sobre saldo e cotação')} onPress={() => setInfo(!info)} hitSlop={8} style={{ minHeight: 36, minWidth: 28, alignItems: 'center', justifyContent: 'center' }}><Icon name="info" size={17} color={C.muted} /></Pressable>
         </View>
-        {info && <View accessibilityLabel={t('Sobre saldo e cotação')} style={{ position: 'absolute', top: 40, left: 0, zIndex: 10, width: 300, backgroundColor: C.surface, borderRadius: 16, padding: 14, gap: 8, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 6 }}>
-          <Text style={s.small}>{t('Cotação de referência da CoinGecko. Em redes de teste, os tokens não têm valor real.')}</Text>
-          <Text style={s.small}>{t('Máx. preserva SOL para os custos estimados do depósito.')}</Text>
-          <Text style={s.small}>{t('Toque no saldo para atualizar. A exibição usa até 4 casas decimais; o cálculo mantém a precisão da moeda.')}</Text>
-        </View>}</View>
+        </View>
         <Pressable accessibilityRole="button" accessibilityLabel={t('Atualizar saldo e cotação')} disabled={disabled} onPress={refresh} style={{ minHeight: 44, justifyContent: 'center' }}>
           {balanceLoading ? <View style={{ width: 142, height: 14, borderRadius: 7, backgroundColor: C.soft }} /> : <Text numberOfLines={1} style={s.small}>{t('Disponível: {amount} {currency}', { amount: balance ? Number(unitsToAmount(balance.availableUnits, balance.decimals)).toLocaleString(locale, { maximumFractionDigits: 4 }) : '—', currency })}</Text>}
         </Pressable>
