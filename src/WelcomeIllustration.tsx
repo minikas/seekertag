@@ -7,6 +7,7 @@ import { useUI } from './ui';
 // Decorative vector artwork stays crisp at every density and follows the app theme.
 const ORBIT_DURATION = 72_000;
 const ORBIT_RADIUS = 174;
+const INNER_ORBIT_RADIUS = 112;
 
 function Satellite({ angle, degrees, width, height = width, children }: PropsWithChildren<{ angle: SharedValue<number>; degrees: number; width: number; height?: number }>) {
   const radians = degrees * Math.PI / 180;
@@ -45,7 +46,7 @@ export default function WelcomeIllustration({ paused = false }: { paused?: boole
     <Svg width="100%" height="100%" viewBox="0 0 400 400">
       <Defs><LinearGradient id="tag" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor={C.accent} /><Stop offset="1" stopColor="#58DBAF" /></LinearGradient></Defs>
       <Circle cx="200" cy="200" r={ORBIT_RADIUS} stroke={C.line} strokeWidth="1" fill="none" />
-      <Circle cx="200" cy="200" r="112" stroke={C.line} strokeWidth="1" fill="none" />
+      <Circle cx="200" cy="200" r={INNER_ORBIT_RADIUS} stroke={C.line} strokeWidth="1" fill="none" />
       <Circle cx="200" cy="200" r="84" fill={C.soft} />
       <G transform="rotate(-12 200 200)">
         <Rect x="148" y="122" width="108" height="151" rx="27" fill={C.bg} stroke={C.line} strokeWidth="2" />
@@ -59,6 +60,12 @@ export default function WelcomeIllustration({ paused = false }: { paused?: boole
       </G>
     </Svg>
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, orbit]}>
+      <Svg width="100%" height="100%" viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
+        {[-70, 40, 160].map((degrees, index) => <Circle key={degrees}
+          cx={200 + INNER_ORBIT_RADIUS * Math.cos(degrees * Math.PI / 180)}
+          cy={200 + INNER_ORBIT_RADIUS * Math.sin(degrees * Math.PI / 180)}
+          r={index === 1 ? 4 : 3} fill={[C.accent, C.green, C.amber][index]} />)}
+      </Svg>
       <Satellite angle={angle} degrees={-140} width={58}><G transform="rotate(-12 28 28)">
         <Rect width="58" height="58" rx="19" fill={C.secondary} />
         <G stroke={C.ink} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"><Rect x="16" y="18" width="27" height="29" rx="7" /><Path d="M23 18v-4a6 6 0 0112 0v4 M16 30h27 M24 35h11v7H24z" /></G>
