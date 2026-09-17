@@ -1,13 +1,14 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { api, Provider, User } from './api';
 import { authenticate, AuthAvailability } from './platform/auth';
 import ProviderButton from './ProviderButton';
 import AccountActionSheet from './AccountActionSheet';
 import WelcomeIllustration from './WelcomeIllustration';
-import { Brand, Button, Notice, useUI } from './ui';
+import { translateNotice } from './i18n';
+import { Brand, Button, useUI } from './ui';
 
 export default function Auth({ onAuth, onScan }: { onAuth: (token: string, user: User, recoveryCode?: string) => Promise<void>; onScan: () => void }) {
   const { C, s, t, locale } = useUI();
@@ -15,16 +16,15 @@ export default function Auth({ onAuth, onScan }: { onAuth: (token: string, user:
   const [methods, setMethods] = useState(false);
   const [availability, setAvailability] = useState<AuthAvailability>();
   const [busy, setBusy] = useState<Provider | null>(null);
-  const [error, setError] = useState('');
   const active = useRef(false);
-  useEffect(() => { let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) setError(t("Não foi possível verificar os acessos disponíveis. Tente novamente.")); }); return () => { live = false; }; }, []);
+  useEffect(() => { let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) ToastAndroid.show(t("Não foi possível verificar os acessos disponíveis. Tente novamente."), ToastAndroid.LONG); }); return () => { live = false; }; }, []);
   async function login(provider: Provider) {
     if (active.current) return;
-    active.current = true; setBusy(provider); setError('');
+    active.current = true; setBusy(provider);
     try {
       const result = await authenticate(provider, 'login', undefined, locale.slice(0, 2));
       if (result?.token && result.user) await onAuth(result.token, result.user);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível entrar. Tente novamente.'); }
+    } catch (cause) { ToastAndroid.show(translateNotice(t, cause instanceof Error ? cause.message : 'Não foi possível entrar. Tente novamente.'), ToastAndroid.LONG); }
     finally { active.current = false; setBusy(null); }
   }
   return <View style={{ flex: 1 }}>
@@ -49,7 +49,6 @@ export default function Auth({ onAuth, onScan }: { onAuth: (token: string, user:
         <ProviderButton align="left" provider="google" label={t("Continuar com Google")} busy={busy === 'google'} disabled={!availability || (!!busy && busy !== 'google')} unavailable={availability?.google === false} onPress={() => void login('google')} />
         <ProviderButton align="left" provider="apple" label={t("Continuar com Apple")} busy={busy === 'apple'} disabled={!availability || (!!busy && busy !== 'apple')} unavailable={availability?.apple === false} onPress={() => void login('apple')} />
       </View>
-      {!!error && <Notice error text={error} />}
     </AccountActionSheet>}
   </View>;
 }
