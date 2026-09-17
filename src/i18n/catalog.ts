@@ -2,6 +2,10 @@
 import { rewards } from './rewards.ts';
 export const catalog: Record<string, readonly [string, string]> = {
   ...rewards,
+  'Preferências': ['Preferences', 'Preferencias'],
+  'Automático': ['Automatic', 'Automático'],
+  'Conta e objetos': ['Account and items', 'Cuenta y objetos'],
+  'Ajuda': ['Help', 'Ayuda'],
   'Começar': ['Get started', 'Comenzar'],
   'Entrar no SeekerTag': ['Sign in to SeekerTag', 'Entrar en SeekerTag'],
   'Conversa': ['Conversation', 'Conversación'],
