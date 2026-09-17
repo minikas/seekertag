@@ -183,3 +183,7 @@ Faça polling da conversa e lista de avisos enquanto a tela estiver visível. O 
 `npm test` executa testes HTTP reais contra portas efêmeras e bancos isolados, sem depender da instância de desenvolvimento. Cobrem ciclo completo de devolução, privacidade, autorização, capacidades, pausa/reativação, transferência, recuperação/revogação inclusive concorrente, persistência após restart, bytes de PNG/PDF, URL canônica, validação, limite de spam, redirecionamentos para o app e ausência de interface/arquivos estáticos.
 
 Referências primárias de implementação: [SQLite no Node.js](https://nodejs.org/docs/latest-v24.x/api/sqlite.html) e [API Express 5](https://expressjs.com/en/5x/api/). O módulo SQLite embutido exibe aviso experimental no Node.js 24 usado na validação; nenhum driver nativo extra é necessário.
+
+## Reservas de recompensa
+
+As rotas de depósito, renovação, pagamento, cancelamento e comprovação da carteira do visitante estão documentadas em [REWARDS.md](REWARDS.md#rotas). Objetos e prévias públicas incluem `reward` somente quando existe uma reserva/recibo; os campos legados `rewardAmount` e `rewardCurrency` continuam aceitos como valores anunciados. Alterar esses campos ou transferir uma etiqueta com reserva ativa retorna `409 REWARD_LOCKED`.

@@ -27,7 +27,7 @@ A atualização migra os objetos existentes para categorias com IDs estáveis, m
 | Funcionalidade | Implementação no aplicativo |
 |---|---|
 | Cadastro, login, logout e recuperação | Mesmas telas e API; sessão no SecureStore |
-| Criar e editar objetos, categoria, nota privada, mensagem pública e recompensa prometida | Formulário completo de objeto |
+| Criar e editar objetos, categoria, nota privada, mensagem pública e recompensa | Formulário completo de objeto |
 | Busca, filtros e indicadores | Indicadores da home abrem a lista filtrada; busca em Ver todos |
 | Marcar perdido, pausar e reativar | Detalhes da etiqueta |
 | QR, leitura por câmera e entrada manual | QR nativo e leitor Expo |
@@ -44,7 +44,17 @@ A atualização migra os objetos existentes para categorias com IDs estáveis, m
 | Falha de rede e reenvio | Erro visível e rascunho preservado enquanto a tela está aberta |
 | Etiqueta inválida/pausada e conversa sem credencial | Estados de erro e retorno ao início |
 
-A visita sem conta foi preservada dentro do Android. A abertura sem instalar aplicativo deixou de existir com a remoção da web. Recursos que já não existiam — push, pagamentos e escrow — não fazem parte dessa migração.
+A visita sem conta foi preservada dentro do Android. A abertura sem instalar aplicativo deixou de existir com a remoção da web. Recompensas com depósito, renovação e pagamento foram acrescentadas no Android; notificações push continuam fora do escopo.
+
+## Recompensas com reserva
+
+Abra um objeto → **Recompensa** para consultar o saldo, escolher SOL/USDC/SKR e um prazo de 1 a 365 dias. A tela revisa valor, prazo, taxa de rede e custo das contas antes de solicitar a assinatura na carteira. Um valor preenchido no formulário continua sendo apenas anunciado até o depósito ser confirmado com compromisso `finalized`.
+
+**Renovar reserva** acrescenta dias ao prazo atual (ou a partir de hoje se já venceu), sem retirar nem depositar o valor novamente. O prazo total não pode ultrapassar 365 dias a partir de hoje. **Cancelar e recuperar** só funciona depois do vencimento e devolve o saldo à carteira original; o vencimento não movimenta fundos automaticamente.
+
+Na conversa, quem encontrou confirma uma carteira com assinatura de mensagem. Após receber o objeto, o dono escolhe **Devolução e recompensa → Confirmar devolução e pagar** e assina a transação. A API também assina a carteira destinatária verificada e só encerra a devolução após confirmar o pagamento na rede. Antes do vencimento, não existe cancelamento antecipado pelo dono ou pelo servidor.
+
+A integração é inicialmente **devnet**. USDC e SKR usados pelos scripts são tokens de teste próprios, com 6 casas decimais; não são os ativos reais nem representam saldo mainnet. Detalhes de contrato, recuperação de transações, configuração e testes estão em [server/REWARDS.md](server/REWARDS.md).
 
 ## Executar no celular
 
@@ -180,6 +190,8 @@ npm run test:all
 npm run typecheck
 npm run test:unit
 npm run test:api
+# Compila o contrato SBF e executa a VM e a integração HTTP/RPC:
+npm run test:escrow
 ```
 
 Os testes verificam autenticação, privacidade, devolução, transferência, recuperação, persistência, PNG/PDF, limites de requisições e abertura de links Android. Os testes unitários do adaptador de PDF executam sua lógica real com as interfaces nativas de arquivos e compartilhamento substituídas por implementações em memória; não equivalem a testes em aparelho. A suíte de navegador foi removida junto com o frontend web.
@@ -209,7 +221,7 @@ O fluxo `tests/android/preferences-categories.yaml` começa com a conta conectad
 
 ## Limites atuais
 
-- Recompensas são promessas opcionais. Não há pagamento, escrow, transações USDC/SKR, alias `.skr` verificado ou verificação SGT.
+- Depósitos SOL/USDC/SKR estão preparados para devnet. Mainnet exige publicação e ativação próprias; tokens de teste não têm valor real. Alias `.skr` verificado e verificação SGT não estão implementados.
 - Não há push ou envio de e-mail. Conversas são atualizadas periodicamente enquanto o app está aberto.
 - Etiquetas são passivas e não rastreiam localização.
 - Mensagens são privadas por autorização da API, sem criptografia ponta a ponta. O operador do servidor controla o banco.
