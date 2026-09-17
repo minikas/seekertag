@@ -8,13 +8,10 @@ export const rewards: Record<string, readonly [string, string]> = {
   "Toque no saldo para atualizar. A exibição usa até 4 casas decimais; o cálculo mantém a precisão da moeda.": ["Tap the balance to refresh. Up to 4 decimals are displayed; calculations retain token precision.", "Toca el saldo para actualizar. Se muestran hasta 4 decimales; el cálculo conserva la precisión del token."],
   "Seu objeto ganha uma identidade": ["Give your item an identity", "Dale una identidad a tu objeto"],
   "Adicione um nome e crie sua etiqueta com QR.": ["Add a name and create its QR tag.", "Añade un nombre y crea su etiqueta QR."],
-  "Minha mochila": ["My backpack", "Mi mochila"],
   "Leve a etiqueta com seu objeto": ["Keep the tag with your item", "Lleva la etiqueta con tu objeto"],
   "Baixe e imprima o QR ou grave uma etiqueta NFC. Prenda no objeto.": ["Download and print the QR or write an NFC tag. Attach it to your item.", "Descarga e imprime el QR o graba una etiqueta NFC. Colócala en tu objeto."],
-  "QR ou NFC": ["QR or NFC", "QR o NFC"],
   "Encontrou. Escaneou. Conversou.": ["Find it. Scan it. Connect.", "Encuentra. Escanea. Conversa."],
   "Quem encontrar escaneia a etiqueta e envia uma mensagem. Vocês combinam a devolução pelo chat.": ["The finder scans the tag and sends a message. Arrange the return together in the chat.", "Quien lo encuentre escanea la etiqueta y envía un mensaje. Coordinan la devolución por el chat."],
-  "Encontrei seu objeto!": ["I found your item!", "¡Encontré tu objeto!"],
   "Etapa {number}": ["Step {number}", "Paso {number}"],
 
   'Selecionar moeda': ['Select token', 'Seleccionar token'],

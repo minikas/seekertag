@@ -7,10 +7,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Pressable from './HapticPressable';
 import { Button, Icon, IconName, useUI } from './ui';
 
-const steps: { icon: IconName; title: string; text: string; preview: string }[] = [
-  { icon: 'tag', title: 'Seu objeto ganha uma identidade', text: 'Adicione um nome e crie sua etiqueta com QR.', preview: 'Minha mochila' },
-  { icon: 'maximize', title: 'Leve a etiqueta com seu objeto', text: 'Baixe e imprima o QR ou grave uma etiqueta NFC. Prenda no objeto.', preview: 'QR ou NFC' },
-  { icon: 'message-circle', title: 'Encontrou. Escaneou. Conversou.', text: 'Quem encontrar escaneia a etiqueta e envia uma mensagem. Vocês combinam a devolução pelo chat.', preview: 'Encontrei seu objeto!' },
+const steps: { icon: IconName; title: string; text: string }[] = [
+  { icon: 'tag', title: 'Seu objeto ganha uma identidade', text: 'Adicione um nome e crie sua etiqueta com QR.' },
+  { icon: 'maximize', title: 'Leve a etiqueta com seu objeto', text: 'Baixe e imprima o QR ou grave uma etiqueta NFC. Prenda no objeto.' },
+  { icon: 'message-circle', title: 'Encontrou. Escaneou. Conversou.', text: 'Quem encontrar escaneia a etiqueta e envia uma mensagem. Vocês combinam a devolução pelo chat.' },
 ];
 
 export default function HelpSheet({ onClose }: { onClose: () => void }) {
@@ -35,13 +35,12 @@ export default function HelpSheet({ onClose }: { onClose: () => void }) {
     <BottomSheetScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
       <Text accessibilityRole="header" style={s.h2}>{t("Como funciona")}</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>{steps.map((item, index) => <Pressable key={item.title} accessibilityRole="button" accessibilityLabel={t('Etapa {number}', { number: index + 1 })} accessibilityState={{ selected: page === index }} onPress={() => setPage(index)} style={{ flex: 1, paddingVertical: 10 }}><View style={{ height: 4, borderRadius: 2, backgroundColor: index <= page ? C.accent : C.line }} /></Pressable>)}</View>
-      <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 180, backgroundColor: C.surface, borderRadius: 28, padding: 24, gap: 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 }}>
+      <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 180, padding: 24, gap: 28 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 32 }}>
           <Icon name={page === 0 ? 'briefcase' : page === 1 ? 'smartphone' : 'user'} size={40} color={C.muted} />
           <Icon name="arrow-right" size={20} color={C.accent} />
-          <View style={{ backgroundColor: C.input, padding: 20, borderRadius: 20 }}><Icon name={step.icon} size={44} color={C.accent} /></View>
+          <Icon name={step.icon} size={52} color={C.accent} />
         </View>
-        <Text style={[s.body, { color: C.accent, textAlign: 'center' }]}>{t(step.preview)}</Text>
       </View>
       <View accessibilityLiveRegion="polite" style={{ gap: 12 }}><Text style={[s.h2, { textAlign: 'center' }]}>{t(step.title)}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t(step.text)}</Text></View>
       <View style={{ flexDirection: 'row', gap: 12, paddingTop: 8 }}>{page > 0 && <Button variant="secondary" icon="arrow-left" label={t('Voltar')} onPress={() => setPage(page - 1)} />}<Button style={{ flex: 1 }} onPress={() => page === steps.length - 1 ? close() : setPage(page + 1)}>{t(page === steps.length - 1 ? 'Entendi' : 'Continuar')}</Button></View>
