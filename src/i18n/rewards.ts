@@ -1,5 +1,11 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  'Depósito confirmado.': ['Deposit confirmed.', 'Depósito confirmado.'],
+  'Reserva renovada.': ['Reservation renewed.', 'Reserva renovada.'],
+  'Depósito recuperado.': ['Deposit refunded.', 'Depósito recuperado.'],
+  'Recompensa entregue.': ['Reward paid.', 'Recompensa entregada.'],
+  'As taxas mudaram. Revise os valores atualizados e toque em Assinar novamente.': ['Fees changed. Review the updated amounts and tap Sign again.', 'Las comisiones cambiaron. Revisa los importes actualizados y vuelve a tocar Firmar.'],
+  'Se desistir, volte. Nenhum depósito acontece sem a assinatura da sua carteira.': ['To leave, go back. No deposit happens without your wallet’s signature.', 'Si cambias de idea, vuelve atrás. No se realiza ningún depósito sin la firma de tu cartera.'],
   'Recompensa': ['Reward', 'Recompensa'],
   'Recompensa reservada': ['Reward reserved', 'Recompensa reservada'],
   'Depósito pendente': ['Deposit pending', 'Depósito pendiente'],

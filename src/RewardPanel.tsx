@@ -10,12 +10,13 @@ import { rewardDeadline, rewardLocked, validateRewardIntent } from './reward.mod
 import { signReward } from './platform/reward-wallet';
 import { secureStorage } from './platform/storage';
 import RewardSummary from './RewardSummary';
+import { translateNotice } from './i18n';
 
 type State = { reward: RewardView | null; config: RewardConfig | null; payer: string | null };
 type OperationState = { operation: RewardOperation; status: RewardOperationStatus; reward: RewardView | null };
-type Props = { tagId: string; token: string; amount?: number; currency?: string; reportId?: string; recipient?: string | null; onChanged?: (reward: RewardView | null) => void; onReleased?: () => void };
+type Props = { tagId: string; token: string; amount?: number; currency?: string; reportId?: string; recipient?: string | null; onChanged?: (reward: RewardView | null) => void; onReleased?: () => void; onCompleted?: () => void };
 
-export default function RewardPanel({ tagId, token, amount = 0, currency: initialCurrency = 'SOL', reportId, recipient, onChanged, onReleased }: Props) {
+export default function RewardPanel({ tagId, token, amount = 0, currency: initialCurrency = 'SOL', reportId, recipient, onChanged, onReleased, onCompleted }: Props) {
   const { C, s, t, locale } = useUI();
   const supported = ['SOL', 'USDC', 'SKR'].includes(initialCurrency);
   const [data, setData] = useState<State>();
@@ -31,10 +32,11 @@ export default function RewardPanel({ tagId, token, amount = 0, currency: initia
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const alive = useRef(true);
   const acting = useRef(false);
   const fetching = useRef(false);
-  const callbacks = useRef({ onChanged, onReleased }); callbacks.current = { onChanged, onReleased };
+  const callbacks = useRef({ onChanged, onReleased, onCompleted }); callbacks.current = { onChanged, onReleased, onCompleted };
   const completed = useRef<string | null>(null);
   const currentOperation = useRef(operation); currentOperation.current = operation;
   const base = `/tags/${tagId}/reward`;
@@ -46,28 +48,33 @@ export default function RewardPanel({ tagId, token, amount = 0, currency: initia
     try {
       const next = await api<State>(base, token);
       let op: OperationState | undefined;
-      if (next.reward?.operation) op = await api<OperationState>(`/reward-operations/${next.reward.operation.id}`, token);
+      const operationId = next.reward?.operation?.id || currentOperation.current?.operation.id;
+      if (operationId) op = await api<OperationState>(`/reward-operations/${operationId}`, token);
       if (!alive.current || acting.current) return;
+      if (op && next.reward && next.reward.id !== op.operation.rewardId) op = undefined;
       if (op) next.reward = op.reward;
       setData(next);
       callbacks.current.onChanged?.(next.reward);
-      if (op && ['prepared', 'submitted'].includes(op.status)) setOperation(op);
+      if (op && (['prepared', 'submitted'].includes(op.status) || op.status === 'expired' && ['prepared', 'expired'].includes(currentOperation.current?.status || ''))) setOperation({ ...op, reward: op.reward || currentOperation.current?.reward || null });
       else {
         const previous = currentOperation.current;
         setOperation(undefined);
         if (previous) {
           void secureStorage.remove(storageKey(previous.operation.id)).catch(() => {});
           setMode('fund'); setBalanceRevision(n => n + 1);
-          if (next.reward && previous.operation.spec.kind === 'release' && next.reward.status === 'released' && completed.current !== previous.operation.id) {
+          if (op?.status === 'confirmed' && next.reward && completed.current !== previous.operation.id) {
             completed.current = previous.operation.id;
-            callbacks.current.onReleased?.();
+            const kind = previous.operation.spec.kind;
+            ToastAndroid.show(kind === 'fund' ? t('Depósito confirmado.') : kind === 'renew' ? t('Reserva renovada.') : kind === 'refund' ? t('Depósito recuperado.') : t('Recompensa entregue.'), ToastAndroid.LONG);
+            if (kind === 'release') callbacks.current.onReleased?.();
+            callbacks.current.onCompleted?.();
           }
         }
       }
-      setError('');
-    } catch (cause) { if (alive.current) setError((cause as Error).message); }
+      setLoadError('');
+    } catch (cause) { if (alive.current) setLoadError((cause as Error).message); }
     finally { fetching.current = false; if (alive.current) setLoading(false); }
-  }, [base, token]);
+  }, [base, token, t]);
 
   useEffect(() => {
     alive.current = true; void load();
@@ -88,7 +95,10 @@ export default function RewardPanel({ tagId, token, amount = 0, currency: initia
   async function act(task: () => Promise<void>) {
     if (acting.current) return;
     acting.current = true; setBusy(true); setError(''); Keyboard.dismiss();
-    try { await task(); } catch (cause) { if (alive.current) setError(cause instanceof Error ? cause.message : 'Não foi possível concluir. Tente novamente.'); }
+    try { await task(); } catch (cause) { if (alive.current) {
+      const message = cause instanceof Error ? cause.message : 'Não foi possível concluir. Tente novamente.';
+      setError(message); ToastAndroid.show(translateNotice(t, message), ToastAndroid.LONG);
+    } }
     finally { acting.current = false; if (alive.current) setBusy(false); }
   }
 
@@ -110,14 +120,29 @@ export default function RewardPanel({ tagId, token, amount = 0, currency: initia
     await act(async () => {
       // Refresh expiry before opening the wallet. A restored review must match
       // the current reserve and this conversation's verified receiving address.
-      const current = await api<OperationState>(`/reward-operations/${operation.operation.id}`, token);
+      let current = await api<OperationState>(`/reward-operations/${operation.operation.id}`, token);
+      const reviewed = operation.operation;
+      const intent = { kind: reviewed.spec.kind, currency: reviewed.currency, amount: unitsToAmount(reviewed.spec.amountUnits, REWARD_DECIMALS[reviewed.currency]), days: reviewed.spec.days,
+        ...(reviewed.spec.kind === 'release' ? { recipient: recipient || undefined, reportHash: reportId ? await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, reportId) : undefined } : {}) };
+      if (current.status === 'expired') {
+        // Only replace a transaction after the API has checked finalized state
+        // past its blockhash expiry. Preserve every value the user reviewed.
+        const fresh = await api<{ operation: RewardOperation }>(`${base}/prepare`, token, { ...intent, reportId });
+        await secureStorage.remove(storageKey(reviewed.id)).catch(() => {});
+        current = { ...fresh, status: 'prepared', reward: current.reward };
+        if (alive.current) setOperation(current);
+      }
       if (current.status !== 'prepared') { if (alive.current) setOperation(current); return; }
       const op = current.operation;
-      const reward = current.reward;
-      const intent = { kind: op.spec.kind, currency: reward!.currency, amount: reward!.amount, days: op.spec.days,
-        ...(op.spec.kind === 'release' ? { recipient: recipient || undefined, reportHash: reportId ? await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, reportId) : undefined } : {}) };
       validateRewardIntent(op, intent, data.config!, data.payer!);
+      // Fees or required accounts may have changed since an expired review.
+      // Show their updated cost before asking for a signature.
+      if (op.feeLamports !== reviewed.feeLamports || op.rentLamports !== reviewed.rentLamports) {
+        if (alive.current) setError('As taxas mudaram. Revise os valores atualizados e toque em Assinar novamente.');
+        return;
+      }
       let signed = await secureStorage.get(storageKey(op.id));
+      if (!alive.current) return;
       if (!signed) signed = await signReward(op);
       if (!signed) { if (alive.current) ToastAndroid.show(t('Assinatura cancelada.'), ToastAndroid.SHORT); return; }
       // Save before sending: if the API times out or Android closes the app, the
@@ -146,7 +171,7 @@ export default function RewardPanel({ tagId, token, amount = 0, currency: initia
   try { amountValid = !!balance && amountToUnits(value.replace(',', '.'), REWARD_DECIMALS[currency]) <= BigInt(balance.availableUnits); } catch {}
   const durationValid = validRewardDays(Number(days)) && (mode !== 'renew' || rewardDeadline(Number(days), reward?.refundAfter).getTime() <= Date.now() + 365 * 86_400_000);
   const op = operation?.operation;
-  const prepared = operation?.status === 'prepared';
+  const prepared = operation?.status === 'prepared' || operation?.status === 'expired';
   const submitted = operation?.status === 'submitted';
   const transactionTitle = (kind: RewardAction) => kind === 'fund' ? t('Revisar depósito') : kind === 'renew' ? t('Revisar renovação') : kind === 'release' ? t('Confirmar devolução e pagar') : t('Cancelar e recuperar');
 
@@ -154,7 +179,7 @@ export default function RewardPanel({ tagId, token, amount = 0, currency: initia
   return <View style={{ gap: 24 }}>
     <RewardSummary reward={reward} amount={amount} currency={initialCurrency} />
     {!!testing && <Notice tone="warning" text={t('Devnet: apenas tokens de teste. Nenhum saldo real será movimentado.')} />}
-    {!!error && <Notice error text={error} />}
+    {!!(error || loadError) && <Notice error text={error || loadError} />}
     {!data && <Button variant="secondary" onPress={() => void load()}>{t('Tentar novamente')}</Button>}
     {data && !data.config && <Notice text={t('Os depósitos de recompensa ainda não estão disponíveis.')} />}
     {data?.config && !data.payer && <Notice text={t('Vincule sua carteira Solana em Minha conta para financiar uma recompensa.')} />}
@@ -176,7 +201,7 @@ export default function RewardPanel({ tagId, token, amount = 0, currency: initia
         <Notice text={t('Aguardando confirmação final. Você pode sair desta tela; a reserva só muda depois da confirmação na rede.')} />
         <Button variant="secondary" onPress={() => void retry()} busy={busy} icon="refresh-cw">{t('Verificar transação')}</Button>
       </>}
-      {prepared && <Text style={s.small}>{t('Se desistir, volte. O pedido sem assinatura expira automaticamente em poucos minutos.')}</Text>}
+      {prepared && <Text style={s.small}>{t('Se desistir, volte. Nenhum depósito acontece sem a assinatura da sua carteira.')}</Text>}
       {prepared && op.spec.kind === 'release' && !reportId && <Notice text={t('Retome este pagamento na conversa com quem encontrou.')} />}
     </> : data?.config && data.payer ? <>
       {(!locked || mode === 'renew' && hasReserve) && <>

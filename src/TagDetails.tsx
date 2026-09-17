@@ -188,7 +188,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   return <Sheet title={page === 'reward' ? t("Recompensa") : page === 'transfer' ? t("Transferir etiqueta") : page === 'info' ? t("Detalhes do objeto") : tag.name} contentKey={page} onClose={close} dismissible={busy !== 'transfer'}
     headerRight={page === 'overview' ? <Button variant="ghost" icon="more-horizontal" label={t("Opções do objeto")} busy={busy === 'status' || busy === 'sharePdf'} disabled={!!busy} onPress={() => setOverlay('actions')} /> : undefined}
     overlay={overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : undefined}>
-    {page === 'reward' ? <RewardPanel key={tag.id} tagId={tag.id} token={token} amount={tag.rewardAmount} currency={tag.rewardCurrency} onChanged={reward => onUpdated({ ...tag, reward, ...(reward ? { rewardAmount: Number(reward.amount), rewardCurrency: reward.currency } : {}) })} /> : page === 'overview' ? <>
+    {page === 'reward' ? <RewardPanel key={tag.id} tagId={tag.id} token={token} amount={tag.rewardAmount} currency={tag.rewardCurrency} onChanged={reward => onUpdated({ ...tag, reward, ...(reward ? { rewardAmount: Number(reward.amount), rewardCurrency: reward.currency } : {}) })} onCompleted={() => setPage('overview')} /> : page === 'overview' ? <>
       <View style={s.between}>
         <View style={[s.row, { flex: 1 }]}><View style={[styles.itemIcon, { backgroundColor: info.color }]}><Icon name={info.icon} color={categoryInk(info.color)} size={24} /></View><Text style={[s.body, { flex: 1 }]}>{tagCategoryLabel(tag, t)}</Text></View>
         <Pill status={tag.status} />
