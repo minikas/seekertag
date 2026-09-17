@@ -137,6 +137,13 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
   function assertUnlocked(tagId) {
     if (get("SELECT id FROM rewards WHERE tag_id=? AND status IN ('pending','reserved')", tagId)) fail(409, 'Libere ou cancele a reserva antes de alterar a recompensa ou transferir a etiqueta.', 'REWARD_LOCKED');
   }
+  function assertEditable(tagId) {
+    // Keep this synchronous and inside the tag write transaction. A stale client
+    // or unavailable RPC must not unlock an operation already sent for signing.
+    if (get("SELECT o.id FROM reward_operations o JOIN rewards r ON r.id=o.reward_id WHERE r.tag_id=? AND o.status='submitted'", tagId)) {
+      fail(409, 'Aguarde a confirmação da transação para editar este objeto.', 'REWARD_PENDING');
+    }
+  }
   function install(app) {
     app.get('/api/rewards/config', requireOwner, (req, res) => {
       res.json({ reward: null, config: chain?.config || null, payer: get("SELECT subject FROM auth_identities WHERE user_id=? AND provider='solana'", req.user.id)?.subject || null });
@@ -283,5 +290,5 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       res.json({ recipient: address });
     }));
   }
-  return { install, current, view, getState, refresh, assertUnlocked };
+  return { install, current, view, getState, refresh, assertUnlocked, assertEditable };
 }

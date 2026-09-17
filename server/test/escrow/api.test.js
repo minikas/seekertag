@@ -77,6 +77,44 @@ test('tampered transactions, foreign sessions, and overlapping deposits cannot d
   assert.equal((await h.prepare(owner, tag)).status, 201);
 });
 
+test('submitted deposits and renewals lock every object edit until finality, including RPC outages', async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const patch = body => h.request(`/tags/${tag.id}`, owner.token, body, 'PATCH');
+  for (const kind of ['fund', 'renew']) {
+    const op = (await h.prepare(owner, tag, { kind })).data.operation;
+    assert.equal((await patch({ name: `Before ${kind}` })).status, 200);
+    h.rpc.holdFinality = true;
+    assert.equal((await h.submit(owner, op)).status, 202);
+    for (const body of [{ name: 'Changed' }, { description: 'Changed' }, { publicMessage: 'Changed' }, { status: 'paused' }, { rewardAmount: 12 }]) {
+      const blocked = await patch(body);
+      assert.equal(blocked.status, 409);
+      assert.equal(blocked.data.code, 'REWARD_PENDING');
+    }
+    h.rpc.offline = true;
+    const unverified = await h.state(owner, tag);
+    assert.equal(unverified.data.reward.status, 'unverified');
+    assert.equal(unverified.data.reward.operation.status, 'submitted');
+    assert.equal((await patch({ name: 'Still blocked' })).data.code, 'REWARD_PENDING');
+    h.rpc.offline = false; h.rpc.finalize();
+    assert.equal((await h.state(owner, tag)).data.reward.operation, null);
+    assert.equal((await patch({ name: `After ${kind}` })).status, 200);
+    assert.equal((await patch({ rewardAmount: 12 })).data.code, 'REWARD_LOCKED');
+  }
+});
+
+test('a dropped deposit only unlocks edits after finalized expiry proves it cannot land', async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const op = (await h.prepare(owner, tag)).data.operation;
+  h.rpc.chain.send = async () => { throw new Error('RPC did not accept the transaction'); };
+  assert.equal((await h.submit(owner, op)).status, 202);
+  h.rpc.height = op.lastValidBlockHeight + 1;
+  const patch = () => h.request(`/tags/${tag.id}`, owner.token, { name: 'Editable again', rewardAmount: 0 }, 'PATCH');
+  assert.equal((await patch()).data.code, 'REWARD_PENDING');
+  assert.equal((await h.state(owner, tag)).data.reward, null);
+  assert.equal((await patch()).status, 200);
+  assert.equal(h.rpc.sends, 0);
+});
+
 test('finality arriving during expiry reconciliation cannot abandon an actual deposit', async t => {
   const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
   const op = (await h.prepare(owner, tag)).data.operation;

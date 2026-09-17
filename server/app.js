@@ -313,6 +313,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   app.patch('/api/tags/:id', requireOwner, ownerWriteLimit, (req, res) => {
     const t = ownerTag(req); const v = validateTag(req.body, t); const at = now();
     transaction(() => {
+      rewards.assertEditable(t.id);
       if (v.rewardAmount !== t.reward_amount || v.rewardCurrency !== t.reward_currency) rewards.assertUnlocked(t.id);
       const categoryId = categories.forTag(req.user.id, req.body, v, t);
       run('UPDATE tags SET name=?,category=?,color=?,description=?,public_message=?,status=?,reward_amount=?,reward_currency=?,updated_at=?,category_id=? WHERE id=?', v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, categoryId, t.id);
