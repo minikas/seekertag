@@ -5,6 +5,7 @@ import bs58 from 'bs58';
 import { amountToUnits, unitsToAmount, rewardDuration, MAX_REWARD_SECONDS } from '../../shared/reward.ts';
 import { escrowAddress } from '../../shared/escrow-wire.ts';
 import { RewardChainError } from './chain.js';
+import { createPriceFeed } from './prices.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const now = () => new Date().toISOString();
@@ -162,7 +163,12 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       fail(409, 'Aguarde a confirmação da transação para editar este objeto.', 'REWARD_PENDING');
     }
   }
+  const prices = createPriceFeed();
   function install(app) {
+    app.get('/api/rewards/prices', requireOwner, async (_req, res) => {
+      try { res.json(await prices()); }
+      catch { res.status(503).json({ error: 'Cotação indisponível. Tente atualizar.', code: 'PRICE_UNAVAILABLE' }); }
+    });
     app.get('/api/rewards/config', requireOwner, (req, res) => {
       res.json({ reward: null, config: chain?.config || null, payer: get("SELECT subject FROM auth_identities WHERE user_id=? AND provider='solana'", req.user.id)?.subject || null });
     });
