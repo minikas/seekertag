@@ -56,3 +56,4 @@ contracts/**/target/
 
 # Turborepo
 .turbo/
+/.omo

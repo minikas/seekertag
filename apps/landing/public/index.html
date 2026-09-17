@@ -4,25 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0D1615" />
-    <title>SeekerTag O que é seu encontra o caminho de volta.</title>
+    <title data-i18n="meta.title">SeekerTag O que é seu encontra o caminho de volta.</title>
     <meta
       name="description"
+      data-i18n-content="meta.description"
       content="Transforme seus objetos em reencontros. Etiquetas QR e NFC, conversa privada e uma forma mais humana de recuperar o que importa. Feito para Android e Solana Seeker."
     />
-    <meta property="og:title" content="SeekerTag Feito para reencontrar." />
+    <meta property="og:title" data-i18n-content="meta.ogTitle" content="SeekerTag Feito para reencontrar." />
     <meta
       property="og:description"
+      data-i18n-content="meta.ogDescription"
       content="Uma pequena etiqueta. Uma nova chance de voltar. Conheça o SeekerTag para Android e Solana Seeker."
     />
     <meta property="og:type" content="website" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/vendor/i18next.min.js"></script>
     <script src="/main.js" defer></script>
   </head>
   <body>
-    <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+    <a class="skip" href="#conteudo" data-i18n="a11y.skip">Pular para o conteúdo</a>
     <header class="header wrap">
-      <a class="brand" href="#" aria-label="SeekerTag, início"
+      <a class="brand" href="#" data-i18n-aria="header.brandAria" aria-label="SeekerTag, início"
         ><svg viewBox="0 0 32 38" aria-hidden="true">
           <rect x="2" y="1" width="28" height="36" rx="9" fill="currentColor" />
           <path
@@ -41,37 +44,33 @@
           /></svg
         ><span>Seeker<span class="brand-light">Tag</span></span></a
       >
-      <nav aria-label="Navegação principal">
-        <a href="#como-funciona">Como funciona</a
-        ><a href="#por-que">Por que SeekerTag</a><a href="#duvidas">Dúvidas</a>
+      <nav data-i18n-aria="header.navAria" aria-label="Navegação principal">
+        <a href="#como-funciona" data-i18n="nav.how">Como funciona</a
+        ><a href="#por-que" data-i18n="nav.why">Por que SeekerTag</a><a href="#duvidas" data-i18n="nav.faq">Dúvidas</a>
       </nav>
       <label class="language-picker">
-        <span class="sr-only">Idioma</span>
-        <select id="language-select" aria-label="Idioma">
+        <span class="sr-only" data-i18n="lang.label">Idioma</span>
+        <select id="language-select" data-i18n-aria="lang.label" aria-label="Idioma">
           <option value="pt">PT</option>
           <option value="en">EN</option>
           <option value="es">ES</option>
         </select>
       </label>
-      <button class="button small" data-download>Conheça o app</button>
+      <button class="button small" data-download data-i18n="header.cta">Conheça o app</button>
     </header>
     <main id="conteudo">
       <section class="hero wrap" aria-labelledby="hero-title">
         <div class="hero-copy">
           <h1 id="hero-title">
-            O que é seu.<br />De volta<br /><span class="hero-highlight"
-              >para você.</span
-            >
+            <span data-i18n="hero.title1">O que é seu.</span><br /><span data-i18n="hero.title2">De volta</span><br /><span class="hero-highlight" data-i18n="hero.title3">para você.</span>
           </h1>
           <p>
-            As coisas se perdem. A conexão, não.<br />Uma etiqueta inteligente
-            para aproximar quem<br class="desktop-break" />
-            perdeu de quem pode fazer a diferença.
+            <span data-i18n="hero.lead1">As coisas se perdem. A conexão, não.</span><br /><span data-i18n="hero.lead2">Uma etiqueta inteligente para aproximar quem perdeu de quem pode fazer a diferença.</span>
           </p>
           <div class="hero-actions">
-            <button class="button" data-download>
+            <button class="button" data-download data-i18n="hero.primary">
               Encontre seu caminho de volta</button
-            ><a class="text-link" href="#como-funciona">Veja como funciona</a>
+            ><a class="text-link" href="#como-funciona" data-i18n="hero.secondary">Veja como funciona</a>
           </div>
           <div class="compatibility">
             <svg viewBox="0 0 24 20" aria-hidden="true">
@@ -79,13 +78,14 @@
                 d="M5 1h18l-4 4H1zm0 7h18l-4 4H1zm0 7h18l-4 4H1z"
                 fill="currentColor"
               /></svg
-            ><span>Feito para <strong>Solana Seeker</strong></span
-            ><span class="divider"></span><span>App para Android</span>
+            ><span data-i18n-html="compat.seeker">Feito para <strong>Solana Seeker</strong></span
+            ><span class="divider"></span><span data-i18n="compat.android">App para Android</span>
           </div>
         </div>
         <div
           class="hero-art"
           role="img"
+          data-i18n-aria="hero.artAria"
           aria-label="Captura real do aplicativo SeekerTag no Android e exemplo de etiqueta com QR demonstrativo."
         >
           <div class="orbit orbit-one"></div>
@@ -93,88 +93,87 @@
           <div class="orbit orbit-three"></div>
           <span class="art-cross cross-one">+</span
           ><span class="art-cross cross-two">+</span
-          ><span class="art-caption">LESS LOST. MORE FOUND.</span>
+          ><span class="art-caption" data-i18n="art.caption">LESS LOST. MORE FOUND.</span>
           <div class="phone">
             <img
               class="app-screen"
-              src="/app-screen.png"
+              src="/app-screen-pt.png"
               width="920"
               height="2048"
+              data-i18n-alt="hero.appAlt"
               alt="Tela real do SeekerTag no Android: Meus objetos, indicadores, botão Adicionar objeto e lista de objetos."
               fetchpriority="high"
             />
           </div>
-          <div class="found-toast" aria-label="Nova mensagem sobre um objeto encontrado">
+          <div class="found-toast" data-i18n-aria="hero.toastAria" aria-label="Nova mensagem sobre um objeto encontrado">
             <span class="toast-spark" aria-hidden="true">✳</span>
             <div>
-              <strong>Encontraram seu objeto.</strong>
-              <small>Uma mensagem nova espera por você.</small>
+              <strong data-i18n="hero.toastTitle">Encontraram seu objeto.</strong>
+              <small data-i18n="hero.toastSub">Uma mensagem nova espera por você.</small>
             </div>
           </div>
           <div class="physical-tag">
-            <strong>Encontrou este objeto?</strong>
-            <span>Leia no app SeekerTag. Não precisa de conta.</span>
+            <strong data-i18n="hero.tagTitle">Encontrou este objeto?</strong>
+            <span data-i18n="hero.tagSub">Leia no app SeekerTag. Não precisa de conta.</span>
             <img
               class="tag-qr"
               src="/label-qr.svg"
               width="128"
               height="128"
+              data-i18n-alt="hero.tagQrAlt"
               alt="QR demonstrativo que abre o aplicativo SeekerTag instalado."
             />
-            <small>SeekerTag · QR demonstrativo</small>
+            <small data-i18n="hero.tagNote">SeekerTag · QR demonstrativo</small>
           </div>
-          <span class="art-index">01 / CONNECTED BY KINDNESS</span>
+          <span class="art-index" data-i18n="art.index">01 / CONNECTED BY KINDNESS</span>
         </div>
         <div class="hero-bottom">
-          <span>PEQUENA ETIQUETA. GRANDES REENCONTROS.</span
-          ><a href="#como-funciona" aria-label="Explorar como funciona"
+          <span data-i18n="hero.bottomLeft">PEQUENA ETIQUETA. GRANDES REENCONTROS.</span
+          ><a href="#como-funciona" data-i18n="hero.bottomLink" data-i18n-aria="hero.bottomAria" aria-label="Explorar como funciona"
             >ROLE PARA DESCOBRIR</a
           >
         </div>
       </section>
       <div class="feature-strip">
         <div class="wrap">
-          <span><i>⌗</i> QR + NFC</span
-          ><span><i>◈</i> Privacidade em primeiro lugar</span
-          ><span><i>◈</i> Conexões de verdade</span
-          ><span><i>≋</i> Construído com Solana</span>
+          <span data-i18n-html="strip.item1"><i>⌗</i> QR + NFC</span
+          ><span data-i18n-html="strip.item2"><i>◈</i> Privacidade em primeiro lugar</span
+          ><span data-i18n-html="strip.item3"><i>◈</i> Conexões de verdade</span
+          ><span data-i18n-html="strip.item4"><i>≋</i> Construído com Solana</span>
         </div>
       </div>
       <section class="how wrap section" id="como-funciona">
         <div class="section-head">
           <div>
             <h2>
-              Perder faz parte.<br /><span class="muted"
-                >Reencontrar também pode.</span
-              >
+              <span data-i18n="how.title1">Perder faz parte.</span><br /><span class="muted" data-i18n="how.title2">Reencontrar também pode.</span>
             </h2>
           </div>
-          <p>
-            Sem complicar o seu dia.<br />Uma conexão que começa com uma
-            etiqueta.
+          <p data-i18n="how.lead">
+            Sem complicar o seu dia. Uma conexão que começa com uma etiqueta.
           </p>
         </div>
         <div class="steps">
           <article>
             <div class="step-top"><span class="step-icon">⌗</span></div>
-            <h3>Etiquete o que importa.</h3>
-            <p>
+            <h3 data-i18n="steps.s1t">Etiquete o que importa.</h3>
+            <p data-i18n="steps.s1d">
               Cadastre seu objeto no app. Imprima o QR ou grave uma etiqueta NFC
               e leve essa conexão com você.
             </p>
           </article>
           <article>
             <div class="step-top"><span class="step-icon">↔</span></div>
-            <h3>Alguém encontra. Vocês se conectam.</h3>
-            <p>
+            <h3 data-i18n="steps.s2t">Alguém encontra. Vocês se conectam.</h3>
+            <p data-i18n="steps.s2d">
               Quem encontrar escaneia a etiqueta pelo SeekerTag e manda uma
               mensagem. Não precisa criar conta nem ver seus contatos.
             </p>
           </article>
           <article>
             <div class="step-top"><span class="step-icon">☺</span></div>
-            <h3>Combine um final feliz.</h3>
-            <p>
+            <h3 data-i18n="steps.s3t">Combine um final feliz.</h3>
+            <p data-i18n="steps.s3d">
               Conversem pelo app, combinem a entrega e confirme a devolução. O
               que é seu volta a fazer parte da sua história.
             </p>
@@ -184,41 +183,40 @@
       <section class="benefits wrap" id="por-que">
         <div class="privacy-card">
           <div class="privacy-graphic" aria-hidden="true">
-            <span>VOCÊ</span>
+            <span data-i18n="benefits.graphicYou">VOCÊ</span>
             <div>⌖</div>
-            <span>QUEM<br />ENCONTROU</span>
+            <span data-i18n-html="benefits.graphicFinder">QUEM<br />ENCONTROU</span>
           </div>
           <h2>
-            Uma conversa aberta.<br />Seus dados,
-            <span>preservados.</span>
+            <span data-i18n="benefits.privacyTitle1">Uma conversa aberta.</span><br /><span data-i18n="benefits.privacyTitle2">Seus dados,</span>
+            <span data-i18n="benefits.privacyTitle3">preservados.</span>
           </h2>
-          <p>
+          <p data-i18n="benefits.privacyDesc">
             Seu telefone e e-mail não aparecem na etiqueta. O reencontro
             acontece por uma conversa privada dentro do aplicativo.
           </p>
-          <span class="card-foot">MENOS EXPOSIÇÃO. MAIS TRANQUILIDADE. </span>
+          <span class="card-foot" data-i18n="benefits.privacyFoot">MENOS EXPOSIÇÃO. MAIS TRANQUILIDADE. </span>
         </div>
         <div class="everyday-card">
-          <h2>O seu mundo.<br />Com uma chance<br />a mais de voltar.</h2>
+          <h2><span data-i18n="benefits.everydayTitle1">O seu mundo.</span><br /><span data-i18n="benefits.everydayTitle2">Com uma chance</span><br /><span data-i18n="benefits.everydayTitle3">a mais de voltar.</span></h2>
           <div class="item-pills">
-            <span>⚿ Chaves</span><span>▱ Malas</span><span>♧ Mochilas</span
-            ><span>⌁ Eletrônicos</span><span>♡ E o que mais importa</span>
+            <span data-i18n="benefits.pill1">⚿ Chaves</span><span data-i18n="benefits.pill2">▱ Malas</span><span data-i18n="benefits.pill3">♧ Mochilas</span
+            ><span data-i18n="benefits.pill4">⌁ Eletrônicos</span><span data-i18n="benefits.pill5">♡ E o que mais importa</span>
           </div>
           <p>
-            Sem bateria na etiqueta. Sem rastreamento.<br />A tecnologia
-            conecta. As pessoas devolvem.
+            <span data-i18n="benefits.everydayDesc1">Sem bateria na etiqueta. Sem rastreamento.</span><br /><span data-i18n="benefits.everydayDesc2">A tecnologia conecta. As pessoas devolvem.</span>
           </p>
           <span class="large-asterisk" aria-hidden="true">✳</span>
         </div>
       </section>
       <section class="faq wrap section" id="duvidas">
         <div>
-          <h2>Pequenas dúvidas.<br /><span>Respostas diretas.</span></h2>
+          <h2><span data-i18n="faq.title1">Pequenas dúvidas.</span><br /><span data-i18n="faq.title2">Respostas diretas.</span></h2>
         </div>
         <div class="questions">
           <details>
-            <summary>Preciso de um Solana Seeker?<span>+</span></summary>
-            <p>
+            <summary><span data-i18n="faq.q1">Preciso de um Solana Seeker?</span><span>+</span></summary>
+            <p data-i18n="faq.a1">
               O SeekerTag é um aplicativo Android com foco no Solana Seeker.
               Você também pode usá-lo em outros aparelhos Android compatíveis.
               Para NFC, o aparelho precisa ter suporte a essa tecnologia.
@@ -226,9 +224,9 @@
           </details>
           <details>
             <summary>
-              Quem encontra precisa instalar o aplicativo?<span>+</span>
+              <span data-i18n="faq.q2">Quem encontra precisa instalar o aplicativo?</span><span>+</span>
             </summary>
-            <p>
+            <p data-i18n="faq.a2">
               Sim. A leitura da etiqueta e a conversa acontecem no app SeekerTag
               para Android. Quem encontrou não precisa criar uma conta para
               avisar o dono.
@@ -236,17 +234,17 @@
           </details>
           <details>
             <summary>
-              A etiqueta rastreia minha localização?<span>+</span>
+              <span data-i18n="faq.q3">A etiqueta rastreia minha localização?</span><span>+</span>
             </summary>
-            <p>
+            <p data-i18n="faq.a3">
               Não. As etiquetas QR e NFC são passivas: não têm GPS nem bateria.
               Elas permitem que uma pessoa que encontrou seu objeto entre em
               contato pelo aplicativo.
             </p>
           </details>
           <details>
-            <summary>Como faço minha própria etiqueta?<span>+</span></summary>
-            <p>
+            <summary><span data-i18n="faq.q4">Como faço minha própria etiqueta?</span><span>+</span></summary>
+            <p data-i18n="faq.a4">
               Cadastre um objeto no aplicativo para gerar seu QR. Você pode
               compartilhar ou imprimir o PDF e prender a etiqueta ao objeto.
               Também é possível gravar uma etiqueta NFC compatível pelo celular.
@@ -254,9 +252,9 @@
           </details>
           <details>
             <summary>
-              Minhas mensagens têm criptografia ponta a ponta?<span>+</span>
+              <span data-i18n="faq.q5">Minhas mensagens têm criptografia ponta a ponta?</span><span>+</span>
             </summary>
-            <p>
+            <p data-i18n="faq.a5">
               Não. O acesso às conversas é restrito pelo aplicativo, mas as
               mensagens não têm criptografia ponta a ponta. Seu telefone e
               e-mail não são exibidos a quem encontra o objeto.
@@ -265,13 +263,13 @@
         </div>
       </section>
       <section class="closing wrap">
-        <span class="eyebrow">FEITO PARA REENCONTRAR.</span>
-        <h2>Algumas coisas<br />merecem <span>voltar.</span></h2>
+        <span class="eyebrow" data-i18n="closing.eyebrow">FEITO PARA REENCONTRAR.</span>
+        <h2><span data-i18n="closing.title1">Algumas coisas</span><br /><span data-i18n="closing.title2a">merecem </span><span data-i18n="closing.title2b">voltar.</span></h2>
         <div>
           <p>
-            Comece com uma etiqueta.<br />Deixe o próximo capítulo em aberto.
+            <span data-i18n="closing.lead1">Comece com uma etiqueta.</span><br /><span data-i18n="closing.lead2">Deixe o próximo capítulo em aberto.</span>
           </p>
-          <button class="button dark" data-download>Conheça o SeekerTag</button>
+          <button class="button dark" data-download data-i18n="closing.cta">Conheça o SeekerTag</button>
         </div>
         <div class="closing-art" aria-hidden="true">
           <span class="closing-orbit orbit-a"></span>
@@ -286,7 +284,7 @@
       </section>
     </main>
     <footer class="wrap">
-      <a class="brand" href="#" aria-label="SeekerTag, início"
+      <a class="brand" href="#" data-i18n-aria="footer.brandAria" aria-label="SeekerTag, início"
         ><svg viewBox="0 0 32 38" aria-hidden="true">
           <rect x="2" y="1" width="28" height="36" rx="9" fill="currentColor" />
           <path
@@ -304,13 +302,13 @@
             stroke-width="2.5"
           /></svg
         ><span>Seeker<span class="brand-light">Tag</span></span></a
-      ><a href="#duvidas">Dúvidas e privacidade</a
+      ><a href="#duvidas" data-i18n="footer.link">Dúvidas e privacidade</a
       ><small>© <span id="year">2026</span> SeekerTag</small>
     </footer>
     <dialog id="download-dialog" aria-labelledby="dialog-title">
-      <button class="close-dialog" aria-label="Fechar">×</button
-      ><h2 id="dialog-title">Olá, <span>Seeker.</span></h2>
-      <p>
+      <button class="close-dialog" data-i18n-aria="dialog.closeAria" aria-label="Fechar">×</button
+      ><h2 id="dialog-title"><span data-i18n="dialog.title1">Olá, </span><span data-i18n="dialog.title2">Seeker.</span></h2>
+      <p data-i18n="dialog.desc">
         O SeekerTag está em desenvolvimento para Android, com foco no Solana
         Seeker. O download público ainda não está disponível.
       </p>
