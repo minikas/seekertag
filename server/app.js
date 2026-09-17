@@ -10,6 +10,8 @@ import { labelCopy } from './label-copy.js';
 import { installAuth, migrateAuth } from './auth.js';
 import { createOAuthProviders } from './oauth.js';
 import { createCategories } from './categories.js';
+import { createRewards } from './rewards/index.js';
+import { rewardChainFromEnv } from './rewards/chain.js';
 
 const scrypt = promisify(scryptCallback);
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -46,7 +48,7 @@ async function passwordMatches(value, stored) {
   const actual = await scrypt(value, salt, 64, { N: 32768, maxmem: 64 * 1024 * 1024 });
   return timingSafeEqual(actual, Buffer.from(expected, 'hex'));
 }
-export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:4318', corsOrigins = [], rateLimits = true, oauthProviders = createOAuthProviders() } = {}) {
+export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:4318', corsOrigins = [], rateLimits = true, oauthProviders = createOAuthProviders(), rewardChain = rewardChainFromEnv() } = {}) {
   const canonical = new URL(publicUrl);
   if (!['http:', 'https:'].includes(canonical.protocol) || canonical.username || canonical.password || canonical.search || canonical.hash || canonical.pathname !== '/') throw new Error('PUBLIC_URL must be an http(s) origin without credentials, query, or path.');
   const publicOrigin = canonical.origin;
@@ -197,9 +199,12 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     if (tag.status === 'paused') fail(410, 'Esta etiqueta está pausada pelo dono.', 'TAG_PAUSED');
     return tag;
   };
+  const rewards = createRewards({ db, get, all, run, transaction, fail, chain: rewardChain, publicOrigin, ownerTag, ownerReport, requireOwner, requireFinder, writeLimit: ownerWriteLimit });
+  rewards.install(app);
   function tagView(t) {
     const counts = get("SELECT COUNT(*) AS total, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open FROM reports WHERE tag_id=? AND owner_id=?", t.id, t.owner_id);
-    return { id: t.id, code: t.code, name: t.name, category: t.category, ...categories.metadata(t.category_id), color: t.color, description: t.description, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency, publicUrl: `${publicOrigin}/found/${t.code}`, createdAt: t.created_at, updatedAt: t.updated_at, returnedAt: t.returned_at, recoveryCount: t.recovery_count, reportCount: counts.total, openReportCount: counts.open || 0 };
+    const reward = rewards.view(rewards.current(t));
+    return { id: t.id, code: t.code, name: t.name, category: t.category, ...categories.metadata(t.category_id), color: t.color, description: t.description, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency, publicUrl: `${publicOrigin}/found/${t.code}`, createdAt: t.created_at, updatedAt: t.updated_at, returnedAt: t.returned_at, recoveryCount: t.recovery_count, reportCount: counts.total, openReportCount: counts.open || 0, ...(reward ? { reward } : {}) };
   }
   const publicView = (t) => ({ code: t.code, name: t.name, category: t.category, categoryIcon: categories.metadata(t.category_id).categoryIcon, color: t.color, publicMessage: t.public_message, status: t.status, rewardAmount: t.reward_amount, rewardCurrency: t.reward_currency });
   function reportView(r) {
@@ -304,10 +309,11 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     });
     res.status(201).json({ tag: tagView(get('SELECT * FROM tags WHERE id=?', id)) });
   });
-  app.get('/api/tags/:id', requireOwner, (req, res) => res.json({ tag: tagView(ownerTag(req)) }));
+  app.get('/api/tags/:id', requireOwner, async (req, res) => { const tag = ownerTag(req); const reward = await rewards.getState(tag); res.json({ tag: { ...tagView(ownerTag(req)), ...(reward ? { reward } : {}) } }); });
   app.patch('/api/tags/:id', requireOwner, ownerWriteLimit, (req, res) => {
     const t = ownerTag(req); const v = validateTag(req.body, t); const at = now();
     transaction(() => {
+      if (v.rewardAmount !== t.reward_amount || v.rewardCurrency !== t.reward_currency) rewards.assertUnlocked(t.id);
       const categoryId = categories.forTag(req.user.id, req.body, v, t);
       run('UPDATE tags SET name=?,category=?,color=?,description=?,public_message=?,status=?,reward_amount=?,reward_currency=?,updated_at=?,category_id=? WHERE id=?', v.name, v.category, v.color, v.description, v.publicMessage, v.status, v.rewardAmount, v.rewardCurrency, at, categoryId, t.id);
       if (t.status !== v.status) run('INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,?,?,?)', t.id, req.user.id, 'status_changed', v.status, at);
@@ -332,6 +338,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       if (!get('SELECT hash FROM sessions WHERE hash=? AND expires_at>?', req.sessionHash, Date.now()) || get('SELECT password_hash FROM users WHERE id=?', req.user.id)?.password_hash !== req.user.password_hash) fail(401, 'Entre novamente para continuar.', 'UNAUTHORIZED');
       if (!usingPassword) consumeProof(req, req.body.proof);
       if (!current) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
+      rewards.assertUnlocked(tag.id);
       const target = recipient.includes('@') ? get('SELECT id FROM users WHERE email=?', email(recipient))
         : get("SELECT users.id FROM users LEFT JOIN auth_identities ON auth_identities.user_id=users.id AND auth_identities.provider='solana' WHERE users.id=? OR auth_identities.subject=? LIMIT 1", recipient, recipient);
       if (!target) fail(404, 'A pessoa precisa criar uma conta SeekerTag antes da transferência.', 'RECIPIENT_NOT_FOUND');
@@ -374,9 +381,11 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="seekertag-${tag.code}.pdf"` }).send(await pdf);
   });
 
-  app.get('/api/public/tags/:code', optionalOwner, (req, res) => {
+  app.get('/api/public/tags/:code', optionalOwner, async (req, res) => {
     const tag = publicTag(req.params.code);
-    res.json({ tag: publicView(tag), viewerIsOwner: req.user?.id === tag.owner_id });
+    const reward = await rewards.getState(tag);
+    const { operation: _operation, ...publicReward } = reward || {};
+    res.json({ tag: { ...publicView(tag), ...(reward ? { reward: publicReward } : {}) }, viewerIsOwner: req.user?.id === tag.owner_id });
   });
   app.post('/api/public/tags/:code/reports', optionalOwner, reportLimit, (req, res) => {
     const tag = publicTag(req.params.code);
@@ -394,9 +403,13 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   app.get('/api/reports', requireOwner, (req, res) => res.json({ reports: all('SELECT * FROM reports WHERE owner_id=? ORDER BY updated_at DESC, id DESC', req.user.id).map(reportView) }));
   app.get('/api/reports/:id', requireOwner, (req, res) => { const r = ownerReport(req); res.json({ report: reportView(r), messages: messagesFor(r.id) }); });
   app.post('/api/reports/:id/messages', requireOwner, messageLimit, (req, res) => res.status(201).json({ message: addMessage(ownerReport(req), 'owner', string(req.body.body, 'Mensagem', 2000)) }));
-  app.post('/api/reports/:id/resolve', requireOwner, ownerWriteLimit, (req, res) => {
-    const report = ownerReport(req);
+  app.post('/api/reports/:id/resolve', requireOwner, ownerWriteLimit, async (req, res) => {
+    let report = ownerReport(req);
+    const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', report.tag_id, req.user.id);
+    if (tag) await rewards.getState(tag);
+    report = ownerReport(req);
     if (report.status === 'open') transaction(() => {
+      rewards.assertUnlocked(report.tag_id);
       const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', report.tag_id, req.user.id);
       if (!tag) fail(409, 'A etiqueta foi transferida.', 'TAG_TRANSFERRED');
       const at = now();
