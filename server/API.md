@@ -119,7 +119,7 @@ Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pú
 
 Transferência exige conta de destino existente, senha correta ou prova de reautenticação e ausência de conversas abertas. O destino pode ser e-mail, endereço Solana vinculado ou ID da conta. A prova dura cinco minutos, pertence à sessão que a solicitou e é consumida na mesma transação da transferência. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
 
-Recompensa é um **valor opcional prometido pelo dono**, de 0 a 1.000.000 na unidade escolhida. Esta API não recebe, custodia, deposita, bloqueia, paga ou reembolsa fundos. Não há escrow nem transações de blockchain. Confirmar devolução registra a recuperação do objeto e não executa pagamento.
+O campo `rewardAmount` sozinho é um **valor opcional anunciado**, de 0 a 1.000.000 na unidade escolhida. A reserva real usa o contrato Solana e só recebe estado `reserved` após confirmação finalizada do depósito. Depósito, renovação, liberação ao visitante e reembolso exigem assinatura da carteira do dono; as rotas e regras estão em [REWARDS.md](REWARDS.md). Enquanto há reserva pendente/ativa, a API bloqueia alteração do valor, transferência da etiqueta e confirmação comum de devolução.
 
 ### Consulta pública e visitante
 

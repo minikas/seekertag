@@ -5,8 +5,8 @@ O contrato Anchor fica em `contracts/seekertag-escrow`. O programa esperado pela
 ## Regras
 
 - Depósito: SOL nativo ou tokens do programa SPL Token original. Mainnet fixa os mints oficiais de USDC e SKR; Token-2022 e saldo em staking não são aceitos.
-- Prazo inicial: inteiro entre 1 e 365 dias, escolhido pelo dono. A contagem usa o relógio da rede.
-- Renovação: assinatura do dono; soma dias a `max(vencimento, agora)` e limita o resultado a 365 dias a partir de agora. Não diminui o prazo e não movimenta a recompensa.
+- Prazo inicial: de 1 hora a 5 anos, escolhido pelo dono em horas, dias, meses ou anos. O formulário aceita quantidades inteiras; mês equivale a 30 dias e ano a 365 dias. A transação usa segundos inteiros e a contagem começa no relógio da rede.
+- Renovação: assinatura do dono; soma o período escolhido a `max(vencimento, agora)` e limita o resultado a 5 anos a partir de agora. Não diminui o prazo e não movimenta a recompensa.
 - Devolução: carteira do dono e verificador do serviço assinam juntos, pagando exatamente a recompensa à carteira que comprovou posse na conversa. O programa registra o hash do ID da conversa e o destinatário. O servidor sozinho não pode pagar ou retirar fundos.
 - Cancelamento: somente o dono e apenas após o vencimento. O dinheiro volta à carteira que fez o depósito. Não há cancelamento antecipado, resgate automático no vencimento ou pagamento automático ao visitante.
 - Pagamento encerra todas as conversas abertas do objeto e incrementa uma única devolução. Sem reserva, continua disponível a confirmação de devolução comum.
@@ -18,7 +18,7 @@ O contrato guarda um recibo permanente de 226 bytes. Ele impede reabertura/repla
 
 Os valores monetários atravessam a API como strings de unidades inteiras. O servidor compara dono, verificador, mint, valor e ID do recibo finalizado; consulta também o saldo do cofre. Nunca marca uma reserva apenas porque a carteira retornou uma assinatura. Se não conseguir verificar a rede, informa `unverified`.
 
-Cada operação tem uma transação preparada, com blockhash e prazo de validade. A API e o Android reconstroem e comparam a mensagem completa: instruções extras, carteira pagadora, valores ou destinatários alterados são rejeitados. O Android guarda a transação assinada antes de enviar, e o servidor grava a mesma assinatura antes de transmitir. Retentativas reutilizam os mesmos bytes, sem criar outro depósito.
+Cada operação tem uma transação preparada, com blockhash e prazo de validade. A API e o Android conferem todas as instruções e permissões de todas as contas, preservando a ordem original da mensagem para evitar diferenças de `localeCompare` entre Node e Hermes. Após a assinatura, exigem os mesmos bytes da mensagem preparada e verificam todas as assinaturas: instruções extras, carteira pagadora, valores ou destinatários alterados são rejeitados. O Android guarda a transação assinada antes de enviar, e o servidor grava a mesma assinatura antes de transmitir. Retentativas reutilizam os mesmos bytes, sem criar outro depósito.
 
 A reconciliação usa o recibo finalizado e o estado da assinatura. Antes de expirar uma operação, relê o recibo com `minContextSlot` no slot finalizado que ultrapassou a validade, evitando descartar um depósito que confirmou entre duas consultas. Leitura da recompensa, leitura de operação e novas tentativas reconciliam o estado. O Android consulta enquanto a tela está em primeiro plano e retoma ao reabrir; não depende de uma tarefa em segundo plano para manter a custódia.
 
@@ -73,7 +73,7 @@ npm run test:devnet
 npm run api:devnet
 ```
 
-O utilitário recusa qualquer genesis hash fora de devnet e nunca lê a carteira padrão do CLI. `artifacts/rewards-devnet.json` contém apenas IDs públicos dos mints/programa/verificador. O teste publica três depósitos, renova e paga a um visitante com carteira comprovada, verificando o aumento exato do saldo e o encerramento da conversa. Guarda assinaturas públicas em `artifacts/devnet-reward-verification.json`. Reembolso real após o prazo exige aguardar ao menos um dia em devnet; o bloqueio e o vencimento completo são cobertos pela VM.
+O utilitário recusa qualquer genesis hash fora de devnet e nunca lê a carteira padrão do CLI. `artifacts/rewards-devnet.json` contém apenas IDs públicos dos mints/programa/verificador. O teste publica três depósitos de uma hora, renova por um ano e paga a um visitante com carteira comprovada, verificando o aumento exato do saldo e o encerramento da conversa. Guarda assinaturas públicas em `artifacts/devnet-reward-verification.json`. Reembolso real após o prazo exige aguardar ao menos uma hora em devnet; o bloqueio e o vencimento completo são cobertos pela VM.
 
 Para testar no Android, configure a API com os mints criados, instale o APK e encaminhe a porta por ADB. A carteira MWA precisa aceitar `solana:devnet` e `signTransactions`. Confira a revisão e aprove manualmente a assinatura; o login anterior não autoriza esses pagamentos. Cancelar a carteira deixa o pedido pendente até expirar e não anuncia uma reserva. Uma revisão aberta mantém valor e prazo se o blockhash expirar: ao tocar em Assinar, a API reconcilia o pedido anterior antes de preparar a substituição. Mudanças nas taxas exigem nova revisão.
 
@@ -83,6 +83,8 @@ Todas as rotas do dono exigem a sessão; as do visitante exigem a credencial daq
 
 | Método / caminho (prefixo `/api`) | Resposta / ação |
 |---|---|
+| `GET /rewards/config` | Configuração e carteira do dono antes de criar o objeto |
+| `GET /rewards/balance?currency=SOL` | Saldo da carteira do dono antes de criar o objeto |
 | `GET /tags/:id/reward` | `reward`, `config`, `payer`; reconcilia a rede |
 | `GET /tags/:id/reward/balance?currency=SOL` | `availableUnits`, `solLamports`, mint e casas decimais |
 | `POST /tags/:id/reward/prepare` | Prepara `fund`, `renew`, `release` ou `refund`; devolve `operation` |
@@ -94,6 +96,10 @@ Todas as rotas do dono exigem a sessão; as do visitante exigem a credencial daq
 | `POST /finder/reports/:id/reward/wallet/challenge` | Desafio SIWS específico da conversa, 5 minutos |
 | `POST /finder/reports/:id/reward/wallet/verify` | Comprova posse, vincula carteira e consome nonce |
 
-Depósito recebe `{kind:"fund",currency:"SOL",amount:"0.01",days:30}`; renovação `{kind:"renew",days:7}`; pagamento `{kind:"release",reportId}`; cancelamento `{kind:"refund"}`. O servidor escolhe destinatário, valor, mint, programa e verificador a partir de dados validados. A carteira do visitante não pode ser a do dono e não pode ser trocada depois da confirmação na conversa.
+Depósito recebe `{kind:"fund",currency:"SOL",amount:"0.01",durationSeconds:2592000}`; renovação `{kind:"renew",durationSeconds:604800}`; pagamento `{kind:"release",reportId}`; cancelamento `{kind:"refund"}`. O servidor escolhe destinatário, valor, mint, programa e verificador a partir de dados validados. A carteira do visitante não pode ser a do dono e não pode ser trocada depois da confirmação na conversa.
+
+O contrato preserva as instruções antigas `fund_sol`, `fund_token` e `renew`, com `days` de 1 a 365, para não invalidar transações já preparadas. O aplicativo novo usa `fund_sol_timed`, `fund_token_timed` e `renew_timed`, com `durationSeconds` (`u32`). A API rejeita pedidos que misturam `days` e `durationSeconds`. O recibo e as regras de liberação/reembolso não mudaram.
+
+No Android, a seção de recompensa fica no Gorhom de adicionar/editar objeto. Valor, moeda, saldo e período são editados uma única vez; a revisão é uma etapa do mesmo sheet. O objeto é salvo antes de preparar o depósito, mantendo seu ID ao repetir ou abandonar a revisão. Até a confirmação final, ele continua sem recompensa garantida. A liberação na conversa também usa Gorhom.
 
 Referências: [MWA](https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly), [Anchor 0.32.1](https://www.anchor-lang.com/docs/updates/release-notes/0-32-1), [contas e restrições Anchor](https://www.anchor-lang.com/docs/references/account-constraints), [USDC oficial](https://developers.circle.com/stablecoins/usdc-contract-addresses), [SKR oficial](https://github.com/solana-mobile/react-native-samples/tree/main/skr-staking), [redes Solana](https://solana.com/docs/references/clusters).

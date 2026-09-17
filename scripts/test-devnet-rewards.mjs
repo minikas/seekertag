@@ -41,11 +41,11 @@ try {
     const tag = (await request('/tags', token, { name: `Devnet QA ${currency}` }, 201)).tag;
     const before = await chain.balance(finder.publicKey.toBase58(), currency);
     const prepare = body => request(`/tags/${tag.id}/reward/prepare`, token, body, 201);
-    const deposit = await execute((await prepare({ kind: 'fund', currency, amount: currency === 'SOL' ? '0.002' : '1.25', days: 1 })).operation, token);
+    const deposit = await execute((await prepare({ kind: 'fund', currency, amount: currency === 'SOL' ? '0.002' : '1.25', durationSeconds: 3_600 })).operation, token);
     assert.equal(deposit.reward.status, 'reserved'); console.log(`${currency}: deposit finalized`);
     const earlyRefund = await request(`/tags/${tag.id}/reward/prepare`, token, { kind: 'refund' }, 409); assert.equal(earlyRefund.code, 'REWARD_LOCKED');
-    const renewed = await execute((await prepare({ kind: 'renew', days: 1 })).operation, token);
-    assert.equal(Date.parse(renewed.reward.refundAfter) - Date.parse(deposit.reward.refundAfter), 86_400_000); console.log(`${currency}: renewal finalized; early refund rejected`);
+    const renewed = await execute((await prepare({ kind: 'renew', durationSeconds: 365 * 86_400 })).operation, token);
+    assert.equal(Date.parse(renewed.reward.refundAfter) - Date.parse(deposit.reward.refundAfter), 365 * 86_400_000); console.log(`${currency}: renewal finalized; early refund rejected`);
     const report = await request(`/public/tags/${tag.code}/reports`, null, { finderName: 'Devnet QA', message: 'Test return, no real item' }, 201);
     const walletBase = `/finder/reports/${report.report.id}/reward/wallet`;
     const challenge = await request(`${walletBase}/challenge`, report.token, { language: 'en' });

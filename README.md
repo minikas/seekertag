@@ -48,9 +48,9 @@ A visita sem conta foi preservada dentro do Android. A abertura sem instalar apl
 
 ## Recompensas com reserva
 
-Abra um objeto → **Recompensa** para consultar o saldo, escolher SOL/USDC/SKR e um prazo de 1 a 365 dias. A tela revisa valor, prazo, taxa de rede e custo das contas antes de solicitar a assinatura na carteira. Um valor preenchido no formulário continua sendo apenas anunciado até o depósito ser confirmado com compromisso `finalized`.
+Em **Adicionar/Editar objeto**, a seção **Recompensa** reúne saldo, SOL/USDC/SKR, valor com máscara e botões −/+ e prazo em horas, dias, meses ou anos. O limite é de 1 hora a 5 anos; mês = 30 dias e ano = 365 dias. **Salvar e revisar depósito** abre a revisão no mesmo Gorhom, com valor, vencimento, taxa de rede e custo das contas antes da assinatura na carteira. Um valor preenchido no formulário continua sendo apenas anunciado até o depósito ser confirmado com compromisso `finalized`.
 
-**Renovar reserva** acrescenta dias ao prazo atual (ou a partir de hoje se já venceu), sem retirar nem depositar o valor novamente. O prazo total não pode ultrapassar 365 dias a partir de hoje. **Cancelar e recuperar** só funciona depois do vencimento e devolve o saldo à carteira original; o vencimento não movimenta fundos automaticamente.
+**Renovar reserva** acrescenta o período escolhido ao prazo atual (ou a partir de hoje se já venceu), sem retirar nem depositar o valor novamente. O prazo total não pode ultrapassar 5 anos a partir de hoje. **Cancelar e recuperar** só funciona depois do vencimento e devolve o saldo à carteira original; o vencimento não movimenta fundos automaticamente.
 
 Na conversa, quem encontrou confirma uma carteira com assinatura de mensagem. Após receber o objeto, o dono escolhe **Devolução e recompensa → Confirmar devolução e pagar** e assina a transação. A API também assina a carteira destinatária verificada e só encerra a devolução após confirmar o pagamento na rede. Antes do vencimento, não existe cancelamento antecipado pelo dono ou pelo servidor.
 
