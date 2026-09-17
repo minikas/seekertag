@@ -31,6 +31,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const formScroll = useRef<KeyboardAwareSheetScrollViewRef>(null);
   const focusedReward = useRef(false);
   const rewardSheet = useRef<BottomSheetModal>(null);
+  const [renewSheetOpen, setRenewSheetOpen] = useState(false);
   const [rewardOpen, setRewardOpen] = useState(false);
   const rewardOpenRef = useRef(rewardOpen); rewardOpenRef.current = rewardOpen;
   const insets = useSafeAreaInsets();
@@ -246,7 +247,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   </BottomSheetModal>
     {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
       titleAccessory={reviewing && wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
-      title={waiting ? t('Confirmando na rede') : renewing ? t('Renovar reserva') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
+      title={waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => {
         setRewardOpen(false);
@@ -270,9 +271,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
           {wallet.operation ? <Button variant="accent" icon="shield" onPress={() => { Keyboard.dismiss(); setReviewing(true); }}>{t('Retomar revisão')}</Button> : <>
             {!renewing && activeReward?.refundAfter && <Text style={s.small}>{t('Cancelamento a partir de {date}', { date: new Date(activeReward.refundAfter).toLocaleString(locale) })}</Text>}
             {activeReward?.status === 'expired' && <>
-              {renewing ? <><RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} refundAfter={activeReward?.refundAfter} />
-                <Button variant="ghost" disabled={editingDisabled} onPress={() => setRenewing(false)}>{t('Voltar')}</Button></>
-                : <Button variant="accent" icon="refresh-cw" disabled={editingDisabled} onPress={() => setRenewing(true)}>{t('Renovar reserva')}</Button>}
+              <Button variant="accent" icon="refresh-cw" disabled={editingDisabled} onPress={() => { setRenewing(true); setRenewSheetOpen(true); }}>{t('Renovar reserva')}</Button>
               {!renewing && <Button variant="warning" icon="corner-up-left" busy={busy} disabled={editingDisabled || !activeReward?.refundAfter || Date.parse(activeReward.refundAfter) > Date.now()} onPress={() => setRefundConfirm(true)}>{t('Cancelar e recuperar')}</Button>}
             </>}
             {activeReward?.status === 'unverified' && <Notice tone="warning" text={t('Não foi possível confirmar a reserva agora. Aguarde a conexão com a rede antes de continuar.')} />}
@@ -290,6 +289,12 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         </>}
       </>}
     </RewardEditorSheet>}
+    {renewSheetOpen && <AccountActionSheet title={t('Renovar reserva')} busy={busy} onBack={() => { setRenewSheetOpen(false); setRenewing(false); }} onClose={() => { if (!busy) { setRenewSheetOpen(false); setRenewing(false); } }}>
+      <View style={{ gap: 20 }}>
+        <RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} refundAfter={activeReward?.refundAfter} />
+        <Button onPress={() => { setRenewSheetOpen(false); void save('renew'); }} busy={busy} disabled={saveDisabled}>{t('Salvar e revisar renovação')}</Button>
+      </View>
+    </AccountActionSheet>}
     {refundConfirm && <AccountActionSheet title={t('Cancelar e recuperar')} busy={busy} onClose={() => { if (!busy) setRefundConfirm(false); }}>
       <View style={{ gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 14 }}><View style={[s.settingsIcon, { backgroundColor: C.amberSoft }]}><Icon name="corner-up-left" color={C.amber} size={24} /></View><Text style={[s.h2, { textAlign: 'center' }]}>{t('Cancelar e recuperar?')}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t('Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.')}</Text></View>

@@ -1,13 +1,13 @@
 import React, { forwardRef, PropsWithChildren, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
-import { BackHandler, Text, useWindowDimensions } from 'react-native';
+import { BackHandler, Text, useWindowDimensions, View } from 'react-native';
 import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUI } from './ui';
+import { Button, useUI } from './ui';
 
 export type AccountActionSheetHandle = { dismiss: () => void };
 
 // Keep the account screen mounted behind quick actions, including its scroll position.
-export default forwardRef<AccountActionSheetHandle, PropsWithChildren<{ title: string; onClose: () => void; busy?: boolean }>>(function AccountActionSheet({ title, onClose, children, busy = false }, ref) {
+export default forwardRef<AccountActionSheetHandle, PropsWithChildren<{ title: string; onClose: () => void; busy?: boolean; onBack?: () => void }>>(function AccountActionSheet({ title, onClose, children, busy = false, onBack }, ref) {
   const { C, s, t } = useUI();
   const sheet = useRef<BottomSheetModal>(null);
   const mounted = useRef(false);
@@ -28,7 +28,7 @@ export default forwardRef<AccountActionSheetHandle, PropsWithChildren<{ title: s
     backdropComponent={backdrop} backgroundStyle={{ backgroundColor: C.popover, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
     handleIndicatorStyle={{ backgroundColor: C.muted, width: 44, height: 5 }} onDismiss={() => { if (mounted.current) onClose(); }}>
     <BottomSheetScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 24, gap: 20 }}>
-      <Text accessibilityRole="header" style={s.h2}>{title}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{onBack && <Button variant="ghost" icon="arrow-left" label={t('Voltar')} disabled={busy} onPress={onBack} />}<Text accessibilityRole="header" style={[s.h2, { flex: 1 }]}>{title}</Text></View>
       {children}
     </BottomSheetScrollView>
   </BottomSheetModal>;
