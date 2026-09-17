@@ -5,18 +5,19 @@ import { Button, useUI } from './ui';
 
 // Ordinary navigation stays in the app window, under the shared safe area and
 // keyboard controller. Only transient tasks need a native Modal or bottom sheet.
-export default function Screen({ title, onClose, children, footer, contentKey }: PropsWithChildren<{ title: string; onClose: () => void; footer?: React.ReactNode; contentKey?: string }>) {
+export default function Screen({ title, onClose, children, footer, contentKey, overlay, dismissible = true }: PropsWithChildren<{ title: string; onClose: () => void; footer?: React.ReactNode; contentKey?: string; overlay?: React.ReactNode; dismissible?: boolean }>) {
   const { C, s, t } = useUI();
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (Keyboard.isVisible()) Keyboard.dismiss(); else onClose();
+      if (Keyboard.isVisible()) Keyboard.dismiss(); else if (dismissible) onClose();
       return true;
     });
     return () => subscription.remove();
-  }, [onClose]);
+  }, [onClose, dismissible]);
   return <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={{ flex: 1 }} accessibilityElementsHidden={!!overlay} importantForAccessibility={overlay ? "no-hide-descendants" : "auto"}>
     <View style={s.screenHeader}>
-      <Button variant="ghost" icon="arrow-left" label={t('Voltar')} onPress={() => { Keyboard.dismiss(); onClose(); }} />
+      <Button variant="ghost" icon="arrow-left" label={t('Voltar')} disabled={!dismissible} onPress={() => { Keyboard.dismiss(); onClose(); }} />
       <Text accessibilityRole="header" style={s.screenTitle}>{title}</Text><View style={{ width: 48 }} />
     </View>
     <KeyboardAwareScrollView key={contentKey} mode="layout" disableScrollOnKeyboardHide bottomOffset={24} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }}
@@ -24,5 +25,7 @@ export default function Screen({ title, onClose, children, footer, contentKey }:
       {children}
     </KeyboardAwareScrollView>
     {!!footer && <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, width: '100%', maxWidth: 600, alignSelf: 'center' }}>{footer}</View>}
+    </View>
+    {overlay}
   </View>;
 }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Text, View } from 'react-native';
 import Screen from './Screen';
+import ScreenBottomSheet from './ScreenBottomSheet';
 import Pressable from './HapticPressable';
 import { objectCount } from './i18n';
 import { categoryLabel, categoryInk } from './category.model';
@@ -27,8 +28,8 @@ export default function Categories({ token, onClose, onChanged, presentation = '
       .catch(cause => { if (live) setError((cause as Error).message); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [token]);
-  return <Frame contentKey={editing ? editing === 'new' ? 'new' : editing.id : 'categories'} title={editing ? editing === 'new' ? t("Nova categoria") : t("Editar categoria") : t("Categorias")} onClose={() => editing ? setEditing(null) : onClose()}>
-    {editing ? <CategoryEditor key={editing === 'new' ? 'new' : editing.id} token={token} category={editing === 'new' ? undefined : editing} categories={categories} onSaved={async () => { await refresh(); setEditing(null); }} /> : <>
+  if (editing) return <CategoryEditor key={editing === 'new' ? 'new' : editing.id} token={token} category={editing === 'new' ? undefined : editing} categories={categories} presentation={presentation} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); setEditing(null); }} />;
+  return <Frame contentKey="categories" title={t('Categorias')} onClose={onClose}>
       <Text style={s.body}>{t("Organize seus objetos do seu jeito.")}</Text>
       <Button icon="plus" onPress={() => setEditing('new')}>{t("Criar categoria")}</Button>
       {loading && <ActivityIndicator color={C.accent} />}
@@ -38,11 +39,11 @@ export default function Categories({ token, onClose, onChanged, presentation = '
       </Pressable>)}
       {!loading && !categories.length && <Text style={s.body}>{t("Crie sua primeira categoria.")}</Text>}
       {!!error && <><Notice error text={error} /><Button variant="secondary" onPress={() => { setError(''); void refresh().catch(cause => setError(cause.message)); }}>{t("Tentar novamente")}</Button></>}
-    </>}
   </Frame>;
 }
 
-function CategoryEditor({ token, category, categories, onSaved }: { token: string; category?: Category; categories: Category[]; onSaved: () => Promise<void> }) {
+function CategoryEditor({ token, category, categories, onSaved, onClose, presentation }: { token: string; category?: Category; categories: Category[]; onSaved: () => Promise<void>; onClose: () => void; presentation: 'screen' | 'modal' }) {
+  const Frame = presentation === 'screen' ? Screen : Sheet;
   const { C, s, t, locale } = useUI();
   const [name, setName] = useState(category ? categoryLabel(category, t) : '');
   const [icon, setIcon] = useState<IconName>((category?.icon || 'tag') as IconName);
@@ -61,23 +62,24 @@ function CategoryEditor({ token, category, categories, onSaved }: { token: strin
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
-  return <View style={{ gap: 24 }}>
-    {deleting && category ? <>
-      <Text style={s.h2}>{t("Excluir categoria?")}</Text>
+  return <Frame title={category ? t('Editar categoria') : t('Nova categoria')} onClose={() => { if (busy) return; if (deleting) { setDeleting(false); setError(''); } else onClose(); }}
+    dismissible={!busy} overlay={deleting && category ? <ScreenBottomSheet title={t('Excluir categoria?')} dismissible={!busy} onClose={() => { if (!busy) { setDeleting(false); setError(''); } }}>
       <Text style={s.body}>{category.tagCount ? t("Escolha para onde mover os objetos. As etiquetas e os QRs serão mantidos.") : t("Esta categoria não tem objetos e será removida da sua lista.")}</Text>
       {category.tagCount > 0 && categories.filter(c => c.id !== category.id).map(c => <Button key={c.id} variant={replacement === c.id ? 'primary' : 'secondary'} onPress={() => setReplacement(c.id)} disabled={busy}>{categoryLabel(c, t)}</Button>)}
       {category.tagCount > 0 && categories.length < 2 && <Notice text={t("Crie outra categoria antes de excluir esta.")} />}
       <Button variant="danger" icon="trash-2" onPress={() => void save(true)} busy={busy} disabled={category.tagCount > 0 && !replacement}>{t("Excluir categoria")}</Button>
-      <Button variant="secondary" disabled={busy} onPress={() => setDeleting(false)}>{t("Cancelar")}</Button>
-    </> : <>
+      <Button variant="secondary" disabled={busy} onPress={() => { setDeleting(false); setError(''); }}>{t("Cancelar")}</Button>
+      {!!error && <Notice error text={error} />}
+    </ScreenBottomSheet> : undefined}>
       <Field testID="category-name" label={t("Nome da categoria")} placeholder={t("Ex.: Bicicleta")} value={name} onChangeText={setName} selectTextOnFocus={!!category} maxLength={32} editable={!busy} />
       <Text style={s.label}>{t("Ícone")}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{icons.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={t("Ícone {name}", { name: t(iconNames[value]) })} accessibilityState={{ selected: icon === value, disabled: busy }} disabled={busy} onPress={() => setIcon(value)} style={[s.settingsIcon, { width: 48, height: 48, backgroundColor: icon === value ? C.primary : C.secondary }]}><Icon name={value} color={icon === value ? C.onPrimary : C.ink} /></Pressable>)}</View>
       <Text style={s.label}>{t("Cor")}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{colors.map((value, index) => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={t("Cor {number}", { number: index + 1 })} accessibilityState={{ selected: color === value, disabled: busy }} disabled={busy} onPress={() => setColor(value)} style={[s.settingsIcon, { width: 48, height: 48, backgroundColor: value, borderColor: C.ink, borderWidth: color === value ? 2 : 0 }]}>{color === value && <Icon name="check" color={categoryInk(value)} />}</Pressable>)}</View>
-      <Button icon="check" onPress={() => void save()} busy={busy} disabled={!name.trim()}>{t("Salvar categoria")}</Button>
-      {category && <Button variant="danger" icon="trash-2" disabled={busy} onPress={() => setDeleting(true)}>{t("Excluir categoria")}</Button>}
-    </>}
-    {!!error && <Notice error text={error} />}
-  </View>;
+      <View style={[s.row, { gap: 12 }]}>
+        <Button style={{ flex: 1 }} icon="check" onPress={() => void save()} busy={busy} disabled={!name.trim()}>{t("Salvar categoria")}</Button>
+        {category && <Button variant="danger" icon="trash-2" label={t('Excluir categoria')} disabled={busy} onPress={() => { Keyboard.dismiss(); setError(''); setDeleting(true); }} />}
+      </View>
+      {!!error && !deleting && <Notice error text={error} />}
+  </Frame>;
 }
