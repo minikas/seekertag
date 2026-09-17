@@ -1,5 +1,10 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  "Confirmar ação": ["Confirm action", "Confirmar acción"],
+  "Marcar esta etiqueta como perdida?": ["Mark this tag as lost?", "¿Marcar esta etiqueta como perdida?"],
+  "Pausar esta etiqueta?": ["Pause this tag?", "¿Pausar esta etiqueta?"],
+  "Reativar esta etiqueta?": ["Reactivate this tag?", "¿Reactivar esta etiqueta?"],
+  "Confirmar": ["Confirm", "Confirmar"],
   "Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.": ["Confirm only after the reservation period ends. The deposit will return to the wallet that funded the reward.", "Confirma solo cuando termine el plazo de la reserva. El depósito volverá a la cartera que financió la recompensa."],
   "Confirmar recuperação": ["Confirm recovery", "Confirmar recuperación"],
   "Unidade do prazo": ["Reservation unit", "Unidad del plazo"],

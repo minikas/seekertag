@@ -37,6 +37,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   const [nfcStopping, setNfcStopping] = useState(false);
   const [page, setPage] = useState<'overview' | 'info' | 'transfer'>('overview');
   const [overlay, setOverlay] = useState<'actions' | 'nfc' | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<'active' | 'lost' | 'paused' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const mounted = useRef(true);
@@ -83,7 +84,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   useEffect(() => {
     mounted.current = true;
     active.current = null;
-    setBusy(null); setError(''); setPage('overview'); setOverlay(null); setEmail(''); setPassword('');
+    setBusy(null); setError(''); setPage('overview'); setOverlay(null); setPendingStatus(null); setEmail(''); setPassword('');
     return () => {
       mounted.current = false;
       operation.current++;
@@ -173,6 +174,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   function closeOverlay() {
     if (active.current === 'nfc') { void cancelNfc(); return; }
     setOverlay(null);
+    setPendingStatus(null);
     setError('');
   }
 
@@ -207,14 +209,13 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       <ActionRow disabled={waiting} icon="edit-2" title={t("Editar objeto")} onPress={() => choose(() => onEdit(tag))} />
       <ActionRow icon="external-link" title={t("Ver como visitante")} onPress={() => choose(openVisitor)} />
       <ActionRow icon="share-2" title={t("Compartilhar PDF")} onPress={() => choose(sharePdf)} />
-      <ActionRow disabled={waiting} tone={tag.status === 'active' ? 'warning' : 'success'} icon={tag.status === 'active' ? 'alert-circle' : 'check-circle'} title={tag.status === 'active' ? t("Marcar como perdido") : tag.status === 'lost' ? t("Já está comigo") : t("Reativar etiqueta")} onPress={() => choose(() => changeStatus(tag.status === 'active' ? 'lost' : 'active'))} />
-      {tag.status !== 'paused' && <ActionRow disabled={waiting} tone="warning" icon="pause-circle" title={t("Pausar etiqueta")} onPress={() => choose(() => changeStatus('paused'))} />}
+      <ActionRow disabled={waiting} tone={tag.status === 'active' ? 'warning' : 'success'} icon={tag.status === 'active' ? 'alert-circle' : 'check-circle'} title={tag.status === 'active' ? t("Marcar como perdido") : tag.status === 'lost' ? t("Já está comigo") : t("Reativar etiqueta")} onPress={() => choose(() => setPendingStatus(tag.status === 'active' ? 'lost' : 'active'))} />
+      {tag.status !== 'paused' && <ActionRow disabled={waiting} tone="warning" icon="pause-circle" title={t("Pausar etiqueta")} onPress={() => choose(() => setPendingStatus('paused'))} />}
       <ActionRow disabled={waiting} tone="danger" icon="arrow-right-circle" title={t("Transferir etiqueta")} onPress={() => choose(() => setPage('transfer'))} />
     </View>
   </ScreenBottomSheet>;
   const nfc = <ScreenBottomSheet title={t("Gravar NFC")} onClose={closeOverlay}>
     <View style={styles.nfcContent}>
-      <View style={styles.nfcIcon}><Icon name="wifi" size={38} /></View>
       <Text style={[s.h2, { textAlign: 'center' }]}>{t("Aproxime a etiqueta NFC")}</Text>
       <Text style={[s.body, { textAlign: 'center' }]}>{t("Encoste uma etiqueta NFC regravável na parte de trás do celular.")}</Text>
       {busy === 'nfc' && <ActivityIndicator color={C.ink} />}
@@ -247,9 +248,8 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       <Text style={s.small}>{t("Criada em {date}", { date: formatDate(tag.createdAt, locale) })}</Text>
       {tag.description ? <InfoBlock label={t("Sua anotação particular")} value={tag.description} /> : null}
       {tag.publicMessage ? <InfoBlock label={t("Mensagem na etiqueta")} value={tag.publicMessage} /> : null}
-      {tag.rewardAmount > 0 ? <InfoBlock label={t("Valor da recompensa")} value={`${tag.rewardAmount.toLocaleString(locale)} ${tag.rewardCurrency}`} /> : null}
+      {tag.rewardAmount > 0 ? <InfoBlock label={t("Valor da recompensa")} value={tag.reward ? `${tag.reward.amount} ${tag.reward.currency}` : `${tag.rewardAmount.toLocaleString(locale)} ${tag.rewardCurrency}`} /> : null}
       {tag.recoveryCount > 0 && <Text style={s.body}>{tag.recoveryCount} {tag.recoveryCount === 1 ? t("devolução") : t("devoluções")}</Text>}
-      <Button disabled={waiting} variant="secondary" icon="edit-2" onPress={() => onEdit(tag)}>{t("Editar objeto")}</Button>
     </> : <>
       <Text style={s.h2}>{tag.name}</Text>
       <Text style={s.body}>{t("A etiqueta sairá da sua conta e o mesmo QR passará para a pessoa abaixo. Ela precisa ter uma conta SeekerTag.")}</Text>
@@ -260,6 +260,13 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || waiting || tag.openReportCount > 0 || !email.trim() || (user.hasPassword && password.length < 10)}>{t("Confirmar transferência")}</Button>
     </>}
     {!!error && overlay !== 'nfc' && <Notice text={error} error />}
+    {pendingStatus && <ScreenBottomSheet title={t('Confirmar ação')} onClose={() => setPendingStatus(null)}>
+      <View style={{ gap: 16 }}>
+        <Text style={s.body}>{t(pendingStatus === 'lost' ? 'Marcar esta etiqueta como perdida?' : pendingStatus === 'paused' ? 'Pausar esta etiqueta?' : 'Reativar esta etiqueta?')}</Text>
+        <Button variant={pendingStatus === 'lost' || pendingStatus === 'paused' ? 'warning' : 'success'} busy={busy === 'status'} disabled={!!busy} onPress={() => { const next = pendingStatus; setPendingStatus(null); changeStatus(next); }}>{t('Confirmar')}</Button>
+        <Button variant="ghost" disabled={!!busy} onPress={() => setPendingStatus(null)}>{t('Cancelar')}</Button>
+      </View>
+    </ScreenBottomSheet>}
   </Sheet>;
 }
 
