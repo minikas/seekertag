@@ -14,7 +14,7 @@ const steps: { icon: IconName; title: string; text: string; preview: string }[] 
 ];
 
 export default function HelpSheet({ onClose }: { onClose: () => void }) {
-  const { C, s, t, locale } = useUI();
+  const { C, s, t } = useUI();
   const styles = useThemedStyles(makeStyles);
   const [page, setPage] = useState(0);
   const step = steps[page];
@@ -44,8 +44,7 @@ export default function HelpSheet({ onClose }: { onClose: () => void }) {
         <Text style={[s.body, { color: C.accent, textAlign: 'center' }]}>{t(step.preview)}</Text>
       </View>
       <View accessibilityLiveRegion="polite" style={{ gap: 12 }}><Text style={[s.h2, { textAlign: 'center' }]}>{t(step.title)}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t(step.text)}</Text></View>
-      {page === 2 && <Text style={[s.small, { textAlign: 'center' }]}>{t("Seus contatos ficam privados. As etiquetas não têm GPS.")}</Text>}
-      <View style={{ flexDirection: 'row', gap: 12 }}>{page > 0 && <Button variant="secondary" icon="arrow-left" label={t('Voltar')} onPress={() => setPage(page - 1)} />}<Button style={{ flex: 1 }} onPress={() => page === steps.length - 1 ? close() : setPage(page + 1)}>{t(page === steps.length - 1 ? 'Entendi' : 'Continuar')}</Button></View>
+      <View style={{ flexDirection: 'row', gap: 12, paddingTop: 8 }}>{page > 0 && <Button variant="secondary" icon="arrow-left" label={t('Voltar')} onPress={() => setPage(page - 1)} />}<Button style={{ flex: 1 }} onPress={() => page === steps.length - 1 ? close() : setPage(page + 1)}>{t(page === steps.length - 1 ? 'Entendi' : 'Continuar')}</Button></View>
     </BottomSheetScrollView>
   </BottomSheetModal>;
 }
@@ -53,6 +52,6 @@ export default function HelpSheet({ onClose }: { onClose: () => void }) {
 const makeStyles = (C: Colors) => StyleSheet.create({
   background: { backgroundColor: C.popover, borderTopLeftRadius: 30, borderTopRightRadius: 30 },
   handle: { backgroundColor: '#536567', width: 44, height: 5 },
-  content: { paddingHorizontal: 20, paddingTop: 8, gap: 24 },
+  content: { paddingHorizontal: 20, paddingTop: 8, gap: 32 },
   step: { flexDirection: 'row', alignItems: 'center', gap: 16 },
 });
