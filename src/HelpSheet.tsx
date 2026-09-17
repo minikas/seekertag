@@ -13,7 +13,7 @@ const steps: { icon: IconName; title: string; text: string }[] = [
   { icon: 'message-circle', title: 'Encontrou. Escaneou. Conversou.', text: 'Quem encontrar escaneia a etiqueta e envia uma mensagem. Vocês combinam a devolução pelo chat.' },
 ];
 
-export default function HelpSheet({ onClose }: { onClose: () => void }) {
+export default function HelpSheet({ onClose, onDismissForever }: { onClose: () => void; onDismissForever: () => void }) {
   const { C, s, t } = useUI();
   const styles = useThemedStyles(makeStyles);
   const [page, setPage] = useState(0);
@@ -33,7 +33,7 @@ export default function HelpSheet({ onClose }: { onClose: () => void }) {
   const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.6} pressBehavior="close" accessibilityLabel={t("Fechar ajuda")} />, [t]);
   return <BottomSheetModal ref={sheet} name="how-it-works" enableDynamicSizing enablePanDownToClose topInset={insets.top + 8} maxDynamicContentSize={height - insets.top - 32} backdropComponent={backdrop} backgroundStyle={styles.background} handleIndicatorStyle={styles.handle} onDismiss={() => { if (mounted.current) onClose(); }}>
     <BottomSheetScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-      <Text accessibilityRole="header" style={s.h2}>{t("Como funciona")}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text accessibilityRole="header" style={[s.h2, { flex: 1 }]}>{t("Como funciona")}</Text><Button variant="ghost" icon="x" label={t("Não mostrar novamente")} onPress={onDismissForever} /></View>
       <View style={{ flexDirection: 'row', gap: 8 }}>{steps.map((item, index) => <Pressable key={item.title} accessibilityRole="button" accessibilityLabel={t('Etapa {number}', { number: index + 1 })} accessibilityState={{ selected: page === index }} onPress={() => setPage(index)} style={{ flex: 1, paddingVertical: 10 }}><View style={{ height: 4, borderRadius: 2, backgroundColor: index <= page ? C.accent : C.line }} /></Pressable>)}</View>
       <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 180, padding: 24, gap: 28 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 32 }}>

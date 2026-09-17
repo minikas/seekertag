@@ -24,7 +24,7 @@ const tabs: { key: Tab; label: string; icon: IconName }[] = [
   { key: 'messages', label: 'Conversas', icon: 'message-circle' },
 ];
 
-export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, onExpired }: { token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; onExpired: () => void }) {
+export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, helpDismissed = false, onExpired }: { token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; helpDismissed?: boolean; onExpired: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [browsing, setBrowsing] = useState<TagFilter | null>(null); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
@@ -63,13 +63,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
           <Text style={styles.statValue}>{stat.value.toLocaleString(locale)}</Text><Text style={styles.statLabel}>{stat.label}</Text>
         </Pressable>)}</View>
         <Button onPress={() => setForm('new')} icon="plus">{t("Adicionar objeto")}</Button>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
+        {!helpDismissed && <Pressable accessibilityRole="button" accessibilityLabel={t("Como funciona")} onPress={onHelp} style={({ pressed }) => [styles.helpRow, pressed && styles.pressed]}>
           <Icon name="shield" size={23} color={C.accent} />
           <View style={{ flex: 1, gap: 8 }}>
             <View style={s.between}><Text style={s.h3}>{t("Como funciona")}</Text><View style={styles.tipBadge}><Text style={styles.tipText}>{t("Dica")}</Text></View></View>
             <Text style={s.body}>{t("Imprima o QR ou grave uma etiqueta NFC.")}</Text>
           </View>
-        </Pressable>
+        </Pressable>}
         {openReports.length > 0 && <Pressable accessibilityRole="button" onPress={() => switchTab('messages')} style={({ pressed }) => [styles.alert, pressed && styles.pressed]}>
           <View style={[s.circle, { backgroundColor: C.soft }]}><Icon name="message-circle" color={C.accent} /></View>
           <View style={{ flex: 1, gap: 4 }}><Text style={s.h3}>{t("Tem um reencontro a caminho")}</Text><Text style={s.small}>{conversationCount(t, openReports.length, locale)}</Text></View><Icon name="chevron-right" color={C.muted} />
