@@ -43,7 +43,6 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   const active = useRef<Action>(null);
   currentIdentity.current = `${tag.id}:${token}`;
   const info = { color: tag.color, icon: (tag.categoryIcon || 'box') as IconName };
-  const localOnly = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(tag.publicUrl);
   const waiting = rewardAwaitingConfirmation(tag.reward);
   const latest = useRef({ tag, onUpdated }); latest.current = { tag, onUpdated };
 
@@ -241,7 +240,6 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={t("Recompensa")} accessibilityState={{ disabled: waiting }} disabled={waiting} onPress={() => onEdit(tag, true)} style={[s.between, s.card]}><RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} /><Icon name={waiting ? 'lock' : 'chevron-right'} size={20} color={waiting ? C.amber : C.muted} /></Pressable>
       {tag.status === 'paused' ? <View style={{ gap: 12 }}><Notice tone="warning" text={t("O QR está pausado. Reative a etiqueta para receber avisos e mensagens.")} /><Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="play-circle">{t("Reativar etiqueta")}</Button></View> : tag.status === 'lost' ? <Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="check-circle">{t("Já está comigo")}</Button> : null}
-      {localOnly && <View style={styles.localNote}><Icon name="info" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Link local. Outros aparelhos precisam de um endereço público.")}</Text></View>}
     </> : page === 'info' ? <>
       <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} /></View>
       <InfoBlock label={t("Categoria")} value={tagCategoryLabel(tag, t)} />
@@ -282,7 +280,6 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   itemIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   qrCard: { paddingVertical: 20, alignItems: 'center' },
   qrPaper: { backgroundColor: 'white', padding: 14, borderRadius: 24 },
-  localNote: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   buttonRow: { flexDirection: 'row', gap: 10 },
   halfButton: { flex: 1, paddingHorizontal: 12 },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },

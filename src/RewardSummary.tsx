@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import type { RewardView } from '../shared/reward';
+import type { RewardNetwork, RewardView } from '../shared/reward';
 import { Icon, useUI } from './ui';
 import { rewardAwaitingConfirmation } from './reward.model';
 
@@ -16,7 +16,7 @@ export default function RewardSummary({ reward, amount = 0, currency = 'SOL' }: 
     <View style={{ flex: 1, gap: 3 }}>
       <Text style={[s.label, { color }]}>{label}</Text>
       <Text style={s.h3}>{reward ? `${reward.amount} ${reward.currency}` : amount > 0 ? `${amount.toLocaleString(locale)} ${currency}` : t('Reservar uma recompensa')}</Text>
-      {reward && reward.network !== 'mainnet' ? <Text style={s.small}>{t('Rede de teste · sem valor real')}</Text> : !reward && amount > 0 ? <Text style={s.small}>{t('Valor anunciado, ainda sem depósito.')}</Text> : null}
+      {reward && reward.network !== 'mainnet' ? <RewardNetworkBadge network={reward.network} /> : !reward && amount > 0 ? <Text style={s.small}>{t('Valor anunciado, ainda sem depósito.')}</Text> : null}
     </View>
   </View>;
 }
@@ -29,5 +29,13 @@ export function RewardPendingNotice() {
       <Text style={[s.small, { color: C.amber, fontWeight: '600', flexShrink: 1 }]}>{t('Aguardando confirmação')}</Text>
     </View>
     <Text style={s.small}>{t('Edição bloqueada até a rede confirmar o resultado. Você pode sair desta tela.')}</Text>
+  </View>;
+}
+
+export function RewardNetworkBadge({ network }: { network: RewardNetwork }) {
+  const { C, s } = useUI();
+  if (network === 'mainnet') return null;
+  return <View style={{ alignSelf: 'flex-start', backgroundColor: C.amberSoft, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4 }}>
+    <Text style={[s.small, { color: C.amber, fontWeight: '600', fontSize: 12 }]}>{network === 'devnet' ? 'Devnet' : 'Localnet'}</Text>
   </View>;
 }
