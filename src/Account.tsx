@@ -1,5 +1,6 @@
 import Screen from './Screen';
-import PreferencesScreen from './PreferencesScreen';
+import PreferenceOptions from './PreferenceOptions';
+import AccountActionSheet, { AccountActionSheetHandle } from './AccountActionSheet';
 import { usePreferences } from './PreferencesProvider';
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
@@ -18,7 +19,10 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
   const { C, s, t, locale } = useUI();
   const { preferences } = usePreferences();
   const styles = useThemedStyles(makeStyles);
-  const [page, setPage] = useState<'main' | 'access' | 'receive' | 'categories' | 'language' | 'theme'>('main');
+  const [page, setPage] = useState<'main' | 'access' | 'receive' | 'categories'>('main');
+  const [sheet, setSheet] = useState<'language' | 'theme' | null>(null);
+  const sheetRef = useRef<AccountActionSheetHandle>(null);
+  const dismissSheet = () => sheetRef.current?.dismiss();
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
@@ -29,7 +33,7 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
   }, [page, user.id]);
   const shortAddress = user.walletAddress ? `${user.walletAddress.slice(0, 4)}…${user.walletAddress.slice(-4)}` : null;
   const walletName = shortAddress && user.name === `Solana ${shortAddress}`;
-  const back = () => { setError(''); if (page === 'main') onClose(); else setPage('main'); };
+  const back = () => { if (sheet) { dismissSheet(); return; } setError(''); if (page === 'main') onClose(); else setPage('main'); };
   async function copyId() {
     try {
       await Clipboard.setStringAsync(user.id); setCopied(true); setError('');
@@ -38,17 +42,18 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
     } catch { setError('Não foi possível copiar. Toque e segure o ID para selecioná-lo.'); }
   }
   async function logout() { setBusy(true); setError(''); try { await onLogout(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
-  if (page === 'language' || page === 'theme') return <PreferencesScreen presentation="screen" section={page} onClose={() => setPage('main')} />;
   if (page === 'categories') return <Categories presentation="screen" token={token} onClose={() => setPage('main')} onChanged={onCategoriesChanged} />;
-  return <Screen contentKey={page} title={page === 'access' ? t("Formas de entrar") : page === 'receive' ? t("Receber etiquetas") : t("Minha conta")} onClose={back} footer={page === 'main' ? <Button variant="danger" icon="log-out" busy={busy} onPress={() => void logout()}>{t("Sair da conta")}</Button> : undefined}>
+  return <View style={{ flex: 1 }}>
+    <View style={{ flex: 1 }} importantForAccessibility={sheet ? 'no-hide-descendants' : 'auto'} accessibilityElementsHidden={!!sheet}>
+    <Screen contentKey={page} title={page === 'access' ? t("Formas de entrar") : page === 'receive' ? t("Receber etiquetas") : t("Minha conta")} onClose={back} footer={page === 'main' ? <Button variant="danger" icon="log-out" busy={busy} onPress={() => void logout()}>{t("Sair da conta")}</Button> : undefined}>
     {page === 'main' ? <>
       <View style={styles.identity}><View style={[s.circle, { width: 56, height: 56, borderRadius: 20 }]}><Icon name="user" size={26} /></View><View style={{ flex: 1, gap: 6 }}><Text style={s.label}>{walletName ? t("Sua carteira") : t("Seu perfil")}</Text><Text style={s.h2}>{walletName ? shortAddress : user.name}</Text>{!!user.email && <Text style={s.small}>{user.email}</Text>}</View></View>
       <View>
         <AccountRow icon="credit-card" title={t("Formas de entrar")} subtitle={user.providers.map(p => providerNames[p]).join(', ') || t("E-mail e senha")} onPress={() => setPage('access')} />
         <AccountRow icon="download" title={t("Receber etiquetas")} subtitle={t("Compartilhe seu ID da conta")} onPress={() => setPage('receive')} />
         <AccountRow icon="grid" title={t("Categorias")} onPress={() => setPage('categories')} />
-        <AccountRow icon="sliders" title={t("Aparência")} subtitle={{ system: t("Igual ao dispositivo"), light: t("Claro"), dark: t("Escuro") }[preferences.theme]} onPress={() => setPage('theme')} />
-        <AccountRow icon="globe" title={t("Idioma")} subtitle={{ system: t("Igual ao dispositivo"), pt: 'Português', en: 'English', es: 'Español' }[preferences.language]} onPress={() => setPage('language')} />
+        <AccountRow icon="sliders" title={t("Aparência")} subtitle={{ system: t("Igual ao dispositivo"), light: t("Claro"), dark: t("Escuro") }[preferences.theme]} onPress={() => setSheet('theme')} />
+        <AccountRow icon="globe" title={t("Idioma")} subtitle={{ system: t("Igual ao dispositivo"), pt: 'Português', en: 'English', es: 'Español' }[preferences.language]} onPress={() => setSheet('language')} />
         <AccountRow icon="help-circle" title={t("Como funciona")} onPress={onHelp} />
       </View>
     </> : page === 'access' ? <WalletPanel token={token} user={user} onUserUpdated={onUserUpdated} /> : <>
@@ -57,7 +62,12 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
       <Button icon={copied ? 'check' : 'copy'} onPress={() => void copyId()}>{copied ? t("ID copiado") : t("Copiar ID da conta")}</Button>
     </>}
     {!!error && <Notice error text={error} />}
-  </Screen>;
+    </Screen>
+    </View>
+    {!!sheet && <AccountActionSheet ref={sheetRef} title={sheet === 'language' ? t("Idioma") : t("Aparência")} onClose={() => setSheet(null)}>
+      <PreferenceOptions section={sheet} onSelected={dismissSheet} />
+    </AccountActionSheet>}
+  </View>;
 }
 function AccountRow({ icon, title, subtitle, onPress }: { icon: IconName; title: string; subtitle?: string; onPress: () => void }) {
   const { C, s, t, locale } = useUI();
