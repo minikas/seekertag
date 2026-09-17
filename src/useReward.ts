@@ -89,7 +89,9 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
     acting.current = true; revision.current += 1; setBusy(true); setError(''); Keyboard.dismiss();
     try { await task(); return true; } catch (cause) { if (alive.current) {
       const message = cause instanceof Error ? cause.message : 'Não foi possível concluir. Tente novamente.';
-      setError(message); ToastAndroid.show(translateNotice(t, message), ToastAndroid.LONG);
+      // Action failures are transient feedback. Keep the review available for
+      // retry without duplicating the toast in a permanent footer banner.
+      ToastAndroid.show(translateNotice(t, message), ToastAndroid.LONG);
     } return false; }
     finally { acting.current = false; if (alive.current) setBusy(false); }
   }
