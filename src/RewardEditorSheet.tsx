@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import KeyboardAwareSheetScrollView from './KeyboardAwareSheetScrollView';
 import { Button, useUI } from './ui';
 
-type Props = PropsWithChildren<{ title: string; busy: boolean; onClose: () => void; onBack?: () => void; footer: React.ReactNode; contentKey: string }>;
-export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ title, busy, onClose, onBack, footer, contentKey, children }, forwardedRef) {
+type Props = PropsWithChildren<{ title: string; titleAccessory?: React.ReactNode; busy: boolean; onClose: () => void; onBack?: () => void; footer: React.ReactNode; contentKey: string }>;
+export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ title, titleAccessory, busy, onClose, onBack, footer, contentKey, children }, forwardedRef) {
   const { C, s, t } = useUI();
   const insets = useSafeAreaInsets();
   const sheet = useRef<BottomSheetModal>(null);
@@ -25,9 +25,9 @@ export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ 
     <BottomSheetHandle {...props} indicatorStyle={{ backgroundColor: C.muted, width: 44, height: 5 }} />
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 }}>
       {onBack && <Button variant="ghost" icon="arrow-left" label={t('Voltar à recompensa')} disabled={busy} onPress={onBack} />}
-      <Text accessibilityRole="header" style={[s.h2, { flex: 1 }]}>{title}</Text>
+      <Text accessibilityRole="header" style={[s.h2, { flex: 1 }]}>{title}</Text>{titleAccessory}
     </View>
-  </View>, [C.muted, title, onBack, busy, s, t]);
+  </View>, [C.muted, title, titleAccessory, onBack, busy, s, t]);
   return <BottomSheetModal ref={value => { sheet.current = value; if (typeof forwardedRef === 'function') forwardedRef(value); else if (forwardedRef) forwardedRef.current = value; }}
     name="object-reward" stackBehavior="push" snapPoints={snapPoints} index={0} enableDynamicSizing={false}
     enablePanDownToClose={!busy} enableHandlePanningGesture={!busy} enableContentPanningGesture={!busy}

@@ -18,8 +18,8 @@ export function validateRewardIntent(operation: RewardOperation, intent: RewardI
   }
 }
 
-export type ReservationUnit = 'hours' | 'days' | 'months' | 'years';
-export const RESERVATION_UNITS: Record<ReservationUnit, number> = { hours: 3_600, days: 86_400, months: 30 * 86_400, years: 365 * 86_400 };
+export type ReservationUnit = 'minutes' | 'hours' | 'days' | 'months' | 'years';
+export const RESERVATION_UNITS: Record<ReservationUnit, number> = { minutes: 60, hours: 3_600, days: 86_400, months: 30 * 86_400, years: 365 * 86_400 };
 export function reservationSeconds(quantity: string, unit: ReservationUnit): number | null {
   if (!/^\d{1,5}$/.test(quantity)) return null;
   const seconds = Number(quantity) * RESERVATION_UNITS[unit];

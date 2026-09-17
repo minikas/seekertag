@@ -79,7 +79,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const durationValid = !!period && (!renewing || reservationDeadline(period, activeReward?.refundAfter).getTime() <= Date.now() + MAX_REWARD_SECONDS * 1000);
   const wantsReward = Number(canonicalRewardAmount(reward)) > 0;
   let amountValid = !reward || Number(canonicalRewardAmount(reward)) === 0;
-  try { amountValid = !!wallet.balance && amountToUnits(canonicalRewardAmount(reward), REWARD_DECIMALS[currency]) <= BigInt(wallet.balance.availableUnits); } catch {}
+  try { amountValid = wallet.balance?.currency === currency && amountToUnits(canonicalRewardAmount(reward), REWARD_DECIMALS[currency]) <= BigInt(wallet.balance.fundableUnits ?? wallet.balance.availableUnits); } catch {}
   const canReserve = !!wallet.data?.payer && !!wallet.data.config && amountValid && durationValid;
   const operationId = wallet.operation?.operation.id;
   useEffect(() => {
@@ -243,6 +243,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     </KeyboardAwareSheetScrollView>
   </BottomSheetModal>
     {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
+      titleAccessory={wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
       title={waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => { setRewardOpen(false); if (closing.current) sheet.current?.dismiss(); }}
@@ -251,7 +252,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         {!!footerError && <Notice error text={footerError} />}
         {reviewing && operationId ? <Button variant={reviewPrepared ? reviewKind === 'refund' ? 'warning' : 'success' : 'secondary'} icon={reviewPrepared ? 'check' : 'refresh-cw'} busy={busy} disabled={reviewPrepared && reviewKind === 'release'} onPress={() => { if (reviewPrepared) void walletAction.current.approve(); else void walletAction.current.retry(); }}>{reviewPrepared ? t('Assinar na carteira') : t('Verificar transação')}</Button>
           : renewing ? <Button onPress={() => void save('renew')} busy={busy} disabled={saveDisabled}>{t('Salvar e revisar renovação')}</Button>
-          : <Button icon="check" disabled={busy || !lockedReward && wantsReward && !canReserve} onPress={() => { Keyboard.dismiss(); rewardSheet.current?.dismiss(); }}>{t('Concluir')}</Button>}
+          : (lockedReward || legacyReward || wantsReward) && <Button icon="check" disabled={busy || !lockedReward && wantsReward && !canReserve} onPress={() => { Keyboard.dismiss(); rewardSheet.current?.dismiss(); }}>{t('Concluir')}</Button>}
       </>}>
       {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : <>
         {lockedReward ? <>
@@ -273,10 +274,8 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
           <RewardFields controller={wallet} value={reward} currency={currency} onValue={setReward} onCurrency={setCurrency} disabled={editingDisabled} />
           {wantsReward && <>
             <RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} />
-            {wallet.data?.config && wallet.data.config.network !== 'mainnet' && <RewardNetworkBadge network={wallet.data.config.network} />}
             {wallet.data && !wallet.data.config && <Notice text={t('Os depósitos de recompensa ainda não estão disponíveis.')} />}
             {wallet.data?.config && !wallet.data.payer && <Notice text={t('Vincule sua carteira Solana em Minha conta para financiar uma recompensa.')} />}
-            <Text style={s.small}>{t('Você revisará o depósito antes de assinar na carteira.')}</Text>
           </>}
         </>}
       </>}
