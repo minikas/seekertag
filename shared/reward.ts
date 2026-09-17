@@ -1,0 +1,42 @@
+export type RewardCurrency = 'SOL' | 'USDC' | 'SKR';
+export type RewardNetwork = 'devnet' | 'mainnet' | 'localnet';
+export const REWARD_DECIMALS: Record<RewardCurrency, number> = { SOL: 9, USDC: 6, SKR: 6 };
+export const REWARD_PROGRAM = '4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB';
+export const ESCROW_SPACE = 226;
+export const MAINNET_MINTS = {
+  USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  SKR: 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3',
+};
+
+// Money stays in integer base units across the API and transaction boundary.
+export function amountToUnits(value: string, decimals: number): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 9 || typeof value !== 'string' || value.length > 32 || !/^\d+(?:\.\d+)?$/.test(value)) throw new Error('Valor de recompensa inválido.');
+  const [whole, fraction = ''] = value.split('.');
+  if (fraction.length > decimals || BigInt(whole) > 1_000_000n) throw new Error('Valor de recompensa inválido.');
+  const units = BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, '0') || '0');
+  if (units <= 0n || units > 1_000_000n * 10n ** BigInt(decimals)) throw new Error('Valor de recompensa inválido.');
+  return units;
+}
+export function unitsToAmount(units: string | bigint, decimals: number): string {
+  const value = BigInt(units);
+  const base = 10n ** BigInt(decimals);
+  const fraction = (value % base).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return `${value / base}${fraction ? `.${fraction}` : ''}`;
+}
+export function validRewardDays(value: unknown): value is number { return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 365; }
+
+export type RewardStatus = 'pending' | 'reserved' | 'expired' | 'released' | 'refunded' | 'unverified';
+export type RewardView = {
+  id: string; status: RewardStatus; currency: RewardCurrency; amount: string; amountUnits: string;
+  network: RewardNetwork; escrow: string; refundAfter: string | null; checkedAt: string | null;
+  signature: string | null; operation?: { id: string; kind: RewardAction; status: string } | null;
+};
+export type RewardAction = 'fund' | 'renew' | 'release' | 'refund';
+export type RewardInstructionSpec = {
+  kind: RewardAction; payer: string; verifier: string; rewardId: string; mint: string | null;
+  amountUnits: string; days?: number; recipient?: string; reportHash?: string;
+};
+export type RewardOperation = {
+  id: string; rewardId: string; network: RewardNetwork; currency: RewardCurrency; spec: RewardInstructionSpec;
+  transaction: string; feeLamports: string; rentLamports: string; lastValidBlockHeight: number;
+};

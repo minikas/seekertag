@@ -6,6 +6,7 @@
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.3.0",
+    "@solana/web3.js": "1.99.0",
     "buffer": "^6.0.3",
     "expo": "~57.0.20",
     "expo-camera": "~57.0.4",
@@ -54,7 +55,9 @@
     "test:all": "npm run typecheck && npm test",
     "api:lan": "node scripts/start-lan.mjs --api-only",
     "test:android": "node scripts/test-android.mjs",
-    "build:bundle": "expo export --platform android --output-dir artifacts/android-bundle"
+    "build:bundle": "expo export --platform android --output-dir artifacts/android-bundle",
+    "build:escrow": "node scripts/build-escrow.mjs",
+    "test:escrow": "npm run build:escrow && npm --prefix server run test:escrow"
   },
   "private": true,
   "engines": {
