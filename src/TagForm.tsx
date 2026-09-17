@@ -40,7 +40,9 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [managingCategories, setManagingCategories] = useState(false);
   const categoryScreenOpen = useRef(false);
-  const lastSheetIndex = useRef(0);
+  const lastSheetIndex = useRef(focusReward ? 1 : 0);
+  const [sheetIndex, setSheetIndex] = useState(-1);
+  const [rewardOffset, setRewardOffset] = useState<number>();
   const [description, setDescription] = useState(tag?.description || '');
   const [publicMessage, setPublicMessage] = useState(tag?.publicMessage || t("Obrigado por cuidar do que é importante para mim. Me envie uma mensagem para combinarmos a devolução."));
   const [currentTag, setCurrentTag] = useState(tag);
@@ -76,6 +78,15 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const canReserve = !!wallet.data?.payer && !!wallet.data.config && amountValid && durationValid;
   const operationId = wallet.operation?.operation.id;
   useEffect(() => { if (operationId) { Keyboard.dismiss(); setReviewing(true); } }, [operationId]);
+  // Gorhom locks scrolling while presenting. Wait for its final snap position
+  // and the section's layout before honoring the reward shortcut, once only.
+  useEffect(() => {
+    if (!focusReward || focusedReward.current || reviewing || sheetIndex < 0 || wallet.loading || rewardOffset === undefined) return;
+    const frame = requestAnimationFrame(() => {
+      focusedReward.current = true; formScroll.current?.scrollTo({ y: rewardOffset, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusReward, reviewing, sheetIndex, wallet.loading, rewardOffset]);
   const [error, setError] = useState('');
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
   const applyCategories = useCallback((next: Category[]) => {
@@ -182,7 +193,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     ref={sheet}
     name="object-form"
     index={lastSheetIndex.current}
-    onChange={index => { if (index >= 0) lastSheetIndex.current = index; }}
+    onChange={index => { setSheetIndex(index); if (index >= 0) lastSheetIndex.current = index; }}
     snapPoints={snapPoints}
     enableDynamicSizing={false}
     enablePanDownToClose={!busy}
@@ -204,11 +215,6 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   >
     <KeyboardAwareSheetScrollView
       ref={formScroll}
-      onContentSizeChange={() => {
-        if (focusReward && !focusedReward.current && !reviewing && wallet.data) {
-          focusedReward.current = true; formScroll.current?.scrollToEnd({ animated: false });
-        }
-      }}
       key={reviewing ? "review" : "form"}
       mode="layout"
       disableScrollOnKeyboardHide
@@ -224,7 +230,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={description} onChangeText={setDescription} maxLength={500} help={t("Só você vê esta anotação.")} editable={!busy} />
       <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={publicMessage} onChangeText={setPublicMessage} maxLength={500} help={t("Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço.")} editable={!busy} />
       <View style={s.divider} />
-      <View style={{ gap: 13 }}>
+      <View onLayout={event => setRewardOffset(event.nativeEvent.layout.y)} style={{ gap: 13 }}>
         <View style={s.row}><Icon name="gift" color={C.accent} /><Text style={[s.h3, { flex: 1 }]}>{t("Recompensa (Opcional)")}</Text></View>
         {lockedReward ? <>
           <RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} />
