@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Text, ToastAndroid, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { REWARD_DECIMALS, rewardDuration, unitsToAmount } from '../shared/reward';
 import type { RewardAction } from '../shared/reward';
-import { Button, Notice, useUI } from './ui';
+import { Button, Icon, Notice, useUI } from './ui';
+import Pressable from './HapticPressable';
 import { reservationDeadline } from './reward.model';
 import type { RewardController } from './useReward';
 import type { Translate } from './i18n';
@@ -42,6 +43,12 @@ export function Detail({ label, value }: { label: string; value: string }) {
   return <View style={{ gap: 5 }}><Text style={s.small}>{label}</Text><Text style={s.h3}>{value}</Text></View>;
 }
 export function Address({ label, address }: { label: string; address: string }) {
-  const { s, t } = useUI();
-  return <View style={s.between}><View style={{ flex: 1, gap: 5 }}><Text style={s.small}>{label}</Text><Text style={[s.body, { color: s.h3.color }]} selectable>{address.slice(0, 8)}…{address.slice(-8)}</Text></View><Button variant="ghost" icon="copy" label={t('Copiar endereço')} onPress={() => { void Clipboard.setStringAsync(address).then(() => ToastAndroid.show(t('Endereço copiado.'), ToastAndroid.SHORT)); }} /></View>;
+  const { C, s, t } = useUI();
+  const [copied, setCopied] = useState(false);
+  const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  function copy() { void Clipboard.setStringAsync(address).then(() => { setCopied(true); ToastAndroid.show(t('Endereço copiado.'), ToastAndroid.SHORT); if (timeout.current) clearTimeout(timeout.current); timeout.current = setTimeout(() => setCopied(false), 2200); }); }
+  return <Pressable accessibilityRole="button" accessibilityLabel={t('Copiar endereço')} onPress={copy} style={({ pressed }) => [s.row, { gap: 12, padding: 12, borderRadius: 16, backgroundColor: C.surface, opacity: pressed ? 0.72 : 1 }]}>
+    <View style={{ flex: 1, gap: 5 }}><Text style={s.small}>{label}</Text><Text style={[s.body, { color: s.h3.color }]} selectable>{address.slice(0, 8)}…{address.slice(-8)}</Text></View>
+    <Icon name={copied ? 'check' : 'copy'} size={20} color={copied ? C.green : C.muted} />
+  </Pressable>;
 }
