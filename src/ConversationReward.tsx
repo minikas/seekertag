@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import type { RewardView } from '../shared/reward';
 import { api } from './api';
-import { Button, Notice, Sheet, useUI } from './ui';
+import { Button, Notice, useUI } from './ui';
 import { confirmFinderWallet } from './platform/reward-wallet';
 import RewardSummary from './RewardSummary';
-import RewardPanel, { Address } from './RewardPanel';
+import RewardReleaseSheet from './RewardReleaseSheet';
+import { Address } from './RewardReview';
 import { rewardLocked } from './reward.model';
 
 type State = { reward: RewardView | null; recipient: string | null; tagId: string };
@@ -55,8 +56,9 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
       </>}
       <Text style={s.small}>{t('O dono precisa confirmar a devolução e assinar o pagamento. Após o prazo, ele também pode cancelar e recuperar o depósito.')}</Text>
     </> : <Button variant="success" icon="check-circle" onPress={() => setShow(true)}>{t('Devolução e recompensa')}</Button>)}
-    {show && data && <Sheet title={t('Devolução e recompensa')} onClose={() => { setShow(false); void load(); }}>
-      <RewardPanel key={data.tagId} tagId={data.tagId} token={token} reportId={id} recipient={data.recipient} onChanged={reward => { setData(prev => prev ? { ...prev, reward } : prev); callbacks.current.onLocked(rewardLocked(reward)); }} onReleased={() => { callbacks.current.onReleased(); setShow(false); }} />
-    </Sheet>}
+    {show && data && <RewardReleaseSheet tagId={data.tagId} token={token} reportId={id} recipient={data.recipient}
+      onClose={() => { setShow(false); void load(); }}
+      onChanged={reward => { setData(prev => prev ? { ...prev, reward } : prev); callbacks.current.onLocked(rewardLocked(reward)); }}
+      onReleased={() => callbacks.current.onReleased()} />}
   </View>;
 }
