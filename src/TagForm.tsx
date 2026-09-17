@@ -58,6 +58,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const [unit, setUnit] = useState<ReservationUnit>('days');
   const [renewing, setRenewing] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [refundConfirm, setRefundConfirm] = useState(false);
   const [savedBusy, setSavedBusy] = useState(false);
   const wallet = useReward({ token, tagId: currentTag?.id, currency,
     onChanged: next => {
@@ -244,7 +245,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   </BottomSheetModal>
     {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
       titleAccessory={reviewing && wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
-      title={waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
+      title={waiting ? t('Confirmando na rede') : refundConfirm ? t('Cancelar e recuperar') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => {
         setRewardOpen(false);
@@ -260,9 +261,14 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         {!!footerError && <Notice error text={footerError} />}
         {reviewing && operationId ? <Button variant={reviewPrepared ? reviewKind === 'refund' ? 'warning' : 'success' : 'secondary'} icon={reviewPrepared ? 'check' : 'refresh-cw'} busy={busy} disabled={reviewPrepared && reviewKind === 'release'} onPress={() => { if (reviewPrepared) void walletAction.current.approve(); else void walletAction.current.retry(); }}>{reviewPrepared ? t('Assinar na carteira') : t('Verificar transação')}</Button>
           : renewing ? <Button onPress={() => void save('renew')} busy={busy} disabled={saveDisabled}>{t('Salvar e revisar renovação')}</Button>
+          : refundConfirm ? null
           : (lockedReward || legacyReward || wantsReward) && <Button icon="check" disabled={busy || !lockedReward && wantsReward && !canReserve} onPress={() => { Keyboard.dismiss(); rewardSheet.current?.dismiss(); }}>{t('Concluir')}</Button>}
       </>}>
-      {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : <>
+      {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : refundConfirm ? <View style={{ gap: 18 }}>
+        <Notice tone="warning" text={t('Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.')} />
+        <Button variant="warning" icon="corner-up-left" busy={busy} disabled={busy || editingDisabled} onPress={() => { setRefundConfirm(false); void save('refund'); }}>{t('Confirmar recuperação')}</Button>
+        <Button variant="ghost" disabled={busy} onPress={() => setRefundConfirm(false)}>{t('Voltar')}</Button>
+      </View> : <>
         {lockedReward ? <>
           <RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} />
           {wallet.operation ? <Button variant="accent" icon="shield" onPress={() => { Keyboard.dismiss(); setReviewing(true); }}>{t('Retomar revisão')}</Button> : <>
@@ -271,7 +277,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
               {renewing ? <><RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} refundAfter={activeReward?.refundAfter} />
                 <Button variant="ghost" disabled={editingDisabled} onPress={() => setRenewing(false)}>{t('Cancelar renovação')}</Button></>
                 : <Button variant="accent" icon="refresh-cw" disabled={editingDisabled} onPress={() => setRenewing(true)}>{t('Renovar reserva')}</Button>}
-              {!renewing && <Button variant="warning" icon="corner-up-left" busy={busy} disabled={editingDisabled || !activeReward?.refundAfter || Date.parse(activeReward.refundAfter) > Date.now()} onPress={() => void save('refund')}>{t('Cancelar e recuperar')}</Button>}
+              {!renewing && <Button variant="warning" icon="corner-up-left" busy={busy} disabled={editingDisabled || !activeReward?.refundAfter || Date.parse(activeReward.refundAfter) > Date.now()} onPress={() => setRefundConfirm(true)}>{t('Cancelar e recuperar')}</Button>}
             </>}
             {activeReward?.status === 'unverified' && <Notice tone="warning" text={t('Não foi possível confirmar a reserva agora. Aguarde a conexão com a rede antes de continuar.')} />}
           </>}

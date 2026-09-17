@@ -10,7 +10,7 @@ import AccountActionSheet, { AccountActionSheetHandle } from './AccountActionShe
 import { ProviderMark } from './ProviderButton';
 import { Field, Icon, Notice, useUI } from './ui';
 
-export const periodLabels: Record<ReservationUnit, string> = { minutes: 'Minutos', hours: 'Horas', days: 'Dias', months: 'Meses', years: 'Anos' };
+export const periodLabels: Record<ReservationUnit, string> = { hours: 'Horas', days: 'Dias', months: 'Meses', years: 'Anos' };
 export function RewardPeriod({ quantity, unit, onQuantity, onUnit, disabled, refundAfter }: {
   quantity: string; unit: ReservationUnit; onQuantity: (value: string) => void; onUnit: (unit: ReservationUnit) => void; disabled?: boolean; refundAfter?: string | null;
 }) {
@@ -31,7 +31,7 @@ export function RewardPeriod({ quantity, unit, onQuantity, onUnit, disabled, ref
       </Pressable>
     </View>
     {valid ? <Text style={s.small}>{t('Cancelamento a partir de {date}', { date: deadline.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) })}</Text>
-      : !!quantity && <Notice error text={t(refundAfter ? 'A renovação não pode ultrapassar 5 anos a partir de hoje.' : unit === 'minutes' ? 'Prazo inválido. Escolha pelo menos 60 minutos e no máximo 5 anos.' : 'Prazo inválido. Escolha de 1 hora a 5 anos.')} />}
+      : !!quantity && <Notice error text={t(refundAfter ? 'A renovação não pode ultrapassar 5 anos a partir de hoje.' : 'Prazo inválido. Escolha de 1 hora a 5 anos.')} />}
     {picker && <AccountActionSheet ref={ref} title={t('Unidade do prazo')} onClose={() => setPicker(false)}>
       {(Object.keys(periodLabels) as ReservationUnit[]).map(option => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ checked: unit === option }} onPress={() => { onUnit(option); ref.current?.dismiss(); }} style={[s.between, { minHeight: 56 }]}>
         <Text style={s.body}>{t(periodLabels[option])}</Text>{unit === option && <Icon name="check" color={C.accent} />}

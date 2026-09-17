@@ -18,7 +18,7 @@ export default function RewardReview({ controller }: { controller: RewardControl
   return <View style={{ gap: 20 }}>
     {controller.operation?.status === 'submitted' && <RewardPendingNotice />}
     <View style={{ gap: 6 }}><Text style={s.small}>{t('Valor da recompensa')}</Text><Text style={s.h1}>{unitsToAmount(op.spec.amountUnits, REWARD_DECIMALS[op.currency]).replace('.', locale.startsWith('en') ? '.' : ',')} {op.currency}</Text></View>
-    {op.network !== 'mainnet' && <Notice tone="warning" text={t('Devnet: apenas tokens de teste. Nenhum saldo real será movimentado.')} />}
+    {op.network !== 'mainnet' && op.spec.kind !== 'refund' && <Notice tone="warning" text={t('Devnet: apenas tokens de teste. Nenhum saldo real será movimentado.')} />}
     {date && <Detail label={t('Cancelamento previsto a partir de')} value={date.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />}
     {op.spec.recipient && <Address label={t('Quem receberá')} address={op.spec.recipient} />}
     <Detail label={t('Taxa da rede')} value={`${unitsToAmount(op.feeLamports, 9)} SOL`} />

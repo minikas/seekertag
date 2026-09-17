@@ -39,8 +39,6 @@ import { reservationSeconds, reservationDeadline, maskRewardAmount, stepRewardAm
 import { rewardDuration } from '../../shared/reward.ts';
 test('reservation units have explicit bounds and exact deadlines, without month rollover or DST ambiguity', () => {
   assert.equal(reservationSeconds('1', 'hours'), 3600);
-  assert.equal(reservationSeconds('60', 'minutes'), 3600);
-  assert.equal(reservationSeconds('59', 'minutes'), null);
   assert.equal(reservationSeconds('2', 'months'), 60 * 86400);
   assert.equal(reservationSeconds('5', 'years'), 5 * 365 * 86400);
   for (const [value, unit] of [['0','hours'], ['6','years'], ['43801','hours'], ['1.5','days'], ['1e2','days'], ['-1','hours']]) assert.equal(reservationSeconds(value, unit), null);

@@ -1,6 +1,7 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
   "Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.": ["Confirm only after the reservation period ends. The deposit will return to the wallet that funded the reward.", "Confirma solo cuando termine el plazo de la reserva. El depósito volverá a la cartera que financió la recompensa."],
+  "Confirmar recuperação": ["Confirm recovery", "Confirmar recuperación"],
   "Unidade do prazo": ["Reservation unit", "Unidad del plazo"],
   "Sobre saldo e cotação": ["About balance and prices", "Sobre saldo y cotización"],
   "Cotação de referência da CoinGecko. Em redes de teste, os tokens não têm valor real.": ["Reference price from CoinGecko. Test network tokens have no real value.", "Precio de referencia de CoinGecko. Los tokens de redes de prueba no tienen valor real."],
