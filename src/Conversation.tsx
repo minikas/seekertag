@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { api, Message, Report } from './api';
 import { Button, Field, Icon, Notice, useUI } from './ui';
 import ConversationReward from './ConversationReward';
@@ -16,9 +16,13 @@ export default function Conversation({ id, token, finder = false, onResolved }: 
   return <View style={{ flex: 1, gap: 18, minHeight: 440 }}>
     <View style={[s.between, { flexWrap: 'wrap' }]}><View style={{ gap: 6 }}><Text style={s.h3}>{report?.tagName || t("Conversa privada")}</Text><Text style={s.small}>{finder ? t("Você está falando com o dono.") : t("Com {name}", { name: report?.finderName || t("quem encontrou") })}</Text></View><View style={[s.row, { backgroundColor: C.soft, padding: 10, borderRadius: 16 }]}><Icon name="shield" size={17} color={C.accent} /><Text style={{ color: C.accent, fontSize: 13 }}>{t("Contatos protegidos")}</Text></View></View>
     {!!error && <Notice error text={error} />}
-    {!report && !error ? <ActivityIndicator color={C.accent} /> : null}
+    {!report && !error ? <View accessibilityLabel={t("Carregando conversa")} style={{ gap: 14, paddingVertical: 10 }}>
+      <View style={{ width: '78%', height: 54, borderRadius: 16, backgroundColor: C.surface }} />
+      <View style={{ width: '58%', height: 42, borderRadius: 16, backgroundColor: C.surface, alignSelf: 'flex-end' }} />
+      <View style={{ width: '70%', height: 58, borderRadius: 16, backgroundColor: C.surface }} />
+    </View> : null}
     {finder && <Text style={s.small}>{t("Escaneie a etiqueta novamente para voltar à conversa neste aplicativo. Apagar os dados do aplicativo remove o acesso salvo neste aparelho.")}</Text>}
-    <ScrollView ref={scroll} style={{ maxHeight: 400, minHeight: 200, backgroundColor: C.bg, borderRadius: 15 }} contentContainerStyle={{ padding: 15, gap: 14 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}>
+    <ScrollView ref={scroll} style={{ maxHeight: 400, minHeight: 200, backgroundColor: C.bg, borderRadius: 15, display: report ? 'flex' : 'none' }} contentContainerStyle={{ padding: 15, gap: 14 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}>
       {messages.map(message => { const own = message.role === (finder ? 'finder' : 'owner'); return <View key={message.id} style={{ alignSelf: own ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 5 }}><View style={{ backgroundColor: own ? C.primary : C.surface, paddingHorizontal: 16, paddingVertical: 13, borderRadius: 16, borderBottomRightRadius: own ? 4 : 16, borderBottomLeftRadius: own ? 16 : 4 }}><Text style={{ color: own ? C.onPrimary : C.ink, fontSize: 17, lineHeight: 25 }}>{message.body}</Text></View><Text style={[s.small, { fontSize: 12, alignSelf: own ? 'flex-end' : 'flex-start' }]}>{own ? t("Você") : message.role === 'owner' ? t("Dono") : report?.finderName || t("Quem encontrou")} · {new Date(message.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</Text></View>; })}
     </ScrollView>
     {report && <ConversationReward key={id} id={id} token={token} finder={finder} open={report.status === 'open'} onLocked={setRewardBlocksReturn} onReleased={() => { setReport(previous => previous ? { ...previous, status: 'resolved' } : previous); onResolved?.(); }} />}

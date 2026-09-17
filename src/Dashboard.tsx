@@ -27,12 +27,12 @@ const tabs: { key: Tab; label: string; icon: IconName }[] = [
 export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, helpDismissed = false, onExpired }: { token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; helpDismissed?: boolean; onExpired: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
-  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [browsing, setBrowsing] = useState<TagFilter | null>(null); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [initialLoading, setInitialLoading] = useState(true); const [browsing, setBrowsing] = useState<TagFilter | null>(null); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
   const [focusReward, setFocusReward] = useState(false);
   const scroll = useRef<KeyboardAwareScrollViewRef>(null);
   const [headerHeight, setHeaderHeight] = useState(72);
   const header = useScrollHeader(headerHeight);
-  const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setSelected(current => current ? items.tags.find(tag => tag.id === current.id) : current); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); } }, [token]);
+  const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setSelected(current => current ? items.tags.find(tag => tag.id === current.id) : current); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); setInitialLoading(false); } }, [token]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     // Do not refresh and rerender the covered dashboard while editing a form.
@@ -57,7 +57,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     <KeyboardAwareScrollView bottomOffset={24} ref={scroll} onScroll={header.onScroll} scrollEventThrottle={16} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} progressViewOffset={headerHeight} />} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight }]}>
       <View style={styles.content}>
       {!!error && <Notice error text={error} />}
-      {tab === 'items' ? <>
+      {tab === 'items' ? initialLoading ? <DashboardSkeleton /> : <>
         <Text accessibilityRole="header" style={s.h1}>{t("Meus objetos")}</Text>
         <View style={styles.stats}>{stats.map(stat => <Pressable key={stat.filter} accessibilityRole="button" accessibilityLabel={stat.label} onPress={() => setBrowsing(stat.filter)} style={({ pressed }) => [styles.stat, pressed && styles.pressed]}>
           <Text style={styles.statValue}>{stat.value.toLocaleString(locale)}</Text><Text style={styles.statLabel}>{stat.label}</Text>
@@ -106,6 +106,23 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     {browsing && <ObjectsScreen initialFilter={browsing} tags={tags} onSelect={setSelected} onClose={() => setBrowsing(null)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} suspended={!!form} />}
     {form && <TagForm focusReward={focusReward} onCategoriesChanged={() => void refresh(true)} token={token} tag={form === 'new' ? undefined : form} onClose={() => { setForm(null); setFocusReward(false); }} onSaved={tag => { saveTag(tag); setForm(null); setFocusReward(false); }} />}
     {selected && !form && <TagDetails tag={selected} token={token} user={user} onClose={() => setSelected(undefined)} onUpdated={saveTag} onEdit={(tag, reward = false) => { setFocusReward(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); void refresh(); }} />}
+  </View>;
+}
+
+function DashboardSkeleton() {
+  const { C, t } = useUI();
+  const block = { backgroundColor: C.surface, borderRadius: 12 } as const;
+  return <View accessibilityLabel={t("Carregando objetos")} style={{ gap: 26 }}>
+    <View style={[block, { width: 190, height: 38 }]} />
+    <View style={{ flexDirection: 'row', gap: 16 }}>
+      {[0, 1, 2].map(index => <View key={index} style={{ flex: 1, gap: 8 }}><View style={[block, { width: 44, height: 32 }]} /><View style={[block, { width: '82%', height: 18 }]} /></View>)}
+    </View>
+    <View style={[block, { height: 54, borderRadius: 18 }]} />
+    <View style={[block, { height: 106, borderRadius: 24 }]} />
+    <View style={{ gap: 18 }}>
+      <View style={[block, { width: 120, height: 26 }]} />
+      {[0, 1, 2].map(index => <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 }}><View style={[block, { width: 48, height: 48, borderRadius: 16 }]} /><View style={{ flex: 1, gap: 8 }}><View style={[block, { width: `${62 - index * 8}%`, height: 20 }]} /><View style={[block, { width: '42%', height: 15 }]} /></View></View>)}
+    </View>
   </View>;
 }
 
