@@ -99,6 +99,22 @@ test('anonymous finders and other signed-in accounts can still notify the owner'
   }
 });
 
+test('a finder account resumes its saved conversation on another device and can claim an existing anonymous one', async (t) => {
+  const h = await harness(); t.after(h.close);
+  const owner = await h.register(); const finder = await h.register('Pessoa que encontrou'); const other = await h.register('Outra pessoa'); const tag = await h.tag(owner);
+  const signedIn = await h.request(`/public/tags/${tag.code}/reports`, { token: finder.token, method: 'POST', body: { message: 'Encontrei o objeto' } });
+  assert.equal(signedIn.status, 201);
+  assert.equal((await h.request(`/finder/reports/${signedIn.data.report.id}`, { token: finder.token })).status, 200);
+  assert.equal((await h.request(`/finder/tags/${tag.code}/report`, { token: finder.token })).data.report.id, signedIn.data.report.id);
+  assert.equal((await h.request(`/finder/reports/${signedIn.data.report.id}`, { token: other.token })).status, 404);
+
+  const anonymous = await h.report(tag, 'Aviso anônimo que será salvo');
+  assert.equal((await h.request(`/finder/reports/${anonymous.report.id}/account`, { token: finder.token, method: 'POST', body: { token: anonymous.token } })).status, 200);
+  assert.equal((await h.request(`/finder/reports/${anonymous.report.id}`, { token: finder.token })).status, 200);
+  assert.equal((await h.request(`/finder/reports/${anonymous.report.id}/account`, { token: other.token, method: 'POST', body: { token: anonymous.token } })).status, 409);
+  assert.equal((await h.request(`/finder/reports/${anonymous.report.id}/account`, { token: finder.token, method: 'POST', body: { token: 'wrong' } })).status, 401);
+});
+
 test('invalid or revoked public-route sessions cannot fall back to anonymous posting', async (t) => {
   const h = await harness(); t.after(h.close);
   const owner = await h.register(); const tag = await h.tag(owner);

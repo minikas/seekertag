@@ -128,8 +128,10 @@ O campo `rewardAmount` sozinho é um **valor opcional anunciado**, de 0 a 1.000.
 | `POST /public/tags/:code/reports` | `{ finderName?, message }` | `201 { report, token, messages }` |
 | `GET /finder/reports/:id` | — | `{ report, messages, tag: PublicTag }` |
 | `POST /finder/reports/:id/messages` | `{ body }` | `201 { message }` |
+| `GET /finder/tags/:code/report` | sessão da conta | `{ report: Report | null }` para a conversa aberta salva por essa conta |
+| `POST /finder/reports/:id/account` | sessão da conta + `{ token }` da conversa no aparelho original | vincula a conversa anônima à conta |
 
-As duas rotas `/public/tags/:code` aceitam a sessão da conta no cabeçalho `Authorization`. A consulta informa `viewerIsOwner` sem expor a identidade do dono; a criação de aviso responde `403 SELF_REPORT` se a conta for a dona atual do objeto. Uma sessão informada, mas inválida ou revogada, responde `401`; ela nunca é tratada como visita anônima. Visitantes sem sessão e outras contas continuam podendo avisar o dono.
+As duas rotas `/public/tags/:code` aceitam a sessão da conta no cabeçalho `Authorization`. A consulta informa `viewerIsOwner` sem expor a identidade do dono; a criação de aviso responde `403 SELF_REPORT` se a conta for a dona atual do objeto. Uma sessão informada, mas inválida ou revogada, responde `401`; ela nunca é tratada como visita anônima. Visitantes sem sessão e outras contas continuam podendo avisar o dono. Um aviso criado com sessão fica vinculado àquela conta e pode ser retomado em outro aparelho. Para salvar uma conversa anônima depois, o visitante precisa estar logado e apresentar a credencial local da própria conversa; essa operação não aceita credenciais em URL e não transfere conversas já vinculadas a outra conta.
 
 `PublicTag` contém exclusivamente `{ code, name, category, categoryIcon, color, publicMessage, status, rewardAmount, rewardCurrency }`. Não inclui e-mail, nome da conta, ID do dono, descrição privada ou histórico. Objeto arquivado (`status: 'paused'`) responde `410 TAG_PAUSED` à consulta pública, criação de aviso e envio de mensagens. Uma conversa existente pode continuar sendo lida e mostra o estado arquivado. `active` e `lost` aceitam avisos: encontrar um item antes de o dono perceber a perda também é um caso válido.
 

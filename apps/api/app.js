@@ -75,6 +75,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     CREATE TABLE IF NOT EXISTS reports (
       id TEXT PRIMARY KEY, tag_id TEXT NOT NULL REFERENCES tags(id), owner_id TEXT NOT NULL REFERENCES users(id),
       tag_name TEXT NOT NULL, tag_code TEXT NOT NULL, finder_name TEXT NOT NULL,
+      finder_user_id TEXT REFERENCES users(id),
       capability_hash TEXT UNIQUE NOT NULL, status TEXT NOT NULL CHECK(status IN ('open','resolved')),
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ) STRICT;
@@ -94,6 +95,12 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
   `);
   migrateAuth(db);
+  // Older installations created finder conversations without an account. Keep
+  // those conversations usable, while allowing their holder to save them.
+  if (!db.prepare('PRAGMA table_info(reports)').all().some(column => column.name === 'finder_user_id')) {
+    db.exec('ALTER TABLE reports ADD COLUMN finder_user_id TEXT REFERENCES users(id);');
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS reports_finder_user ON reports(finder_user_id, updated_at);');
   const get = (sql, ...params) => db.prepare(sql).get(...params);
   const all = (sql, ...params) => db.prepare(sql).all(...params);
   const run = (sql, ...params) => db.prepare(sql).run(...params);
@@ -189,7 +196,13 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     return report;
   };
   const requireFinder = (req, _res, next) => {
-    const report = get('SELECT * FROM reports WHERE id=? AND capability_hash=?', req.params.id, hash(bearer(req)));
+    const tokenHash = hash(bearer(req));
+    // A finder can use the original device capability or the account to which
+    // they explicitly saved this conversation. Neither grants access to other
+    // finder conversations.
+    const report = get(`SELECT reports.* FROM reports
+      LEFT JOIN sessions ON sessions.hash=? AND sessions.expires_at>?
+      WHERE reports.id=? AND (reports.capability_hash=? OR reports.finder_user_id=sessions.user_id)`, tokenHash, Date.now(), req.params.id, tokenHash);
     if (!report) fail(404, 'Conversa não encontrada. Use o mesmo dispositivo em que enviou o aviso.', 'NOT_FOUND');
     req.finderReport = report; next();
   };
@@ -425,7 +438,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     if (get("SELECT COUNT(*) AS n FROM reports WHERE tag_id=? AND status='open'", tag.id).n >= 100) fail(429, 'Esta etiqueta recebeu muitos avisos. Tente novamente mais tarde.', 'REPORT_LIMIT');
     const id = randomUUID(); const token = secret(); const at = now();
     transaction(() => {
-      run("INSERT INTO reports(id,tag_id,owner_id,tag_name,tag_code,finder_name,capability_hash,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'open',?,?)", id, tag.id, tag.owner_id, tag.name, tag.code, finderName, hash(token), at, at);
+      run("INSERT INTO reports(id,tag_id,owner_id,tag_name,tag_code,finder_name,finder_user_id,capability_hash,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'open',?,?)", id, tag.id, tag.owner_id, tag.name, tag.code, finderName, req.user?.id || null, hash(token), at, at);
       run("INSERT INTO messages(report_id,role,body,created_at) VALUES(?,'finder',?,?)", id, message, at);
     });
     res.status(201).json({ report: reportView(get('SELECT * FROM reports WHERE id=?', id)), token, messages: messagesFor(id) });
@@ -454,6 +467,22 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     // A resolved conversation keeps its original item snapshot after ownership changes.
     const tagData = tag.owner_id === r.owner_id ? publicView(tag) : { code: r.tag_code, name: r.tag_name, category: 'other', color: '#B9C79B', publicMessage: '', status: 'active', rewardAmount: 0, rewardCurrency: 'BRL' };
     res.json({ report: reportView(r), messages: messagesFor(r.id), tag: tagData });
+  });
+  app.get('/api/finder/tags/:code/report', requireOwner, (req, res) => {
+    const tag = publicTag(req.params.code);
+    if (tag.owner_id === req.user.id) return res.json({ report: null });
+    const report = get("SELECT * FROM reports WHERE tag_id=? AND finder_user_id=? AND status='open' ORDER BY updated_at DESC, id DESC LIMIT 1", tag.id, req.user.id);
+    res.json({ report: report ? reportView(report) : null });
+  });
+  app.post('/api/finder/reports/:id/account', requireOwner, (req, res) => {
+    const capability = typeof req.body.token === 'string' && /^[A-Za-z0-9_-]{43}$/.test(req.body.token) ? req.body.token : null;
+    if (!capability) fail(401, 'Abra a conversa no aparelho em que você enviou o aviso para salvá-la na conta.', 'FINDER_CAPABILITY_REQUIRED');
+    const report = get('SELECT * FROM reports WHERE id=? AND capability_hash=?', req.params.id, hash(capability));
+    if (!report) fail(404, 'Conversa não encontrada. Use o mesmo dispositivo em que enviou o aviso.', 'NOT_FOUND');
+    if (report.owner_id === req.user.id) fail(403, 'O dono não pode salvar esta conversa como visitante.', 'SELF_REPORT');
+    if (report.finder_user_id && report.finder_user_id !== req.user.id) fail(409, 'Esta conversa já foi salva em outra conta.', 'FINDER_ACCOUNT_LINKED');
+    if (!report.finder_user_id) run('UPDATE reports SET finder_user_id=? WHERE id=?', req.user.id, report.id);
+    res.json({ report: reportView(get('SELECT * FROM reports WHERE id=?', report.id)) });
   });
   app.post('/api/finder/reports/:id/messages', requireFinder, messageLimit, (req, res) => res.status(201).json({ message: addMessage(req.finderReport, 'finder', string(req.body.body, 'Mensagem', 2000)) }));
   const notFound = (_req, res) => res.status(404).json({ error: 'Recurso não encontrado.', code: 'NOT_FOUND' });

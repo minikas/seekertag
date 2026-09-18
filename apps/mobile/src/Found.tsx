@@ -2,8 +2,8 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { api, Report, Tag } from './api';
+import { ActivityIndicator, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import { api, Provider, Report, Tag, User } from './api';
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import { categoryInk, tagCategoryLabel } from './category.model';
@@ -12,11 +12,15 @@ import RewardSummary from './RewardSummary';
 import { secureStorage } from './platform/storage';
 import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
 import { finderFormSchema, type FinderFormValues } from './form.model';
+import { authenticate, AuthAvailability } from './platform/auth';
+import ProviderButton from './ProviderButton';
+import AccountActionSheet from './AccountActionSheet';
+import { translateNotice } from './i18n';
 
-export default function Found({ code, chatId, token, goHome, goChat }: { code?: string; chatId?: string; token: string | null; goHome: () => void; goChat: (id: string) => void }) {
+export default function Found({ code, chatId, token, goHome, goChat, onAuth }: { code?: string; chatId?: string; token: string | null; goHome: () => void; goChat: (id: string) => void; onAuth: (token: string, user: User) => Promise<void> }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
-  const [viewerIsOwner, setViewerIsOwner] = useState(false);
+  const [viewerIsOwner, setViewerIsOwner] = useState(false); const [account, setAccount] = useState(false); const [availability, setAvailability] = useState<AuthAvailability>(); const [provider, setProvider] = useState<Provider | null>(null);
   const [tag, setTag] = useState<Tag>(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [chatToken, setChatToken] = useState<string | null>(null);
   const { control, handleSubmit, watch, formState: { errors } } = useForm<FinderFormValues>({ resolver: zodResolver(finderFormSchema), mode: 'onChange', defaultValues: { finderName: '', message: '' } });
   const message = watch('message');
@@ -27,14 +31,19 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
       try {
         if (chatId) {
           const saved = await secureStorage.get(`finder-${chatId}`);
-          if (!saved) throw new Error('Esta conversa está disponível no aplicativo em que você avisou o dono. Se apagou os dados do app ou está em outro aparelho, escaneie a etiqueta e envie um novo aviso.');
-          if (live) setChatToken(saved);
+          if (saved) { if (live) setChatToken(saved); }
+          else if (token) { await api<{ report: Report }>(`/finder/reports/${chatId}`, token); if (live) setChatToken(token); }
+          else throw new Error('Entre na conta em que você salvou esta conversa ou abra-a no aparelho em que enviou o aviso.');
         } else if (code) {
           // Determine ownership before resuming any finder thread from this phone.
           const result = await api<{ tag: Tag; viewerIsOwner: boolean }>(`/public/tags/${encodeURIComponent(code)}`, token);
           if (!live) return;
           setTag(result.tag); setViewerIsOwner(result.viewerIsOwner);
           if (result.viewerIsOwner) return;
+          if (token) {
+            const savedAccountReport = await api<{ report: Report | null }>(`/finder/tags/${encodeURIComponent(code)}/report`, token);
+            if (savedAccountReport.report) { if (live) goChat(savedAccountReport.report.id); return; }
+          }
           const previous = await secureStorage.get(`tag-chat-${code}`);
           if (previous) {
             const saved = await secureStorage.get(`finder-${previous}`);
@@ -51,7 +60,21 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
     void load();
     return () => { live = false; };
   }, [code, chatId, token]);
+  useEffect(() => { if (!account) return; let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) ToastAndroid.show(t('Não foi possível verificar os acessos disponíveis. Tente novamente.'), ToastAndroid.LONG); }); return () => { live = false; }; }, [account, t]);
   async function submit(values: FinderFormValues) { if (busy || loading || viewerIsOwner || !tag) return; setError(''); setBusy(true); try { const result = await api<{ report: Report; token: string }>(`/public/tags/${code}/reports`, token, { finderName: values.finderName || t('Uma pessoa que quer ajudar'), message: values.message }); await secureStorage.set(`finder-${result.report.id}`, result.token); await secureStorage.set(`tag-chat-${code}`, result.report.id); goChat(result.report.id); } catch(e) { setError((e as Error).message); } finally { setBusy(false); } }
+  async function login(providerName: Provider) {
+    if (provider) return;
+    setProvider(providerName);
+    try {
+      const result = await authenticate(providerName, 'login', undefined, locale.slice(0, 2));
+      if (!result?.token || !result.user) return;
+      await onAuth(result.token, result.user);
+      if (chatId && chatToken) await api(`/finder/reports/${chatId}/account`, result.token, { token: chatToken });
+      setAccount(false);
+      ToastAndroid.show(t(chatId ? 'Conversa salva na sua conta.' : 'Conta pronta. Esta conversa será salva nela.'), ToastAndroid.LONG);
+    } catch (cause) { ToastAndroid.show(translateNotice(t, cause instanceof Error ? cause.message : 'Não foi possível entrar. Tente novamente.'), ToastAndroid.LONG); }
+    finally { setProvider(null); }
+  }
   const cat = { color: tag?.color || C.raised, icon: (tag?.categoryIcon || 'box') as IconName };
   return <View style={{ flex: 1, backgroundColor: C.bg }}>
     <View style={s.screenHeader}>
@@ -83,7 +106,7 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
         </View>
       </View>}
       {!!error && <Notice error text={error} />}
-      {chatId && chatToken ? <Conversation id={chatId} token={chatToken} finder /> : tag ? <>
+      {chatId && chatToken ? <><Conversation id={chatId} token={chatToken} finder />{!token && <View style={s.card}><Text style={s.h3}>{t('Salve esta conversa')}</Text><Text style={s.body}>{t('Crie uma conta para continuar esta conversa em outro celular.')}</Text><Button variant="secondary" icon="user" onPress={() => setAccount(true)}>{t('Criar conta ou entrar')}</Button></View>}</> : tag ? <>
         <View style={styles.identity}>
           <View style={[styles.itemIcon, { backgroundColor: cat.color }]}><Icon name={cat.icon} color={categoryInk(cat.color)} size={28} /></View>
           <View style={{ flex: 1, gap: 4 }}><Text accessibilityRole="header" style={s.h2}>{tag.name}</Text><Text style={s.body}>{tagCategoryLabel(tag, t)}</Text></View>
@@ -98,10 +121,18 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
         <Controller control={control} name="finderName" render={({ field }) => <Field label={t("Seu nome (opcional)")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.finderName?.message} placeholder={t("Seu primeiro nome ou apelido")} maxLength={60} editable={!busy} autoComplete="nickname" />} />
         <Controller control={control} name="message" render={({ field }) => <Field label={t("Mensagem para o dono")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.message?.message} placeholder={t("Conte onde encontrou o objeto.")} multiline maxLength={2000} editable={!busy} />} />
         <Button onPress={() => void handleSubmit(submit)()} busy={busy} disabled={loading || !message.trim() || !!errors.message || !!errors.finderName} icon="send">{t("Avisar o dono")}</Button>
+        {!token && <View style={s.card}><Text style={s.h3}>{t('Quer continuar em outro celular?')}</Text><Text style={s.body}>{t('Crie uma conta antes de avisar o dono para salvar a conversa.')}</Text><Button variant="secondary" icon="user" onPress={() => setAccount(true)}>{t('Criar conta ou entrar')}</Button></View>}
         <View style={[s.row, { alignItems: 'flex-start' }]}><Icon name="shield" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Converse pelo app sem compartilhar seus contatos.")}</Text></View>
         </>}
       </> : null}
     </KeyboardAwareScrollView>
+    {account && <AccountActionSheet title={t('Salvar conversa na conta')} busy={!!provider} onClose={() => setAccount(false)}><View style={styles.methods}>
+      <Text style={s.body}>{t('Use sua conta SeekerTag para retomar esta conversa em qualquer celular.')}</Text>
+      <ProviderButton align="left" provider="solana" label={t('Continuar com Seeker / Solana')} busy={provider === 'solana'} disabled={!!provider && provider !== 'solana'} onPress={() => void login('solana')} />
+      <View style={styles.divider}><View style={styles.line} /><Text style={s.small}>{t('ou continue com')}</Text><View style={styles.line} /></View>
+      <ProviderButton align="left" provider="google" label={t('Continuar com Google')} busy={provider === 'google'} disabled={!availability || (!!provider && provider !== 'google')} unavailable={availability?.google === false} onPress={() => void login('google')} />
+      <ProviderButton align="left" provider="apple" label={t('Continuar com Apple')} busy={provider === 'apple'} disabled={!availability || (!!provider && provider !== 'apple')} unavailable={availability?.apple === false} onPress={() => void login('apple')} />
+    </View></AccountActionSheet>}
   </View>;
 }
 
@@ -119,4 +150,5 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8 },
   itemIcon: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   message: { padding: 18, borderRadius: 22, backgroundColor: C.surface, gap: 8 },
+  methods: { gap: 14 }, divider: { flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 9 }, line: { flex: 1, height: 1, backgroundColor: C.line },
 });

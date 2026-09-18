@@ -281,3 +281,12 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Escolha outra categoria para os objetos antes de excluir.': ['Choose another category for the items before deleting.', 'Elige otra categoría para los objetos antes de eliminar.'],
   'Escolha uma categoria diferente.': ['Choose a different category.', 'Elige una categoría diferente.'],
 };
+  'Salve esta conversa': ['Save this conversation', 'Guarda esta conversación'],
+  'Crie uma conta para continuar esta conversa em outro celular.': ['Create an account to continue this conversation on another phone.', 'Crea una cuenta para continuar esta conversación en otro teléfono.'],
+  'Criar conta ou entrar': ['Create account or sign in', 'Crear cuenta o iniciar sesión'],
+  'Quer continuar em outro celular?': ['Want to continue on another phone?', '¿Quieres continuar en otro teléfono?'],
+  'Crie uma conta antes de avisar o dono para salvar a conversa.': ['Create an account before notifying the owner to save the conversation.', 'Crea una cuenta antes de avisar al dueño para guardar la conversación.'],
+  'Salvar conversa na conta': ['Save conversation to account', 'Guardar conversación en la cuenta'],
+  'Use sua conta SeekerTag para retomar esta conversa em qualquer celular.': ['Use your SeekerTag account to resume this conversation on any phone.', 'Usa tu cuenta SeekerTag para retomar esta conversación en cualquier teléfono.'],
+  'Conversa salva na sua conta.': ['Conversation saved to your account.', 'Conversación guardada en tu cuenta.'],
+  'Conta pronta. Esta conversa será salva nela.': ['Your account is ready. This conversation will be saved to it.', 'Tu cuenta está lista. Esta conversación se guardará en ella.'],
