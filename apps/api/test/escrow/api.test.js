@@ -243,6 +243,8 @@ test('new object reward setup is authenticated and timed reservations preserve e
   assert.equal((await h.request('/rewards/balance?currency=SOL')).status, 401);
   const setup = await h.request('/rewards/config', owner.token);
   assert.equal(setup.data.config.minSeconds, 3_600); assert.equal(setup.data.config.maxSeconds, 5 * 365 * 86_400);
+  assert.equal(setup.data.config.treasury, h.rpc.treasury.publicKey.toBase58()); assert.equal(setup.data.config.feeBps, 500);
+  assert.deepEqual(setup.data.config.verifiers, [h.rpc.verifier.publicKey.toBase58()]);
   assert.equal(setup.data.payer, owner.wallet.publicKey.toBase58());
   assert.equal((await h.request('/rewards/balance?currency=SOL', owner.token)).data.availableUnits, '10000000000');
   const tag = await h.tag(owner);

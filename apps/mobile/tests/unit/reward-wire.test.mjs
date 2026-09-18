@@ -5,10 +5,11 @@ import { rewardInstructions, verifyRewardTransaction } from '@seekertag/shared/e
 import { MAINNET_MINTS } from '@seekertag/shared/reward';
 
 test('reviewed compute budget survives wallet signing and refuses fee or instruction changes', () => {
-  const owner = Keypair.generate(); const verifier = Keypair.generate(); const finder = Keypair.generate();
+  const owner = Keypair.generate(); const verifier = Keypair.generate(); const treasury = Keypair.generate(); const finder = Keypair.generate();
   for (const mint of [null, MAINNET_MINTS.USDC, MAINNET_MINTS.SKR]) {
     for (const kind of ['fund', 'renew', 'release', 'refund']) {
       const spec = { kind, payer: owner.publicKey.toBase58(), verifier: verifier.publicKey.toBase58(),
+        treasury: treasury.publicKey.toBase58(), feeBps: 500,
         recipient: finder.publicKey.toBase58(), rewardId: '12'.repeat(32), reportHash: '34'.repeat(32),
         mint, amountUnits: '1000000', durationSeconds: 3600, computeBudget: 'fixed-v2' };
       const tx = new Transaction({ feePayer: owner.publicKey, recentBlockhash: Keypair.generate().publicKey.toBase58() }).add(...rewardInstructions(spec));
@@ -35,8 +36,8 @@ test('reviewed compute budget survives wallet signing and refuses fee or instruc
 });
 
 test('persisted operations without a budget keep their original instruction format', () => {
-  const owner = Keypair.generate();
-  const spec = { kind: 'fund', payer: owner.publicKey.toBase58(), verifier: Keypair.generate().publicKey.toBase58(),
+  const owner = Keypair.generate(); const verifier = Keypair.generate(); const treasury = Keypair.generate();
+  const spec = { kind: 'fund', payer: owner.publicKey.toBase58(), verifier: verifier.publicKey.toBase58(), treasury: treasury.publicKey.toBase58(), feeBps: 500,
     rewardId: '56'.repeat(32), mint: null, amountUnits: '1000000', days: 30 };
   const tx = new Transaction({ feePayer: owner.publicKey, recentBlockhash: Keypair.generate().publicKey.toBase58() }).add(...rewardInstructions(spec));
   assert.equal(tx.instructions.length, 1);
@@ -48,8 +49,8 @@ test('persisted operations without a budget keep their original instruction form
 });
 
 test('replays the Seeker Wallet fee replacement captured after native signing', () => {
-  const owner = Keypair.generate();
-  const base = { kind: 'fund', payer: owner.publicKey.toBase58(), verifier: Keypair.generate().publicKey.toBase58(),
+  const owner = Keypair.generate(); const verifier = Keypair.generate(); const treasury = Keypair.generate();
+  const base = { kind: 'fund', payer: owner.publicKey.toBase58(), verifier: verifier.publicKey.toBase58(), treasury: treasury.publicKey.toBase58(), feeBps: 500,
     rewardId: '78'.repeat(32), mint: MAINNET_MINTS.SKR, amountUnits: '1000000', durationSeconds: 3600 };
   for (const version of ['fixed-v1', 'fixed-v2']) {
     const spec = { ...base, computeBudget: version };

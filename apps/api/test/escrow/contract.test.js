@@ -7,15 +7,16 @@ import { getTransactionDecoder } from '@solana/kit';
 import { LiteSVM, FailedTransactionMetadata } from 'litesvm';
 import { PROGRAM, TOKEN_PROGRAM, escrowAddress, vaultAddress, tokenAddress, rewardInstructions, decodeEscrow, verifyRewardTransaction } from '@seekertag/shared/escrow-wire';
 import { MAINNET_MINTS, amountToUnits, rewardPlatformFee, unitsToAmount } from '@seekertag/shared/reward';
+import { createRewardChain } from '../../rewards/chain.js';
 
 const binary = fileURLToPath(new URL('../../../../artifacts/escrow/seekertag_escrow.so', import.meta.url));
-function fixture(mintAddress = null) {
+function fixture(mintAddress = null, feeBps = 500) {
   const svm = new LiteSVM();
   svm.addProgramFromFile(PROGRAM.toBase58(), binary);
   const clock = svm.getClock(); clock.unixTimestamp = 1_800_000_000n; svm.setClock(clock);
-  const owner = Keypair.generate(); const verifier = Keypair.generate(); const finder = Keypair.generate(); const attacker = Keypair.generate();
-  for (const account of [owner, verifier, finder, attacker]) svm.airdrop(account.publicKey.toBase58(), 10_000_000_000n);
-  const spec = { kind: 'fund', payer: owner.publicKey.toBase58(), verifier: verifier.publicKey.toBase58(), rewardId: randomBytes(32).toString('hex'), amountUnits: '20000000', days: 30, mint: mintAddress };
+  const owner = Keypair.generate(); const verifier = Keypair.generate(); const treasury = Keypair.generate(); const finder = Keypair.generate(); const attacker = Keypair.generate();
+  for (const account of [owner, verifier, treasury, finder, attacker]) svm.airdrop(account.publicKey.toBase58(), 10_000_000_000n);
+  const spec = { kind: 'fund', payer: owner.publicKey.toBase58(), verifier: verifier.publicKey.toBase58(), treasury: treasury.publicKey.toBase58(), feeBps, rewardId: randomBytes(32).toString('hex'), amountUnits: '20000000', days: 30, mint: mintAddress };
   const escrow = escrowAddress(spec.payer, spec.rewardId); const vault = vaultAddress(escrow);
   const state = () => decodeEscrow(svm.getAccount(escrow.toBase58()).data);
   function send(changes = {}, signers = [owner], edit = tx => tx) {
@@ -38,7 +39,7 @@ function fixture(mintAddress = null) {
     const source = Buffer.alloc(165); mint.toBuffer().copy(source); owner.publicKey.toBuffer().copy(source, 32); source.writeBigUInt64LE(100_000_000n, 64); source[108] = 1;
     writeAccount(tokenAddress(owner.publicKey, mint), source);
   }
-  return { svm, owner, verifier, finder, attacker, spec, escrow, vault, state, send, expectOK, expectFail, setClock, tokenBalance, writeAccount };
+  return { svm, owner, verifier, treasury, finder, attacker, spec, escrow, vault, state, send, expectOK, expectFail, setClock, tokenBalance, writeAccount };
 }
 
 test('SOL is locked on chain, can be renewed, and only refunded to its depositor after expiry', () => {
@@ -66,10 +67,10 @@ test('SOL release needs both owner and verifier; receipt binds the finder and re
   f.expectFail(f.send(release, [f.owner], tx => { tx.instructions[0].keys[1].isSigner = false; return tx; }));
   f.expectFail(f.send(release, [f.verifier, f.attacker], tx => { tx.feePayer = f.attacker.publicKey; tx.instructions[0].keys[0].isSigner = false; return tx; }));
   f.expectFail(f.send({ ...release, verifier: f.attacker.publicKey.toBase58() }, [f.owner, f.attacker]));
-  const before = f.svm.getBalance(release.recipient); const treasuryBefore = f.svm.getBalance(f.verifier.publicKey.toBase58());
+  const before = f.svm.getBalance(release.recipient); const treasuryBefore = f.svm.getBalance(f.treasury.publicKey.toBase58());
   f.expectOK(f.send(release, [f.owner, f.verifier]));
   assert.equal(f.svm.getBalance(release.recipient) - before, 19_000_000n);
-  assert.equal(f.svm.getBalance(f.verifier.publicKey.toBase58()) - treasuryBefore, 1_000_000n);
+  assert.equal(f.svm.getBalance(f.treasury.publicKey.toBase58()) - treasuryBefore, 1_000_000n);
   assert.equal(f.state().recipient, release.recipient);
   assert.equal(f.state().reportHash, release.reportHash);
   assert.equal(f.state().status, 2);
@@ -87,7 +88,7 @@ for (const [symbol, mintAddress] of Object.entries(MAINNET_MINTS)) {
     f.expectFail(f.send({ kind: 'refund', payer: f.attacker.publicKey.toBase58() }, [f.owner, f.attacker]));
     f.expectOK(f.send({ kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') }, [f.owner, f.verifier]));
     assert.equal(f.tokenBalance(tokenAddress(f.finder.publicKey, mint)), 19_000_000n);
-    assert.equal(f.tokenBalance(tokenAddress(f.verifier.publicKey, mint)), 1_000_000n);
+    assert.equal(f.tokenBalance(tokenAddress(f.treasury.publicKey, mint)), 1_000_000n);
     assert.equal(f.svm.getAccount(f.vault.toBase58()).exists, false);
     assert.equal(f.state().status, 2);
   });
@@ -108,7 +109,7 @@ test('SPL vault donations do not prevent release or change the promised payout',
   f.expectOK(f.send({ kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') }, [f.owner, f.verifier]));
   const mint = new PublicKey(MAINNET_MINTS.USDC);
   assert.equal(f.tokenBalance(tokenAddress(f.finder.publicKey, mint)), 19_000_000n);
-  assert.equal(f.tokenBalance(tokenAddress(f.verifier.publicKey, mint)), 1_000_000n);
+  assert.equal(f.tokenBalance(tokenAddress(f.treasury.publicKey, mint)), 1_000_000n);
   assert.equal(f.tokenBalance(tokenAddress(f.owner.publicKey, mint)), 81_000_000n);
 });
 
@@ -117,6 +118,9 @@ test('the SBF program rejects invalid duration, zero deposit, shortening and wro
   f.expectFail(f.send({}, [f.owner], tx => { tx.instructions[0].data.writeUInt16LE(0, 48); return tx; }));
   f.expectFail(f.send({}, [f.owner], tx => { tx.instructions[0].data.writeUInt16LE(366, 48); return tx; }));
   f.expectFail(f.send({}, [f.owner], tx => { tx.instructions[0].data.writeBigUInt64LE(0n, 40); return tx; }));
+  f.expectFail(f.send({}, [f.owner], tx => { tx.instructions[0].data.writeUInt16LE(0, 114); return tx; }));
+  f.expectFail(f.send({}, [f.owner], tx => { tx.instructions[0].data.writeUInt16LE(1_001, 114); return tx; }));
+  f.expectFail(f.send({}, [f.owner], tx => { f.verifier.publicKey.toBuffer().copy(tx.instructions[0].data, 82); return tx; }));
   f.expectOK(f.send());
   f.expectFail(f.send({ kind: 'renew', days: 365 }));
   f.expectFail(f.send({ kind: 'renew', days: 1 }, [f.owner], tx => { tx.instructions[0].data.writeUInt16LE(0, 8); return tx; }));
@@ -133,6 +137,8 @@ test('wallet validation rejects added transfers, changed recipients, amounts and
   assert.throws(() => verifyRewardTransaction(encode(injected), f.spec));
   const changed = make(); changed.instructions[0].data.writeBigUInt64LE(99_000_000n, 40);
   assert.throws(() => verifyRewardTransaction(encode(changed), f.spec));
+  const repriced = make(); repriced.instructions[0].data.writeUInt16LE(300, 114);
+  assert.throws(() => verifyRewardTransaction(encode(repriced), f.spec));
   const payer = make(); payer.feePayer = f.attacker.publicKey;
   assert.throws(() => verifyRewardTransaction(encode(payer), f.spec));
 });
@@ -149,17 +155,44 @@ test('reward amounts use exact integers with per-token precision', () => {
   assert.equal(rewardPlatformFee(0xffffffffffffffffn), 922337203685477580n);
 });
 
-test('SPL release rejects a treasury token account not owned by the reserved verifier', () => {
+test('SPL release rejects a treasury token account not owned by the treasury frozen at deposit', () => {
   const f = fixture(MAINNET_MINTS.USDC); const mint = new PublicKey(MAINNET_MINTS.USDC);
   f.expectOK(f.send());
   const attackerAccount = Buffer.alloc(165); mint.toBuffer().copy(attackerAccount); f.attacker.publicKey.toBuffer().copy(attackerAccount, 32); attackerAccount[108] = 1;
   f.writeAccount(tokenAddress(f.attacker.publicKey, mint), attackerAccount);
   const release = { kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') };
   f.expectFail(f.send(release, [f.owner, f.verifier], tx => {
-    tx.instructions.at(-1).keys[7].pubkey = tokenAddress(f.attacker.publicKey, mint);
+    tx.instructions.at(-1).keys[8].pubkey = tokenAddress(f.attacker.publicKey, mint);
     return tx;
   }));
   assert.equal(f.state().status, 1);
+});
+
+test('deposit freezes treasury and fee; release cannot redirect either value', () => {
+  const f = fixture(); f.expectOK(f.send());
+  assert.equal(f.state().treasury, f.treasury.publicKey.toBase58());
+  assert.equal(f.state().feeBps, 500);
+  const release = { kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') };
+  f.expectFail(f.send(release, [f.owner, f.verifier], tx => { tx.instructions.at(-1).keys[4].pubkey = f.attacker.publicKey; return tx; }));
+  assert.equal(f.state().status, 1);
+});
+
+test('the fee frozen at deposit controls the later payout', () => {
+  const f = fixture(null, 300); f.expectOK(f.send());
+  const recipientBefore = f.svm.getBalance(f.finder.publicKey.toBase58());
+  const treasuryBefore = f.svm.getBalance(f.treasury.publicKey.toBase58());
+  f.expectOK(f.send({ kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') }, [f.owner, f.verifier]));
+  assert.equal(f.svm.getBalance(f.finder.publicKey.toBase58()) - recipientBefore, 19_400_000n);
+  assert.equal(f.svm.getBalance(f.treasury.publicKey.toBase58()) - treasuryBefore, 600_000n);
+});
+
+test('verifier keyring exposes the current signer and retains distinct legacy signers', () => {
+  const verifier = Keypair.generate(); const legacy = Keypair.generate(); const treasury = Keypair.generate();
+  const chain = createRewardChain({ network: 'localnet', rpcUrl: 'http://127.0.0.1:8899', verifier, legacyVerifiers: [legacy], treasury: treasury.publicKey.toBase58() });
+  assert.equal(chain.config.verifier, verifier.publicKey.toBase58());
+  assert.deepEqual(chain.config.verifiers, [verifier.publicKey.toBase58(), legacy.publicKey.toBase58()]);
+  assert.throws(() => createRewardChain({ network: 'localnet', rpcUrl: 'http://127.0.0.1:8899', verifier, legacyVerifiers: [verifier], treasury: treasury.publicKey.toBase58() }));
+  assert.throws(() => createRewardChain({ network: 'localnet', rpcUrl: 'http://127.0.0.1:8899', verifier, treasury: verifier.publicKey.toBase58() }));
 });
 
 test('wallet inspection preserves the signed message across different JS locale sorting implementations', () => {

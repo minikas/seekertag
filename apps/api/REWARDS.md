@@ -7,16 +7,16 @@ O contrato Anchor fica em `contracts/seekertag-escrow`. O programa esperado pela
 - Depósito: SOL nativo ou tokens do programa SPL Token original. Mainnet fixa os mints oficiais de USDC e SKR; Token-2022 e saldo em staking não são aceitos.
 - Prazo inicial: de 1 hora a 5 anos, escolhido pelo dono em horas, dias, meses ou anos. O formulário aceita quantidades inteiras; mês equivale a 30 dias e ano a 365 dias. A transação usa segundos inteiros e a contagem começa no relógio da rede.
 - Renovação: assinatura do dono; soma o período escolhido a `max(vencimento, agora)` e limita o resultado a 5 anos a partir de agora. Não diminui o prazo e não movimenta a recompensa.
-- Devolução: carteira do dono e verificador do serviço assinam juntos. O contrato envia 95% da recompensa à carteira que comprovou posse na conversa e 5% à carteira do verificador, usada inicialmente como treasury. O programa registra o hash do ID da conversa e o destinatário. O servidor sozinho não pode pagar ou retirar fundos.
+- Devolução: carteira do dono e verificador do serviço assinam juntos. O contrato envia o valor líquido à carteira que comprovou posse na conversa e a comissão à treasury registrada no depósito. Verificador e treasury devem ser carteiras distintas. O programa registra o hash do ID da conversa e o destinatário. O servidor sozinho não pode pagar ou retirar fundos.
 - Cancelamento: somente o dono e apenas após o vencimento. O dinheiro volta à carteira que fez o depósito. Não há cancelamento antecipado, resgate automático no vencimento ou pagamento automático ao visitante.
 - Pagamento encerra todas as conversas abertas do objeto e incrementa uma única devolução. Sem reserva, continua disponível a confirmação de devolução comum.
 - A recompensa e a transferência de titularidade ficam bloqueadas enquanto existir depósito pendente ou reserva. Depois do envio de qualquer operação, toda a edição do objeto fica bloqueada na API e no Android, com o badge “Aguardando confirmação”. Nome, categoria e anotações voltam a ser editáveis após confirmação, falha finalizada ou expiração comprovada na rede. Uma falha de conexão não libera o bloqueio.
 
-O contrato guarda um recibo permanente de 226 bytes. Ele impede reabertura/replay e permite recuperar o estado mesmo quando o RPC não retém a transação antiga. O custo dessa conta não é devolvido. A conta SPL do cofre é fechada no pagamento/reembolso, devolvendo seu aluguel ao dono; contas de tokens do destinatário e da treasury continuam existindo. A revisão apresenta a comissão de 5%, a taxa da rede e o custo de criação separadamente. Doações extras para o cofre voltam ao depositante e não impedem a liquidação. O cálculo usa unidades inteiras e arredonda a comissão para baixo; recompensas mínimas podem gerar comissão zero.
+O contrato guarda um recibo permanente de 260 bytes, incluindo `treasury` e `fee_bps`. Esses valores são congelados no depósito: mudanças de configuração afetam apenas novas reservas. O recibo impede reabertura/replay e permite recuperar o estado mesmo quando o RPC não retém a transação antiga. O custo dessa conta não é devolvido. A conta SPL do cofre é fechada no pagamento/reembolso, devolvendo seu aluguel ao dono; contas de tokens do destinatário e da treasury continuam existindo. A revisão apresenta a comissão, a taxa da rede e o custo de criação separadamente. Doações extras para o cofre voltam ao depositante e não impedem a liquidação. O cálculo usa unidades inteiras e arredonda a comissão para baixo; recompensas mínimas podem gerar comissão zero.
 
 ## Confirmação e falhas de rede
 
-Os valores monetários atravessam a API como strings de unidades inteiras. O servidor compara dono, verificador, mint, valor e ID do recibo finalizado; consulta também o saldo do cofre. Nunca marca uma reserva apenas porque a carteira retornou uma assinatura. Se não conseguir verificar a rede, informa `unverified`.
+Os valores monetários atravessam a API como strings de unidades inteiras. O servidor compara dono, verificador, treasury, percentual, mint, valor e ID do recibo finalizado; consulta também o saldo do cofre. Nunca marca uma reserva apenas porque a carteira retornou uma assinatura. Se não conseguir verificar a rede, informa `unverified`.
 
 Cada operação tem uma transação preparada, com blockhash e prazo de validade. A API e o Android conferem todas as instruções e permissões de todas as contas, preservando a ordem original da mensagem para evitar diferenças de `localeCompare` entre Node e Hermes. Após a assinatura, exigem os mesmos bytes da mensagem preparada e verificam todas as assinaturas: instruções extras, carteira pagadora, valores ou destinatários alterados são rejeitados. O Android guarda a transação assinada antes de enviar, e o servidor grava a mesma assinatura antes de transmitir. Retentativas reutilizam os mesmos bytes, sem criar outro depósito.
 
@@ -37,6 +37,9 @@ Instale as dependências na raiz e em `server`. A API lê:
 | Variável | Uso |
 |---|---|
 | `REWARD_VERIFIER_KEYPAIR` | Caminho privado de uma chave Ed25519 do verificador; vazio desabilita depósitos |
+| `REWARD_LEGACY_VERIFIER_KEYPAIRS` | Caminhos privados antigos, separados por vírgula; somente para concluir reservas que registraram esses verificadores |
+| `REWARD_TREASURY` | Endereço público on-curve que recebe a comissão; deve ser distinto do verificador e do pagador |
+| `REWARD_FEE_BPS` | Comissão para novos depósitos em basis points; padrão `500` (5%), mínimo 1 e máximo 1000 |
 | `REWARD_NETWORK` | `devnet` por padrão; `localnet` somente para testes; `mainnet` exige ativação adicional |
 | `REWARD_RPC_URL` | RPC HTTPS; loopback HTTP permitido somente para localnet |
 | `REWARD_TEST_USDC_MINT` | Mint de teste em devnet/localnet; padrão é o mint Circle devnet |
@@ -48,7 +51,14 @@ Em mainnet os mints são fixos no código, ignorando as variáveis de teste:
 - USDC: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`, 6 casas decimais.
 - SKR: `SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`, 6 casas decimais.
 
-O RPC deve corresponder ao genesis hash da rede configurada e conter o programa executável. Não coloque chave privada em `EXPO_PUBLIC_*`, logs ou commits. Monte a chave como arquivo privado no servidor e preserve-a junto ao backup do SQLite. Perder esse verificador impede novos pagamentos das reservas existentes e também perde o acesso operacional às comissões recebidas nessa carteira; o cancelamento do dono após o vencimento continua possível no contrato. Como primeira versão, verificador e treasury são a mesma hot wallet. Separe essas funções antes da mainnet. A autoridade de atualização do programa também deve ser protegida: uma publicação atualizável continua dependendo dela.
+O RPC deve corresponder ao genesis hash da rede configurada e conter o programa executável. Não coloque chave privada em `EXPO_PUBLIC_*`, logs ou commits. Monte as chaves de verificação como arquivos privados no servidor e preserve-as junto ao backup do SQLite. A treasury pode e deve ser uma carteira fria: a API conhece apenas o endereço público. Perder o verificador de uma reserva impede seu pagamento, mas o cancelamento do dono após o vencimento continua possível. A autoridade de atualização do programa também deve ser protegida: uma publicação atualizável continua dependendo dela.
+
+### Rotação segura
+
+- Treasury: altere `REWARD_TREASURY` e reinicie a API. Somente novos depósitos usam o endereço novo; reservas existentes continuam pagando para a treasury gravada on-chain.
+- Comissão: altere `REWARD_FEE_BPS` e reinicie. Somente novos depósitos usam o percentual novo.
+- Verificador: mova o caminho atual para `REWARD_LEGACY_VERIFIER_KEYPAIRS`, configure a chave nova em `REWARD_VERIFIER_KEYPAIR` e reinicie. Novos depósitos registram a chave nova; liberações existentes selecionam automaticamente a chave antiga pelo endereço salvo no recibo.
+- Remova uma chave legada somente depois que não existir nenhuma reserva ativa vinculada a ela. Nunca reutilize a treasury como verificador.
 
 ## Build e testes
 
@@ -78,7 +88,7 @@ npm run test:devnet
 npm run api:devnet
 ```
 
-O utilitário recusa qualquer genesis hash fora de devnet e nunca lê a carteira padrão do CLI. `artifacts/rewards-devnet.json` contém apenas IDs públicos dos mints/programa/verificador. O teste publica três depósitos de uma hora, renova por um ano e paga a um visitante com carteira comprovada, verificando o aumento exato do saldo e o encerramento da conversa. Guarda assinaturas públicas em `artifacts/devnet-reward-verification.json`. Reembolso real após o prazo exige aguardar ao menos uma hora em devnet; o bloqueio e o vencimento completo são cobertos pela VM.
+O utilitário recusa qualquer genesis hash fora de devnet e nunca lê a carteira padrão do CLI. `artifacts/rewards-devnet.json` contém apenas IDs públicos dos mints/programa/verificador/treasury e o percentual. Em devnet, o pagador de publicação também serve como treasury de teste; produção deve usar uma carteira fria separada. O teste publica três depósitos de uma hora, renova por um ano e paga a um visitante com carteira comprovada, verificando a divisão exata entre finder e treasury e o encerramento da conversa. Guarda assinaturas públicas em `artifacts/devnet-reward-verification.json`. Reembolso real após o prazo exige aguardar ao menos uma hora em devnet; o bloqueio e o vencimento completo são cobertos pela VM.
 
 Para testar no Android, configure a API com os mints criados, instale o APK e encaminhe a porta por ADB. A carteira MWA precisa aceitar `solana:devnet` e `signTransactions`. Confira a revisão e aprove manualmente a assinatura; o login anterior não autoriza esses pagamentos. Cancelar a carteira deixa o pedido pendente até expirar e não anuncia uma reserva. Uma revisão aberta mantém valor e prazo se o blockhash expirar: ao tocar em Assinar, a API reconcilia o pedido anterior antes de preparar a substituição. Mudanças nas taxas exigem nova revisão.
 
@@ -102,9 +112,9 @@ Todas as rotas do dono exigem a sessão; as do visitante exigem a credencial daq
 | `POST /finder/reports/:id/reward/wallet/challenge` | Desafio SIWS específico da conversa, 5 minutos |
 | `POST /finder/reports/:id/reward/wallet/verify` | Comprova posse, vincula carteira e consome nonce |
 
-Depósito recebe `{kind:"fund",currency:"SOL",amount:"0.01",durationSeconds:2592000}`; renovação `{kind:"renew",durationSeconds:604800}`; pagamento `{kind:"release",reportId}`; cancelamento `{kind:"refund"}`. O servidor escolhe destinatário, valor, mint, programa e verificador a partir de dados validados. A carteira do visitante não pode ser a do dono e não pode ser trocada depois da confirmação na conversa.
+Depósito recebe `{kind:"fund",currency:"SOL",amount:"0.01",durationSeconds:2592000}`; renovação `{kind:"renew",durationSeconds:604800}`; pagamento `{kind:"release",reportId}`; cancelamento `{kind:"refund"}`. O servidor escolhe destinatário, valor, mint, programa, verificador, treasury e percentual a partir de dados validados. A carteira do visitante não pode ser a do dono e não pode ser trocada depois da confirmação na conversa.
 
-O contrato preserva as instruções antigas `fund_sol`, `fund_token` e `renew`, com `days` de 1 a 365, para não invalidar transações já preparadas. O aplicativo novo usa `fund_sol_timed`, `fund_token_timed` e `renew_timed`, com `durationSeconds` (`u32`). A API rejeita pedidos que misturam `days` e `durationSeconds`. O recibo e as regras de liberação/reembolso não mudaram.
+As instruções `fund_sol`, `fund_token`, `fund_sol_timed` e `fund_token_timed` recebem treasury e percentual como parte do ABI. Não existe compatibilidade com depósitos experimentais anteriores a esse formato. As variantes antigas de prazo usam `days`; o aplicativo usa `durationSeconds` (`u32`). A API rejeita pedidos que misturam os dois formatos.
 
 No Android, adicionar/editar objeto mostra um resumo da recompensa. Ao tocar nele, um Gorhom próprio permite configurar valor, moeda, saldo e período, mantendo o rascunho do objeto. A revisão e a confirmação também ficam nesse sheet de recompensa. A ação de renovar aparece apenas depois do vencimento da reserva. O objeto é salvo antes de preparar o depósito, mantendo seu ID ao repetir ou abandonar a revisão. Até a confirmação final, ele continua sem recompensa garantida. A liberação na conversa também usa Gorhom.
 

@@ -7,11 +7,12 @@ import { Transaction } from '@solana/web3.js';
 import { createApp } from '../apps/api/app.js';
 import { createRewardChain } from '../apps/api/rewards/chain.js';
 import { root, key, configPath, assertDevnet, topUp, waitFor } from './devnet-rewards.mjs';
+import { rewardPlatformFee } from '@seekertag/shared/reward';
 const { createSignInMessage } = createRequire(new URL('../apps/api/package.json', import.meta.url))('@solana/wallet-standard-util');
 
 await assertDevnet();
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
-const chain = createRewardChain({ network: 'devnet', rpcUrl: config.rpc, verifier: key('verifier'), testMints: config.mints });
+const chain = createRewardChain({ network: 'devnet', rpcUrl: config.rpc, verifier: key('verifier'), treasury: config.treasury, feeBps: config.feeBps, testMints: config.mints });
 const owner = key('devnet-qa-owner', true); const finder = key('devnet-qa-finder', true);
 await topUp(owner.publicKey.toBase58(), config, 0.25, 20);
 await topUp(finder.publicKey.toBase58(), config, 0.02, 1);
@@ -40,6 +41,7 @@ try {
   for (const currency of ['SOL', 'USDC', 'SKR']) {
     const tag = (await request('/tags', token, { name: `Devnet QA ${currency}` }, 201)).tag;
     const before = await chain.balance(finder.publicKey.toBase58(), currency);
+    const treasuryBefore = await chain.balance(config.treasury, currency);
     const prepare = body => request(`/tags/${tag.id}/reward/prepare`, token, body, 201);
     const deposit = await execute((await prepare({ kind: 'fund', currency, amount: currency === 'SOL' ? '0.002' : '1.25', durationSeconds: 3_600 })).operation, token);
     assert.equal(deposit.reward.status, 'reserved'); console.log(`${currency}: deposit finalized`);
@@ -53,10 +55,13 @@ try {
     const paid = await execute((await prepare({ kind: 'release', reportId: report.report.id })).operation, token);
     assert.equal(paid.reward.status, 'released');
     const after = await chain.balance(finder.publicKey.toBase58(), currency);
-    assert.equal(BigInt(after.availableUnits) - BigInt(before.availableUnits), BigInt(paid.reward.amountUnits));
+    const fee = rewardPlatformFee(paid.reward.amountUnits, config.feeBps);
+    assert.equal(BigInt(after.availableUnits) - BigInt(before.availableUnits), BigInt(paid.reward.amountUnits) - fee);
+    const treasuryAfter = await chain.balance(config.treasury, currency);
+    assert.equal(BigInt(treasuryAfter.availableUnits) - BigInt(treasuryBefore.availableUnits), fee);
     assert.equal((await request(`/reports/${report.report.id}`, token)).report.status, 'resolved');
     evidence.push({ currency, escrow: paid.reward.escrow, deposit: deposit.signature, renewal: renewed.signature, payout: paid.signature, recipient: finder.publicKey.toBase58() });
     writeFileSync(`${root}artifacts/devnet-reward-verification.json`, JSON.stringify({ network: 'devnet', program: config.program, checkedAt: new Date().toISOString(), evidence }, null, 2) + '\n');
-    console.log(`${currency}: payout finalized; exact finder balance and return verified`);
+    console.log(`${currency}: payout finalized; finder/treasury split and return verified`);
   }
 } finally { await new Promise(resolve => server.close(resolve)); app.locals.close(); }

@@ -4,9 +4,9 @@ import { validateRewardIntent, rewardDeadline, rewardLocked, rewardAwaitingConfi
 import { MAINNET_MINTS, REWARD_PROGRAM } from '@seekertag/shared/reward';
 
 test('wallet review binds the transaction to the amount, currency, network, verifier and intended recipient', () => {
-  const config = { network: 'mainnet', verifier: 'verifier', program: REWARD_PROGRAM, currencies: ['SOL','USDC','SKR'], mints: { USDC: 'untrusted' } };
+  const config = { network: 'mainnet', verifier: 'verifier', verifiers: ['verifier'], treasury: 'treasury', feeBps: 500, program: REWARD_PROGRAM, currencies: ['SOL','USDC','SKR'], mints: { USDC: 'untrusted' } };
   const intent = { kind: 'release', currency: 'USDC', amount: '12.000001', recipient: 'finder', reportHash: 'report' };
-  const operation = { network: 'mainnet', currency: 'USDC', spec: { kind: 'release', payer: 'owner', verifier: 'verifier', mint: MAINNET_MINTS.USDC, amountUnits: '12000001', recipient: 'finder', reportHash: 'report' } };
+  const operation = { network: 'mainnet', currency: 'USDC', spec: { kind: 'release', payer: 'owner', verifier: 'verifier', treasury: 'treasury', feeBps: 500, mint: MAINNET_MINTS.USDC, amountUnits: '12000001', recipient: 'finder', reportHash: 'report' } };
   assert.doesNotThrow(() => validateRewardIntent(operation, intent, config, 'owner'));
   for (const patch of [{ payer: 'other' }, { amountUnits: '12000000' }, { mint: 'untrusted' }, { verifier: 'other' }, { recipient: 'other' }, { reportHash: 'other' }, { kind: 'refund' }, { days: 30 }]) {
     assert.throws(() => validateRewardIntent({ ...operation, spec: { ...operation.spec, ...patch } }, intent, config, 'owner'));
@@ -59,9 +59,9 @@ test('amount mask and steppers preserve base-unit precision and reject ambiguous
 });
 
 test('wallet intent rejects a changed period or a switch back to the legacy day instruction', () => {
-  const config = { network: 'devnet', verifier: 'verifier', program: REWARD_PROGRAM, currencies: ['SOL'], mints: {} };
+  const config = { network: 'devnet', verifier: 'verifier', verifiers: ['verifier'], treasury: 'treasury', feeBps: 500, program: REWARD_PROGRAM, currencies: ['SOL'], mints: {} };
   const intent = { kind: 'fund', currency: 'SOL', amount: '0.01', durationSeconds: 3600 };
-  const operation = { network: 'devnet', currency: 'SOL', spec: { kind: 'fund', payer: 'owner', verifier: 'verifier', mint: null, amountUnits: '10000000', durationSeconds: 3600 } };
+  const operation = { network: 'devnet', currency: 'SOL', spec: { kind: 'fund', payer: 'owner', verifier: 'verifier', treasury: 'treasury', feeBps: 500, mint: null, amountUnits: '10000000', durationSeconds: 3600 } };
   assert.doesNotThrow(() => validateRewardIntent(operation, intent, config, 'owner'));
   for (const patch of [{ durationSeconds: 86400 }, { days: 1 }, { days: 1, durationSeconds: undefined }]) {
     assert.throws(() => validateRewardIntent({ ...operation, spec: { ...operation.spec, ...patch } }, intent, config, 'owner'));

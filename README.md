@@ -255,6 +255,12 @@ O fluxo `apps/mobile/tests/android/preferences-categories.yaml` começa com a co
 
 `npm run build:bundle` confirma que o JavaScript empacota para Android; não substitui testes no aparelho, compilação do binário ou testes físicos de câmera/NFC/carteira.
 
+## Verificador, treasury e comissão
+
+O verificador é uma hot key do serviço que coassina pagamentos confirmados pelo dono; a treasury é uma carteira independente que recebe a comissão e pode permanecer fria. Configure `REWARD_VERIFIER_KEYPAIR` com o caminho privado do verificador, `REWARD_TREASURY` apenas com o endereço público da treasury e `REWARD_FEE_BPS=500` para 5%. O depósito grava verificador, treasury e percentual no recibo on-chain, portanto alterações posteriores valem somente para reservas novas.
+
+Para trocar a treasury, altere `REWARD_TREASURY` e reinicie a API. Para rotacionar o verificador sem interromper reservas abertas, mova o caminho antigo para `REWARD_LEGACY_VERIFIER_KEYPAIRS` (lista separada por vírgulas), coloque a chave nova em `REWARD_VERIFIER_KEYPAIR` e reinicie. Remova uma chave antiga somente quando todas as reservas vinculadas a ela estiverem encerradas. A configuração completa e os cuidados operacionais estão em [`apps/api/REWARDS.md`](apps/api/REWARDS.md#rotação-segura).
+
 ## Limites atuais
 
 - Depósitos SOL/USDC/SKR estão preparados para devnet. Mainnet exige publicação e ativação próprias; tokens de teste não têm valor real. Alias `.skr` verificado e verificação SGT não estão implementados.

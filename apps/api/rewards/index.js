@@ -15,7 +15,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
   db.exec(`
     CREATE TABLE IF NOT EXISTS rewards (
       id TEXT PRIMARY KEY, tag_id TEXT NOT NULL REFERENCES tags(id), owner_id TEXT NOT NULL REFERENCES users(id),
-      payer TEXT NOT NULL, verifier TEXT NOT NULL, network TEXT NOT NULL, seed TEXT UNIQUE NOT NULL,
+      payer TEXT NOT NULL, verifier TEXT NOT NULL, treasury TEXT NOT NULL, fee_bps INTEGER NOT NULL, network TEXT NOT NULL, seed TEXT UNIQUE NOT NULL,
       escrow TEXT UNIQUE NOT NULL, currency TEXT NOT NULL, mint TEXT, decimals INTEGER NOT NULL, amount_units TEXT NOT NULL,
       status TEXT NOT NULL CHECK(status IN ('pending','reserved','released','refunded','abandoned')),
       refund_after INTEGER, created_at TEXT NOT NULL, checked_at TEXT, deposit_signature TEXT, settlement_signature TEXT,
@@ -37,6 +37,9 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       id TEXT PRIMARY KEY, report_id TEXT NOT NULL REFERENCES reports(id), payload TEXT NOT NULL, expires_at INTEGER NOT NULL
     ) STRICT;
   `);
+  const rewardColumns = new Set(all('PRAGMA table_info(rewards)').map(column => column.name));
+  if (!rewardColumns.has('treasury')) run('ALTER TABLE rewards ADD COLUMN treasury TEXT');
+  if (!rewardColumns.has('fee_bps')) run('ALTER TABLE rewards ADD COLUMN fee_bps INTEGER');
   const current = tag => get("SELECT * FROM rewards WHERE tag_id=? AND owner_id=? AND status!='abandoned' ORDER BY created_at DESC,rowid DESC LIMIT 1", tag.id, tag.owner_id);
   const inflight = reward => get("SELECT * FROM reward_operations WHERE reward_id=? AND status IN ('prepared','submitted')", reward.id);
   const broadcasts = new Map();
@@ -198,11 +201,11 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
         let units;
         try { units = amountToUnits(req.body.amount, asset.decimals).toString(); } catch { fail(400, 'Valor de recompensa inválido.'); }
         const seed = randomBytes(32).toString('hex');
-        reward = { id: randomUUID(), tag_id: tag.id, owner_id: req.user.id, payer: wallet, verifier: chain.config.verifier, network: chain.config.network, seed,
+        reward = { id: randomUUID(), tag_id: tag.id, owner_id: req.user.id, payer: wallet, verifier: chain.config.verifier, treasury: chain.config.treasury, fee_bps: chain.config.feeBps, network: chain.config.network, seed,
           escrow: escrowAddress(wallet, seed).toBase58(), currency: asset.currency, mint: asset.mint, decimals: asset.decimals, amount_units: units, status: 'pending' };
       } else if (!reward || reward.status !== 'reserved') fail(409, 'Não há uma reserva disponível para esta ação.', 'REWARD_NOT_RESERVED');
       if (wallet !== reward.payer) fail(409, 'Use a carteira que fez o depósito.', 'REWARD_WALLET_MISMATCH');
-      const spec = { kind, payer: reward.payer, verifier: reward.verifier, rewardId: reward.seed, mint: reward.mint, amountUnits: reward.amount_units, computeBudget: 'fixed-v2' };
+      const spec = { kind, payer: reward.payer, verifier: reward.verifier, treasury: reward.treasury, feeBps: reward.fee_bps, rewardId: reward.seed, mint: reward.mint, amountUnits: reward.amount_units, computeBudget: 'fixed-v2' };
       if (['fund', 'renew'].includes(kind)) {
         if (req.body.durationSeconds !== undefined) spec.durationSeconds = req.body.durationSeconds;
         else spec.days = req.body.days;
@@ -226,7 +229,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
         assertSession(req); assertTagOwner(tag);
         if (kind === 'fund') {
           assertUnlocked(tag.id);
-          run("INSERT INTO rewards(id,tag_id,owner_id,payer,verifier,network,seed,escrow,currency,mint,decimals,amount_units,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'pending',?)", reward.id, tag.id, req.user.id, wallet, reward.verifier, reward.network, reward.seed, reward.escrow, reward.currency, reward.mint, reward.decimals, reward.amount_units, now());
+          run("INSERT INTO rewards(id,tag_id,owner_id,payer,verifier,treasury,fee_bps,network,seed,escrow,currency,mint,decimals,amount_units,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending',?)", reward.id, tag.id, req.user.id, wallet, reward.verifier, reward.treasury, reward.fee_bps, reward.network, reward.seed, reward.escrow, reward.currency, reward.mint, reward.decimals, reward.amount_units, now());
           run('UPDATE tags SET reward_amount=?,reward_currency=? WHERE id=?', Number(unitsToAmount(reward.amount_units, reward.decimals)), reward.currency, tag.id);
         } else {
           const fresh = get('SELECT * FROM rewards WHERE id=?', reward.id);

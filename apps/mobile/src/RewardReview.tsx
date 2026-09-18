@@ -15,8 +15,9 @@ export default function RewardReview({ controller }: { controller: RewardControl
   const { s, t, locale } = useUI(); const op = controller.operation?.operation;
   if (!op) return null;
   const timed = op.spec.kind === 'fund' || op.spec.kind === 'renew';
-  const platformFee = rewardPlatformFee(op.spec.amountUnits);
+  const platformFee = rewardPlatformFee(op.spec.amountUnits, op.spec.feeBps);
   const finderPayout = BigInt(op.spec.amountUnits) - platformFee;
+  const feePercent = (op.spec.feeBps / 100).toLocaleString(locale, { maximumFractionDigits: 2 });
   const date = timed ? reservationDeadline(rewardDuration(op.spec), op.spec.kind === 'renew' && op.spec.previousRefundAfter ? new Date(op.spec.previousRefundAfter * 1_000).toISOString() : null) : null;
   return <View style={{ gap: 20 }}>
     {controller.operation?.status === 'submitted' && <RewardPendingNotice />}
@@ -25,14 +26,14 @@ export default function RewardReview({ controller }: { controller: RewardControl
     {date && <Detail label={t('Cancelamento previsto a partir de')} value={date.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />}
     {op.spec.recipient && <Address label={t('Quem receberá')} address={op.spec.recipient} />}
     {op.spec.kind === 'release' && <Detail label={t('Quem encontrou recebe')} value={`${unitsToAmount(finderPayout, REWARD_DECIMALS[op.currency])} ${op.currency}`} />}
-    {op.spec.kind === 'release' && <Detail label={t('Taxa SeekerTag (5%)')} value={`${unitsToAmount(platformFee, REWARD_DECIMALS[op.currency])} ${op.currency}`} />}
+    {op.spec.kind === 'release' && <Detail label={t('Taxa SeekerTag ({percent}%)', { percent: feePercent })} value={`${unitsToAmount(platformFee, REWARD_DECIMALS[op.currency])} ${op.currency}`} />}
     <Detail label={t('Taxa da rede')} value={`${unitsToAmount(op.feeLamports, 9)} SOL`} />
     {BigInt(op.rentLamports) > 0n && <Detail label={t('Criação de contas na rede')} value={`${unitsToAmount(op.rentLamports, 9)} SOL`} />}
     <Address label={t('Carteira do depósito')} address={op.spec.payer} />
     {op.spec.kind === 'fund' && <Text style={s.small}>{t('O depósito fica bloqueado até o prazo escolhido. A conta que registra a reserva permanece na rede; seu custo de criação não é devolvido.')}</Text>}
-    {op.spec.kind === 'fund' && <Text style={s.small}>{t('Se a recompensa for entregue, 5% serão destinados ao SeekerTag e quem encontrou receberá 95%. Cancelamentos após o prazo devolvem o depósito integral.')}</Text>}
+    {op.spec.kind === 'fund' && <Text style={s.small}>{t('Se a recompensa for entregue, {percent}% serão destinados ao SeekerTag. Cancelamentos após o prazo devolvem o depósito integral.', { percent: feePercent })}</Text>}
     {op.spec.kind === 'renew' && <Text style={s.small}>{t('A renovação estende o prazo atual. O valor continua reservado.')}</Text>}
-    {op.spec.kind === 'release' && <Notice tone="warning" text={t('Confirme somente se o objeto já estiver com você. O pagamento é definitivo, desconta a taxa SeekerTag de 5% e encerra as conversas deste objeto.')} />}
+    {op.spec.kind === 'release' && <Notice tone="warning" text={t('Confirme somente se o objeto já estiver com você. O pagamento é definitivo, desconta a taxa SeekerTag de {percent}% e encerra as conversas deste objeto.', { percent: feePercent })} />}
     {op.spec.kind === 'refund' && <Text style={s.body}>{t('O depósito voltará para a carteira que o financiou. A recompensa deixará de estar reservada.')}</Text>}
   </View>;
 }

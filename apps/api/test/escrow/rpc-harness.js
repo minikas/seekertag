@@ -15,8 +15,8 @@ export async function rpcHarness() {
   const svm = new LiteSVM().withBlockhashCheck(false);
   svm.addProgramFromFile(PROGRAM.toBase58(), fileURLToPath(new URL('../../../../artifacts/escrow/seekertag_escrow.so', import.meta.url)));
   const clock = svm.getClock(); clock.unixTimestamp = BigInt(Math.floor(Date.now() / 1000)); svm.setClock(clock);
-  const verifier = Keypair.generate(); const receipts = new Map(); const unfinalized = new Map();
-  const h = { svm, verifier, holdFinality: false, offline: false, height: 100, sends: 0 };
+  const verifier = Keypair.generate(); const treasury = Keypair.generate(); svm.airdrop(treasury.publicKey.toBase58(), 1_000_000n); const receipts = new Map(); const unfinalized = new Map();
+  const h = { svm, verifier, treasury, holdFinality: false, offline: false, height: 100, sends: 0 };
   function account(address, commitment) {
     const value = commitment === 'finalized' && unfinalized.has(address) ? unfinalized.get(address) : svm.getAccount(address);
     return !value?.exists ? null : { lamports: Number(value.lamports), data: [Buffer.from(value.data).toString('base64'), 'base64'], owner: value.programAddress, executable: value.executable, rentEpoch: 0 };
@@ -65,7 +65,7 @@ export async function rpcHarness() {
     } catch (error) { res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32002, message: error.message } })); }
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  h.chain = createRewardChain({ network: 'localnet', rpcUrl: `http://127.0.0.1:${server.address().port}`, verifier, testMints: MAINNET_MINTS });
+  h.chain = createRewardChain({ network: 'localnet', rpcUrl: `http://127.0.0.1:${server.address().port}`, verifier, treasury: treasury.publicKey.toBase58(), testMints: MAINNET_MINTS });
   h.finalize = () => { h.holdFinality = false; unfinalized.clear(); for (const value of receipts.values()) { value.confirmationStatus = 'finalized'; value.confirmations = null; } };
   h.advance = seconds => { const c = svm.getClock(); c.unixTimestamp += BigInt(seconds); svm.setClock(c); };
   h.fund = (wallet, sol = 10_000_000_000n) => {

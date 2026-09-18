@@ -2,8 +2,9 @@ export type RewardCurrency = 'SOL' | 'USDC' | 'SKR';
 export type RewardNetwork = 'devnet' | 'mainnet' | 'localnet';
 export const REWARD_DECIMALS: Record<RewardCurrency, number> = { SOL: 9, USDC: 6, SKR: 6 };
 export const REWARD_PROGRAM = '4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB';
-export const ESCROW_SPACE = 226;
-export const REWARD_PLATFORM_FEE_BPS = 500;
+export const ESCROW_SPACE = 260;
+export const DEFAULT_REWARD_PLATFORM_FEE_BPS = 500;
+export const MAX_REWARD_PLATFORM_FEE_BPS = 1_000;
 export const BPS_DENOMINATOR = 10_000;
 // Fixed, bounded execution fee included in the transaction before wallet review.
 export const REWARD_COMPUTE_UNITS = 200_000;
@@ -28,8 +29,9 @@ export function unitsToAmount(units: string | bigint, decimals: number): string 
   const fraction = (value % base).toString().padStart(decimals, '0').replace(/0+$/, '');
   return `${value / base}${fraction ? `.${fraction}` : ''}`;
 }
-export function rewardPlatformFee(units: string | bigint): bigint {
-  return BigInt(units) * BigInt(REWARD_PLATFORM_FEE_BPS) / BigInt(BPS_DENOMINATOR);
+export function rewardPlatformFee(units: string | bigint, feeBps = DEFAULT_REWARD_PLATFORM_FEE_BPS): bigint {
+  if (!Number.isInteger(feeBps) || feeBps < 1 || feeBps > MAX_REWARD_PLATFORM_FEE_BPS) throw new Error('Taxa de plataforma inválida.');
+  return BigInt(units) * BigInt(feeBps) / BigInt(BPS_DENOMINATOR);
 }
 export function validRewardDays(value: unknown): value is number { return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 365; }
 
@@ -53,11 +55,11 @@ export type RewardView = {
 };
 export type RewardAction = 'fund' | 'renew' | 'release' | 'refund';
 export type RewardInstructionSpec = {
-  kind: RewardAction; payer: string; verifier: string; rewardId: string; mint: string | null;
+  kind: RewardAction; payer: string; verifier: string; treasury: string; feeBps: number; rewardId: string; mint: string | null;
   amountUnits: string; days?: number; durationSeconds?: number; recipient?: string; reportHash?: string; previousRefundAfter?: number;
   computeBudget?: 'fixed-v1' | 'fixed-v2';
 };
-export type RewardConfig = { network: RewardNetwork; verifier: string; program: string; currencies: RewardCurrency[]; mints: Partial<Record<RewardCurrency, string>>; minDays: number; maxDays: number; minSeconds: number; maxSeconds: number };
+export type RewardConfig = { network: RewardNetwork; verifier: string; verifiers: string[]; treasury: string; feeBps: number; program: string; currencies: RewardCurrency[]; mints: Partial<Record<RewardCurrency, string>>; minDays: number; maxDays: number; minSeconds: number; maxSeconds: number };
 export type RewardBalance = { currency: RewardCurrency; decimals: number; mint: string | null; availableUnits: string; solLamports: string; fundableUnits?: string; reserveLamports?: string };
 export type RewardOperationStatus = 'prepared' | 'submitted' | 'confirmed' | 'expired' | 'failed';
 export type RewardOperation = {

@@ -58,7 +58,7 @@ export async function initialize() {
     ], payer, [mint]);
     console.log(`${symbol} test mint: ${mints[symbol]}`);
   }
-  const config = { network: 'devnet', rpc: 'https://api.devnet.solana.com', program: PROGRAM.toBase58(), verifier: verifier.publicKey.toBase58(), mints };
+  const config = { network: 'devnet', rpc: 'https://api.devnet.solana.com', program: PROGRAM.toBase58(), verifier: verifier.publicKey.toBase58(), treasury: payer.publicKey.toBase58(), feeBps: 500, mints };
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
   return config;
 }

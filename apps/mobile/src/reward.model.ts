@@ -10,8 +10,9 @@ export function rewardDeadline(days: number, refundAfter?: string | null, now = 
 export function validateRewardIntent(operation: RewardOperation, intent: RewardIntent, config: RewardConfig, payer: string) {
   const mint = intent.currency === 'SOL' ? null : config.network === 'mainnet' ? MAINNET_MINTS[intent.currency] : config.mints[intent.currency];
   const spec = operation.spec;
+  const fundingConfigChanged = intent.kind === 'fund' && (spec.verifier !== config.verifier || spec.treasury !== config.treasury || spec.feeBps !== config.feeBps);
   if (config.program !== REWARD_PROGRAM || operation.network !== config.network || operation.currency !== intent.currency || !config.currencies.includes(intent.currency)
-    || spec.kind !== intent.kind || spec.payer !== payer || spec.verifier !== config.verifier || spec.mint !== mint
+    || spec.kind !== intent.kind || spec.payer !== payer || !config.verifiers.includes(spec.verifier) || fundingConfigChanged || spec.mint !== mint
     || spec.amountUnits !== amountToUnits(intent.amount, REWARD_DECIMALS[intent.currency]).toString()
     || spec.days !== intent.days || spec.durationSeconds !== intent.durationSeconds || spec.recipient !== intent.recipient || spec.reportHash !== intent.reportHash) {
     throw new Error('A transação não corresponde à recompensa escolhida.');

@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import { ComputeBudgetProgram, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
-import { ESCROW_SPACE, REWARD_PROGRAM, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE, rewardDuration } from './reward.ts';
+import { ESCROW_SPACE, MAX_REWARD_PLATFORM_FEE_BPS, REWARD_PROGRAM, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE, rewardDuration } from './reward.ts';
 import type { RewardInstructionSpec } from './reward.ts';
 
 export const PROGRAM = new PublicKey(REWARD_PROGRAM);
@@ -31,6 +31,8 @@ export function createTokenAccount(payer: PublicKey, owner: PublicKey, mint: Pub
 }
 export function rewardInstructions(spec: RewardInstructionSpec): TransactionInstruction[] {
   const owner = new PublicKey(spec.payer); const verifier = new PublicKey(spec.verifier);
+  const treasury = new PublicKey(spec.treasury);
+  if (!PublicKey.isOnCurve(treasury.toBytes()) || treasury.equals(owner) || treasury.equals(verifier) || !Number.isInteger(spec.feeBps) || spec.feeBps < 1 || spec.feeBps > MAX_REWARD_PLATFORM_FEE_BPS) throw new Error('Configuração da comissão inválida.');
   const escrow = escrowAddress(spec.payer, spec.rewardId); const mint = spec.mint ? new PublicKey(spec.mint) : null;
   const vault = vaultAddress(escrow); const setup: TransactionInstruction[] = [];
   if (spec.computeBudget !== undefined) {
@@ -44,9 +46,11 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
   if (spec.kind === 'fund') {
     const seconds = rewardDuration(spec); const timed = spec.durationSeconds !== undefined;
     if (!/^[1-9]\d{0,19}$/.test(spec.amountUnits)) throw new Error('Dados de depósito inválidos.');
-    args = Buffer.alloc(timed ? 76 : 74); hashBytes(spec.rewardId).copy(args); writeUnits(args, BigInt(spec.amountUnits), 32);
+    args = Buffer.alloc(timed ? 110 : 108); hashBytes(spec.rewardId).copy(args); writeUnits(args, BigInt(spec.amountUnits), 32);
     if (timed) args.writeUInt32LE(seconds, 40); else args.writeUInt16LE(spec.days!, 40);
     verifier.toBuffer().copy(args, timed ? 44 : 42);
+    treasury.toBuffer().copy(args, timed ? 76 : 74);
+    args.writeUInt16LE(spec.feeBps, timed ? 108 : 106);
     name = timed ? (mint ? 'fund_token_timed' : 'fund_sol_timed') : (mint ? 'fund_token' : 'fund_sol');
     keys = mint ? [key(owner, true, true), key(escrow, true), key(mint), key(tokenAddress(owner, mint), true), key(vault, true), key(TOKEN_PROGRAM), key(SystemProgram.programId)] : [key(owner, true, true), key(escrow, true), key(SystemProgram.programId)];
   } else if (spec.kind === 'renew') {
@@ -59,8 +63,8 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
     const recipient = new PublicKey(spec.recipient);
     if (!PublicKey.isOnCurve(recipient.toBytes()) || recipient.equals(owner)) throw new Error('Carteira de recebimento inválida.');
     args = hashBytes(spec.reportHash); name = mint ? 'release_token' : 'release_sol';
-    if (mint) setup.push(createTokenAccount(owner, recipient, mint), createTokenAccount(owner, verifier, mint), createTokenAccount(owner, owner, mint));
-    keys = mint ? [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient), key(mint), key(vault, true), key(tokenAddress(recipient, mint), true), key(tokenAddress(verifier, mint), true), key(tokenAddress(owner, mint), true), key(TOKEN_PROGRAM)] : [key(owner, true, true), key(verifier, true, true), key(escrow, true), key(recipient, true)];
+    if (mint) setup.push(createTokenAccount(owner, recipient, mint), createTokenAccount(owner, treasury, mint), createTokenAccount(owner, owner, mint));
+    keys = mint ? [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient), key(treasury), key(mint), key(vault, true), key(tokenAddress(recipient, mint), true), key(tokenAddress(treasury, mint), true), key(tokenAddress(owner, mint), true), key(TOKEN_PROGRAM)] : [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient, true), key(treasury, true)];
   } else if (spec.kind === 'refund') {
     name = mint ? 'refund_token' : 'refund_sol';
     if (mint) setup.push(createTokenAccount(owner, owner, mint));
@@ -106,5 +110,5 @@ export function decodeEscrow(data: Uint8Array) {
   if (![1, 2, 3].includes(status)) throw new Error('Estado de garantia inválido.');
   return { payer: new PublicKey(b.subarray(8, 40)).toBase58(), verifier: new PublicKey(b.subarray(40, 72)).toBase58(), mint: new PublicKey(b.subarray(72, 104)).toBase58(),
     rewardId: b.slice(104, 136).toString('hex'), amountUnits: b.readBigUInt64LE(136).toString(), depositedAt: Number(b.readBigInt64LE(144)), refundAfter: Number(b.readBigInt64LE(152)), status,
-    recipient: new PublicKey(b.subarray(161, 193)).toBase58(), reportHash: b.slice(193, 225).toString('hex'), bump: b[225] };
+    recipient: new PublicKey(b.subarray(161, 193)).toBase58(), reportHash: b.slice(193, 225).toString('hex'), treasury: new PublicKey(b.subarray(225, 257)).toBase58(), feeBps: b.readUInt16LE(257), bump: b[259] };
 }

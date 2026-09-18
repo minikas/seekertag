@@ -10,8 +10,8 @@ const MAX_SECONDS: u32 = 5 * 365 * 86_400;
 const RESERVED: u8 = 1;
 const RELEASED: u8 = 2;
 const REFUNDED: u8 = 3;
-const PLATFORM_FEE_BPS: u64 = 500;
 const BPS_DENOMINATOR: u64 = 10_000;
+const MAX_PLATFORM_FEE_BPS: u16 = 1_000;
 
 #[program]
 pub mod seekertag_escrow {
@@ -23,6 +23,8 @@ pub mod seekertag_escrow {
         amount: u64,
         days: u16,
         verifier: Pubkey,
+        treasury: Pubkey,
+        fee_bps: u16,
     ) -> Result<()> {
         valid_days(days)?;
         init(
@@ -33,6 +35,8 @@ pub mod seekertag_escrow {
             reward_id,
             amount,
             u32::from(days) * DAY as u32,
+            treasury,
+            fee_bps,
             ctx.bumps.escrow,
         )?;
         system_program::transfer(
@@ -53,6 +57,8 @@ pub mod seekertag_escrow {
         amount: u64,
         days: u16,
         verifier: Pubkey,
+        treasury: Pubkey,
+        fee_bps: u16,
     ) -> Result<()> {
         valid_days(days)?;
         init(
@@ -63,6 +69,8 @@ pub mod seekertag_escrow {
             reward_id,
             amount,
             u32::from(days) * DAY as u32,
+            treasury,
+            fee_bps,
             ctx.bumps.escrow,
         )?;
         token::transfer_checked(
@@ -104,6 +112,8 @@ pub mod seekertag_escrow {
         amount: u64,
         duration_seconds: u32,
         verifier: Pubkey,
+        treasury: Pubkey,
+        fee_bps: u16,
     ) -> Result<()> {
         init(
             &mut ctx.accounts.escrow,
@@ -113,6 +123,8 @@ pub mod seekertag_escrow {
             reward_id,
             amount,
             duration_seconds,
+            treasury,
+            fee_bps,
             ctx.bumps.escrow,
         )?;
         system_program::transfer(
@@ -133,6 +145,8 @@ pub mod seekertag_escrow {
         amount: u64,
         duration_seconds: u32,
         verifier: Pubkey,
+        treasury: Pubkey,
+        fee_bps: u16,
     ) -> Result<()> {
         init(
             &mut ctx.accounts.escrow,
@@ -142,6 +156,8 @@ pub mod seekertag_escrow {
             reward_id,
             amount,
             duration_seconds,
+            treasury,
+            fee_bps,
             ctx.bumps.escrow,
         )?;
         token::transfer_checked(
@@ -181,7 +197,7 @@ pub mod seekertag_escrow {
         let escrow = &mut ctx.accounts.escrow;
         release_allowed(escrow, ctx.accounts.recipient.key(), report)?;
         require_keys_eq!(escrow.mint, Pubkey::default(), EscrowError::WrongAsset);
-        let fee = platform_fee(escrow.amount)?;
+        let fee = platform_fee(escrow.amount, escrow.fee_bps)?;
         let payout = escrow
             .amount
             .checked_sub(fee)
@@ -193,7 +209,7 @@ pub mod seekertag_escrow {
         )?;
         move_sol(
             &escrow.to_account_info(),
-            &ctx.accounts.verifier.to_account_info(),
+            &ctx.accounts.treasury.to_account_info(),
             fee,
         )?;
         escrow.status = RELEASED;
@@ -226,7 +242,7 @@ pub mod seekertag_escrow {
             &[escrow.bump],
         ];
         let signer = &[seeds];
-        let fee = platform_fee(escrow.amount)?;
+        let fee = platform_fee(escrow.amount, escrow.fee_bps)?;
         let payout = escrow
             .amount
             .checked_sub(fee)
@@ -345,6 +361,8 @@ fn init(
     reward_id: [u8; 32],
     amount: u64,
     duration_seconds: u32,
+    treasury: Pubkey,
+    fee_bps: u16,
     bump: u8,
 ) -> Result<()> {
     require!(
@@ -354,6 +372,14 @@ fn init(
     require!(
         verifier != Pubkey::default() && verifier != owner,
         EscrowError::InvalidVerifier
+    );
+    require!(
+        treasury != Pubkey::default() && treasury != owner && treasury != verifier,
+        EscrowError::InvalidTreasury
+    );
+    require!(
+        fee_bps > 0 && fee_bps <= MAX_PLATFORM_FEE_BPS,
+        EscrowError::InvalidFee
     );
     valid_duration(duration_seconds)?;
     let now = Clock::get()?.unix_timestamp;
@@ -368,6 +394,8 @@ fn init(
         status: RESERVED,
         recipient: Pubkey::default(),
         report: [0; 32],
+        treasury,
+        fee_bps,
         bump,
     });
     Ok(())
@@ -397,9 +425,9 @@ fn move_sol(from: &AccountInfo, to: &AccountInfo, amount: u64) -> Result<()> {
     to.add_lamports(amount)?;
     Ok(())
 }
-fn platform_fee(amount: u64) -> Result<u64> {
+fn platform_fee(amount: u64, fee_bps: u16) -> Result<u64> {
     let fee = u128::from(amount)
-        .checked_mul(u128::from(PLATFORM_FEE_BPS))
+        .checked_mul(u128::from(fee_bps))
         .ok_or(EscrowError::InvalidAmount)?
         / u128::from(BPS_DENOMINATOR);
     u64::try_from(fee).map_err(|_| EscrowError::InvalidAmount.into())
@@ -472,27 +500,29 @@ pub struct Manage<'info> {
 pub struct ReleaseSol<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
-    #[account(mut)]
     pub verifier: Signer<'info>,
-    #[account(mut, has_one = owner, has_one = verifier, seeds = [b"reward", owner.key().as_ref(), &escrow.reward_id], bump = escrow.bump)]
+    #[account(mut, has_one = owner, has_one = verifier, has_one = treasury, seeds = [b"reward", owner.key().as_ref(), &escrow.reward_id], bump = escrow.bump)]
     pub escrow: Account<'info, Escrow>,
     #[account(mut)]
     pub recipient: SystemAccount<'info>,
+    #[account(mut)]
+    pub treasury: SystemAccount<'info>,
 }
 #[derive(Accounts)]
 pub struct ReleaseToken<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
     pub verifier: Signer<'info>,
-    #[account(mut, has_one = owner, has_one = verifier, has_one = mint, seeds = [b"reward", owner.key().as_ref(), &escrow.reward_id], bump = escrow.bump)]
+    #[account(mut, has_one = owner, has_one = verifier, has_one = mint, has_one = treasury, seeds = [b"reward", owner.key().as_ref(), &escrow.reward_id], bump = escrow.bump)]
     pub escrow: Account<'info, Escrow>,
     pub recipient: SystemAccount<'info>,
+    pub treasury: SystemAccount<'info>,
     pub mint: Account<'info, Mint>,
     #[account(mut, seeds = [b"vault", escrow.key().as_ref()], bump, token::mint = mint, token::authority = escrow)]
     pub vault: Account<'info, TokenAccount>,
     #[account(mut, token::mint = mint, token::authority = recipient)]
     pub destination: Account<'info, TokenAccount>,
-    #[account(mut, token::mint = mint, token::authority = verifier)]
+    #[account(mut, token::mint = mint, token::authority = treasury)]
     pub treasury_destination: Account<'info, TokenAccount>,
     #[account(mut, token::mint = mint, token::authority = owner)]
     pub refund_destination: Account<'info, TokenAccount>,
@@ -526,10 +556,12 @@ pub struct Escrow {
     pub status: u8,
     pub recipient: Pubkey,
     pub report: [u8; 32],
+    pub treasury: Pubkey,
+    pub fee_bps: u16,
     pub bump: u8,
 }
 impl Escrow {
-    pub const SPACE: usize = 8 + 32 * 6 + 8 * 3 + 2;
+    pub const SPACE: usize = 8 + 32 * 7 + 8 * 3 + 4;
 }
 
 #[error_code]
@@ -546,6 +578,10 @@ pub enum EscrowError {
     InvalidRecipient,
     #[msg("The verifier must be distinct from the depositor")]
     InvalidVerifier,
+    #[msg("The treasury must be distinct from the depositor and verifier")]
+    InvalidTreasury,
+    #[msg("The platform fee must be between 1 and 1000 basis points")]
+    InvalidFee,
     #[msg("Wrong asset for this instruction")]
     WrongAsset,
     #[msg("Insufficient vault balance")]
