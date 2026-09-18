@@ -16,7 +16,7 @@ export function isAuthCallback(value: string): boolean {
 
 export async function authenticate(provider: Provider, mode: AuthMode = 'login', token?: string, language = 'pt'): Promise<AuthResult | null> {
   if (provider === 'solana') return signInWithWallet(mode, token, language);
-  const verifier = Buffer.from(await Crypto.getRandomBytesAsync(32)).toString('base64url');
+  const verifier = Buffer.from(await Crypto.getRandomBytesAsync(32)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, { encoding: Crypto.CryptoEncoding.BASE64 });
   const codeChallenge = digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const { flowId, url } = await api<{ flowId: string; url: string }>(`/auth/oauth/${provider}/start`, token, { mode, codeChallenge });

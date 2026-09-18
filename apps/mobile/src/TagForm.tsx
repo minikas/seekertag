@@ -3,14 +3,14 @@ import { Colors } from './theme';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { BackHandler, Keyboard, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Keyboard, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import Pressable from './HapticPressable';
 import {
   BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFooter, BottomSheetFooterProps,
   BottomSheetHandle, BottomSheetHandleProps, BottomSheetModal,
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, Category, Tag } from './api';
+import { api, Category, Tag, User } from './api';
 import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
 import Categories from './Categories';
 import { categoryLabel } from './category.model';
@@ -26,8 +26,9 @@ import RewardEditorSheet from './RewardEditorSheet';
 import RewardSummary, { RewardPendingNotice, RewardNetworkBadge } from './RewardSummary';
 import AccountActionSheet from './AccountActionSheet';
 import { tagFormSchema, type TagFormValues } from './form.model';
+import { authenticate } from './platform/auth';
 
-export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChanged, focusReward = false }: { token: string; tag?: Tag; focusReward?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
+export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSaved, onCategoriesChanged, focusReward = false }: { token: string; user: User; onUserUpdated: (user: User) => void; tag?: Tag; focusReward?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const sheet = useRef<BottomSheetModal>(null);
@@ -67,6 +68,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const [reviewing, setReviewing] = useState(false);
   const [refundConfirm, setRefundConfirm] = useState(false);
   const [savedBusy, setSavedBusy] = useState(false);
+  const [connectingWallet, setConnectingWallet] = useState(false);
   const wallet = useReward({ token, tagId: currentTag?.id, currency,
     onChanged: next => {
       const previous = currentTagRef.current;
@@ -89,6 +91,7 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   let amountValid = !reward || Number(canonicalRewardAmount(reward)) === 0;
   try { amountValid = wallet.balance?.currency === currency && amountToUnits(canonicalRewardAmount(reward), REWARD_DECIMALS[currency]) <= BigInt(wallet.balance.fundableUnits ?? wallet.balance.availableUnits); } catch {}
   const canReserve = !!wallet.data?.payer && !!wallet.data.config && amountValid && durationValid;
+  const needsWallet = !user.walletAddress && !lockedReward;
   const operationId = wallet.operation?.operation.id;
   useEffect(() => {
     if (operationId) { Keyboard.dismiss(); setReviewing(true); setRewardOpen(true); }
@@ -98,6 +101,9 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     if (!focusReward || focusedReward.current || sheetIndex < 0) return;
     focusedReward.current = true; setRewardOpen(true);
   }, [focusReward, sheetIndex]);
+  useEffect(() => {
+    if (rewardOpen && needsWallet) ToastAndroid.show(t('Conecte sua carteira para adicionar uma recompensa'), ToastAndroid.LONG);
+  }, [rewardOpen, needsWallet, t]);
   const [error, setError] = useState('');
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
   const applyCategories = useCallback((next: Category[]) => {
@@ -170,6 +176,17 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
 
   function save(action?: RewardAction) { void handleSubmit(values => submit(values, action))(); }
 
+  async function connectWallet() {
+    if (connectingWallet) return;
+    setConnectingWallet(true); setError('');
+    try {
+      const result = await authenticate('solana', 'link', token, locale.slice(0, 2));
+      if (result?.user) onUserUpdated(result.user);
+    } catch (cause) {
+      if (mounted.current) setError(cause instanceof Error ? cause.message : 'Não foi possível conectar sua carteira.');
+    } finally { if (mounted.current) setConnectingWallet(false); }
+  }
+
   const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.6} pressBehavior={busy ? 'none' : 'close'} onPress={() => { closing.current = true; Keyboard.dismiss(); }} accessible={!busy} accessibilityLabel={t("Fechar formulário")} accessibilityHint={t("Fecha o formulário sem salvar.")} />, [busy, t]);
   // Keep the footer mounted while typing; the action always reads current fields.
   const saveDisabled = waiting || categoriesLoading || !category || !name.trim() || !!errors.name || wallet.loading || (!lockedReward && !!reward && (!amountValid || wantsReward && !canReserve)) || renewing && !durationValid;
@@ -240,14 +257,14 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       <View style={{ gap: 12 }}><Text style={s.label}>{t("Categoria")}</Text><View style={styles.categories}>{categories.map(c => <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={categoryLabel(c, t)} accessibilityState={{ selected: c.id === category, disabled: editingDisabled }} disabled={editingDisabled} onPress={() => setCategory(c.id)} style={({ pressed }) => [styles.category, { backgroundColor: c.id === category ? C.primary : C.secondary, opacity: pressed || editingDisabled ? 0.65 : 1 }]}><Icon name={c.icon as IconName} size={20} color={c.id === category ? C.onPrimary : C.ink} /><Text style={{ color: c.id === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{categoryLabel(c, t)}</Text></Pressable>)}</View><Button variant="ghost" icon="edit-2" onPress={() => { categoryScreenOpen.current = true; Keyboard.dismiss(); setManagingCategories(true); }} disabled={editingDisabled}>{t("Gerenciar categorias")}</Button></View>
       <Controller control={control} name="description" render={({ field }) => <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.description?.message} maxLength={500} help={t("Só você vê esta anotação.")} editable={!editingDisabled} />} />
       <Controller control={control} name="publicMessage" render={({ field }) => <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.publicMessage?.message} maxLength={500} help={t("Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço.")} editable={!editingDisabled} />} />
-      <Pressable accessibilityRole="button" accessibilityLabel={t('Recompensa (Opcional)')} accessibilityState={{ disabled: busy || wallet.loading }} disabled={busy || wallet.loading}
-        onPress={() => { Keyboard.dismiss(); setRewardOpen(true); }} style={({ pressed }) => [s.card, s.between, { opacity: pressed ? 0.65 : 1 }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t(needsWallet ? 'Conecte sua carteira para adicionar uma recompensa' : 'Recompensa (Opcional)')} accessibilityState={{ disabled: busy || wallet.loading || connectingWallet }} disabled={busy || wallet.loading || connectingWallet}
+        onPress={() => { Keyboard.dismiss(); if (needsWallet) void connectWallet(); else setRewardOpen(true); }} style={({ pressed }) => [s.card, s.between, { opacity: pressed ? 0.65 : 1 }]}>
         {activeReward ? <RewardSummary reward={activeReward} /> : <View style={[s.row, { flex: 1 }]}>
-          <View style={s.settingsIcon}><Icon name="gift" size={20} /></View>
-          <View style={{ flex: 1, gap: 5 }}><Text style={s.h3}>{t('Recompensa (Opcional)')}</Text>
-            <Text style={s.small}>{legacyReward ? `${currentTag?.rewardAmount} ${currentTag?.rewardCurrency}` : wantsReward ? `${reward} ${currency}` : t('Adicionar recompensa')}</Text></View>
+          <View style={s.settingsIcon}><Icon name={needsWallet ? 'credit-card' : 'gift'} size={20} color={needsWallet ? C.accent : undefined} /></View>
+          <View style={{ flex: 1, gap: 5 }}><Text style={s.h3}>{t(needsWallet ? 'Conecte sua carteira para adicionar uma recompensa' : 'Recompensa (Opcional)')}</Text>
+            <Text style={s.small}>{needsWallet ? t('A recompensa fica reservada na sua carteira Solana até a devolução do objeto.') : legacyReward ? `${currentTag?.rewardAmount} ${currentTag?.rewardCurrency}` : wantsReward ? `${reward} ${currency}` : t('Adicionar recompensa')}</Text></View>
         </View>}
-        <Icon name={waiting ? 'clock' : 'chevron-right'} size={20} color={C.muted} />
+        {connectingWallet ? <Icon name="loader" size={20} color={C.muted} /> : <Icon name={waiting ? 'clock' : 'chevron-right'} size={20} color={C.muted} />}
       </Pressable>
     </KeyboardAwareSheetScrollView>
   </BottomSheetModal>
@@ -285,7 +302,11 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
         </> : legacyReward ? <>
           <View style={s.card}><RewardSummary amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} /></View>
           <Button variant="secondary" disabled={editingDisabled} onPress={() => setLegacyReward(false)}>{t('Usar recompensa em cripto')}</Button>
-        </> : <>
+        </> : needsWallet ? <View style={styles.walletNotice}>
+          <View style={s.row}><View style={s.settingsIcon}><Icon name="credit-card" color={C.accent} size={22} /></View><Text style={[s.h3, { flex: 1 }]}>{t('Conecte sua carteira para adicionar uma recompensa')}</Text></View>
+          <Text style={s.body}>{t('A recompensa fica reservada na sua carteira Solana até a devolução do objeto.')}</Text>
+          <Button variant="ghost" icon="credit-card" busy={connectingWallet} onPress={() => void connectWallet()} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>{t('Vincular Seeker / Solana')}</Button>
+        </View> : <>
           <RewardFields controller={wallet} value={reward} currency={currency} onValue={setReward} onCurrency={setCurrency} disabled={editingDisabled} />
           {wantsReward && <>
             <RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} />
@@ -316,6 +337,7 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   handle: { backgroundColor: '#536567', width: 44, height: 5 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 },
   content: { paddingHorizontal: 20, paddingTop: 16, gap: 26 },
+  walletNotice: { gap: 12 },
   categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   category: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, minHeight: 46, alignItems: 'center', borderRadius: 24 },
   footer: { paddingHorizontal: 20, paddingVertical: 16, gap: 12, backgroundColor: C.popover },
