@@ -13,8 +13,7 @@ import { User } from './api';
 import { WalletPanel } from './platform/WalletPanel';
 import { Button, Icon, IconName, Notice, useUI } from './ui';
 import { api } from './api';
-import type { RewardConfig } from '@seekertag/shared/reward';
-import { Address } from './RewardReview';
+import type { RewardConfig, RewardNetwork } from '@seekertag/shared/reward';
 
 type Props = { token: string; user: User; onUserUpdated: (user: User) => void; onClose: () => void; onHelp: () => void; onLogout: () => Promise<void>; onCategoriesChanged: () => void };
 export default function Account({ token, user, onUserUpdated, onClose, onHelp, onLogout, onCategoriesChanged }: Props) {
@@ -64,23 +63,22 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
     </Screen>
     </View>
     {!!sheet && <AccountActionSheet ref={sheetRef} title={sheet === 'receive' ? t("Receber etiquetas") : sheet === 'language' ? t("Idioma") : sheet === 'network' ? t("Rede de recompensas") : t("Aparência")} onClose={() => setSheet(null)}>
-      {sheet === 'receive' ? <ReceiveLabels accountId={user.id} /> : sheet === 'network' ? <RewardNetworkInfo config={rewardConfig} /> : <PreferenceOptions section={sheet} onSelected={dismissSheet} />}
+      {sheet === 'receive' ? <ReceiveLabels accountId={user.id} /> : sheet === 'network' ? <RewardNetworkOptions network={rewardConfig?.network || null} onSelected={dismissSheet} /> : <PreferenceOptions section={sheet} onSelected={dismissSheet} />}
     </AccountActionSheet>}
   </View>;
 }
-function RewardNetworkInfo({ config }: { config: RewardConfig | null | undefined }) {
-  const { s, t, locale } = useUI();
-  if (config === undefined) return <Notice text={t('Carregando configuração da rede…')} />;
-  if (config === null) return <Notice text={t('As recompensas on-chain estão desativadas neste servidor.')} />;
-  const testNetwork = config.network !== 'mainnet';
-  return <View style={{ gap: 18 }}>
-    {testNetwork && <Notice text={t('Esta é uma rede de teste. Os tokens não têm valor real.')} />}
-    <View style={{ gap: 5 }}><Text style={s.label}>{t('Rede ativa')}</Text><Text style={s.body}>{config.network}</Text></View>
-    <View style={{ gap: 5 }}><Text style={s.label}>{t('Comissão para novas reservas')}</Text><Text style={s.body}>{(config.feeBps / 100).toLocaleString(locale, { maximumFractionDigits: 2 })}%</Text></View>
-    <Address label={t('Treasury')} address={config.treasury} />
-    <Address label={t('Programa on-chain')} address={config.program} />
-    <Text style={s.small}>{t('A rede e estes endereços são definidos pelo administrador do servidor. Alterações valem apenas para novas reservas.')}</Text>
-  </View>;
+function RewardNetworkOptions({ network, onSelected }: { network: RewardNetwork | null; onSelected: () => void }) {
+  const { C, s, t } = useUI();
+  const options: { value: RewardNetwork; title: string }[] = [
+    { value: 'devnet', title: 'Devnet' }, { value: 'testnet', title: 'Testnet' }, { value: 'mainnet', title: 'Mainnet' },
+  ];
+  return <View>{options.map(option => {
+    const selected = network === option.value;
+    return <Pressable key={option.value} testID={`reward-network-${option.value}`} accessibilityRole="radio" accessibilityLabel={option.title} accessibilityState={{ checked: selected, disabled: !selected }} disabled={!selected} onPress={onSelected} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 20, opacity: selected ? 1 : 0.4 }}>
+      <View style={{ width: 24, alignItems: 'center' }}>{selected && <Icon name="check" size={22} color={C.accent} />}</View>
+      <View style={{ flex: 1, gap: 6 }}><Text style={{ color: C.ink, fontSize: 18, lineHeight: 26 }}>{option.title}</Text><Text style={s.small}>{selected ? t('Ativa neste servidor') : t('Indisponível neste servidor')}</Text></View>
+    </Pressable>;
+  })}</View>;
 }
 function AccountRow({ icon, title, value, onPress }: { icon: IconName; title: string; value?: string; onPress: () => void }) {
   const { C } = useUI();
