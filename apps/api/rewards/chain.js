@@ -74,7 +74,7 @@ export function createRewardChain({ network, rpcUrl, verifier, testMints = {} })
     let rent = 0;
     if (spec.kind === 'fund') rent = await connection.getMinimumBalanceForRentExemption(ESCROW_SPACE) + (spec.mint ? await connection.getMinimumBalanceForRentExemption(165) : 0);
     if (spec.mint && ['release', 'refund'].includes(spec.kind)) {
-      const owners = spec.kind === 'release' ? [spec.payer, spec.recipient] : [spec.payer];
+      const owners = spec.kind === 'release' ? [spec.payer, spec.recipient, spec.verifier] : [spec.payer];
       const accounts = await connection.getMultipleAccountsInfo(owners.map(owner => tokenAddress(new PublicKey(owner), new PublicKey(spec.mint))), 'confirmed');
       rent += accounts.filter(account => !account).length * await connection.getMinimumBalanceForRentExemption(165);
     }

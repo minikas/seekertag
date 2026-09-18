@@ -299,7 +299,6 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
 
   app.get('/api/tags', requireOwner, (req, res) => res.json({ tags: all('SELECT * FROM tags WHERE owner_id=? ORDER BY created_at DESC, id DESC', req.user.id).map(tagView) }));
   app.post('/api/tags', requireOwner, ownerWriteLimit, (req, res) => {
-    if (get('SELECT COUNT(*) AS n FROM tags WHERE owner_id=?', req.user.id).n >= 500) fail(409, 'Você atingiu o limite de 500 etiquetas.', 'TAG_LIMIT');
     const v = validateTag(req.body);
     const id = randomUUID(); const code = randomBytes(12).toString('base64url'); const at = now();
     transaction(() => {
@@ -345,7 +344,6 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       if (!target) fail(404, 'A pessoa precisa criar uma conta SeekerTag antes da transferência.', 'RECIPIENT_NOT_FOUND');
       if (target.id === req.user.id) fail(400, 'A etiqueta já está na sua conta.');
       if (get("SELECT id FROM reports WHERE tag_id=? AND status='open'", tag.id)) fail(409, 'Conclua as conversas abertas antes de transferir esta etiqueta.', 'OPEN_REPORTS');
-      if (get('SELECT COUNT(*) AS n FROM tags WHERE owner_id=?', target.id).n >= 500) fail(409, 'A conta de destino atingiu o limite de etiquetas.', 'TAG_LIMIT');
       const at = now();
       // Public QR remains valid; clear private notes, pledges, and previous recovery metrics before handing over.
       const category = categories.transfer(current, target.id);

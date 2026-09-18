@@ -3,6 +3,8 @@ export type RewardNetwork = 'devnet' | 'mainnet' | 'localnet';
 export const REWARD_DECIMALS: Record<RewardCurrency, number> = { SOL: 9, USDC: 6, SKR: 6 };
 export const REWARD_PROGRAM = '4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB';
 export const ESCROW_SPACE = 226;
+export const REWARD_PLATFORM_FEE_BPS = 500;
+export const BPS_DENOMINATOR = 10_000;
 // Fixed, bounded execution fee included in the transaction before wallet review.
 export const REWARD_COMPUTE_UNITS = 200_000;
 export const REWARD_COMPUTE_UNIT_PRICE = 100_000; // micro-lamports; 20,000 lamports total, verified on Seeker Wallet
@@ -25,6 +27,9 @@ export function unitsToAmount(units: string | bigint, decimals: number): string 
   const base = 10n ** BigInt(decimals);
   const fraction = (value % base).toString().padStart(decimals, '0').replace(/0+$/, '');
   return `${value / base}${fraction ? `.${fraction}` : ''}`;
+}
+export function rewardPlatformFee(units: string | bigint): bigint {
+  return BigInt(units) * BigInt(REWARD_PLATFORM_FEE_BPS) / BigInt(BPS_DENOMINATOR);
 }
 export function validRewardDays(value: unknown): value is number { return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 365; }
 

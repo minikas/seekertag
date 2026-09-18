@@ -6,7 +6,7 @@ import { Keypair, PublicKey, Transaction, SystemProgram } from '@solana/web3.js'
 import { getTransactionDecoder } from '@solana/kit';
 import { LiteSVM, FailedTransactionMetadata } from 'litesvm';
 import { PROGRAM, TOKEN_PROGRAM, escrowAddress, vaultAddress, tokenAddress, rewardInstructions, decodeEscrow, verifyRewardTransaction } from '@seekertag/shared/escrow-wire';
-import { MAINNET_MINTS, amountToUnits, unitsToAmount } from '@seekertag/shared/reward';
+import { MAINNET_MINTS, amountToUnits, rewardPlatformFee, unitsToAmount } from '@seekertag/shared/reward';
 
 const binary = fileURLToPath(new URL('../../../../artifacts/escrow/seekertag_escrow.so', import.meta.url));
 function fixture(mintAddress = null) {
@@ -66,9 +66,10 @@ test('SOL release needs both owner and verifier; receipt binds the finder and re
   f.expectFail(f.send(release, [f.owner], tx => { tx.instructions[0].keys[1].isSigner = false; return tx; }));
   f.expectFail(f.send(release, [f.verifier, f.attacker], tx => { tx.feePayer = f.attacker.publicKey; tx.instructions[0].keys[0].isSigner = false; return tx; }));
   f.expectFail(f.send({ ...release, verifier: f.attacker.publicKey.toBase58() }, [f.owner, f.attacker]));
-  const before = f.svm.getBalance(release.recipient);
+  const before = f.svm.getBalance(release.recipient); const treasuryBefore = f.svm.getBalance(f.verifier.publicKey.toBase58());
   f.expectOK(f.send(release, [f.owner, f.verifier]));
-  assert.equal(f.svm.getBalance(release.recipient) - before, BigInt(f.spec.amountUnits));
+  assert.equal(f.svm.getBalance(release.recipient) - before, 19_000_000n);
+  assert.equal(f.svm.getBalance(f.verifier.publicKey.toBase58()) - treasuryBefore, 1_000_000n);
   assert.equal(f.state().recipient, release.recipient);
   assert.equal(f.state().reportHash, release.reportHash);
   assert.equal(f.state().status, 2);
@@ -77,7 +78,7 @@ test('SOL release needs both owner and verifier; receipt binds the finder and re
 });
 
 for (const [symbol, mintAddress] of Object.entries(MAINNET_MINTS)) {
-  test(`${symbol} deposits and pays SPL tokens, preserving the amount and closing the vault`, () => {
+  test(`${symbol} release splits 95/5 and closes the vault`, () => {
     const f = fixture(mintAddress); const mint = new PublicKey(mintAddress);
     f.expectOK(f.send());
     assert.equal(f.tokenBalance(f.vault), 20_000_000n);
@@ -85,7 +86,8 @@ for (const [symbol, mintAddress] of Object.entries(MAINNET_MINTS)) {
     // Another wallet cannot replace the original depositor in the accounts list.
     f.expectFail(f.send({ kind: 'refund', payer: f.attacker.publicKey.toBase58() }, [f.owner, f.attacker]));
     f.expectOK(f.send({ kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') }, [f.owner, f.verifier]));
-    assert.equal(f.tokenBalance(tokenAddress(f.finder.publicKey, mint)), 20_000_000n);
+    assert.equal(f.tokenBalance(tokenAddress(f.finder.publicKey, mint)), 19_000_000n);
+    assert.equal(f.tokenBalance(tokenAddress(f.verifier.publicKey, mint)), 1_000_000n);
     assert.equal(f.svm.getAccount(f.vault.toBase58()).exists, false);
     assert.equal(f.state().status, 2);
   });
@@ -105,7 +107,8 @@ test('SPL vault donations do not prevent release or change the promised payout',
   const account = f.svm.getAccount(f.vault.toBase58()); const data = Buffer.from(account.data); data.writeBigUInt64LE(21_000_000n, 64); f.writeAccount(f.vault, data);
   f.expectOK(f.send({ kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') }, [f.owner, f.verifier]));
   const mint = new PublicKey(MAINNET_MINTS.USDC);
-  assert.equal(f.tokenBalance(tokenAddress(f.finder.publicKey, mint)), 20_000_000n);
+  assert.equal(f.tokenBalance(tokenAddress(f.finder.publicKey, mint)), 19_000_000n);
+  assert.equal(f.tokenBalance(tokenAddress(f.verifier.publicKey, mint)), 1_000_000n);
   assert.equal(f.tokenBalance(tokenAddress(f.owner.publicKey, mint)), 81_000_000n);
 });
 
@@ -140,6 +143,23 @@ test('reward amounts use exact integers with per-token precision', () => {
   assert.equal(amountToUnits('999999.999999999', 9), 999999999999999n);
   assert.equal(unitsToAmount('999999999999999', 9), '999999.999999999');
   for (const value of ['0', '-1', '1e3', '0.0000001', '1000000.000001', 'NaN', 'Infinity', '1,5']) assert.throws(() => amountToUnits(value, 6), value);
+  assert.equal(rewardPlatformFee(19n), 0n);
+  assert.equal(rewardPlatformFee(20n), 1n);
+  assert.equal(rewardPlatformFee(20_000_000n), 1_000_000n);
+  assert.equal(rewardPlatformFee(0xffffffffffffffffn), 922337203685477580n);
+});
+
+test('SPL release rejects a treasury token account not owned by the reserved verifier', () => {
+  const f = fixture(MAINNET_MINTS.USDC); const mint = new PublicKey(MAINNET_MINTS.USDC);
+  f.expectOK(f.send());
+  const attackerAccount = Buffer.alloc(165); mint.toBuffer().copy(attackerAccount); f.attacker.publicKey.toBuffer().copy(attackerAccount, 32); attackerAccount[108] = 1;
+  f.writeAccount(tokenAddress(f.attacker.publicKey, mint), attackerAccount);
+  const release = { kind: 'release', recipient: f.finder.publicKey.toBase58(), reportHash: randomBytes(32).toString('hex') };
+  f.expectFail(f.send(release, [f.owner, f.verifier], tx => {
+    tx.instructions.at(-1).keys[7].pubkey = tokenAddress(f.attacker.publicKey, mint);
+    return tx;
+  }));
+  assert.equal(f.state().status, 1);
 });
 
 test('wallet inspection preserves the signed message across different JS locale sorting implementations', () => {

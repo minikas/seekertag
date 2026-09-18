@@ -7,12 +7,12 @@ O contrato Anchor fica em `contracts/seekertag-escrow`. O programa esperado pela
 - Depósito: SOL nativo ou tokens do programa SPL Token original. Mainnet fixa os mints oficiais de USDC e SKR; Token-2022 e saldo em staking não são aceitos.
 - Prazo inicial: de 1 hora a 5 anos, escolhido pelo dono em horas, dias, meses ou anos. O formulário aceita quantidades inteiras; mês equivale a 30 dias e ano a 365 dias. A transação usa segundos inteiros e a contagem começa no relógio da rede.
 - Renovação: assinatura do dono; soma o período escolhido a `max(vencimento, agora)` e limita o resultado a 5 anos a partir de agora. Não diminui o prazo e não movimenta a recompensa.
-- Devolução: carteira do dono e verificador do serviço assinam juntos, pagando exatamente a recompensa à carteira que comprovou posse na conversa. O programa registra o hash do ID da conversa e o destinatário. O servidor sozinho não pode pagar ou retirar fundos.
+- Devolução: carteira do dono e verificador do serviço assinam juntos. O contrato envia 95% da recompensa à carteira que comprovou posse na conversa e 5% à carteira do verificador, usada inicialmente como treasury. O programa registra o hash do ID da conversa e o destinatário. O servidor sozinho não pode pagar ou retirar fundos.
 - Cancelamento: somente o dono e apenas após o vencimento. O dinheiro volta à carteira que fez o depósito. Não há cancelamento antecipado, resgate automático no vencimento ou pagamento automático ao visitante.
 - Pagamento encerra todas as conversas abertas do objeto e incrementa uma única devolução. Sem reserva, continua disponível a confirmação de devolução comum.
 - A recompensa e a transferência de titularidade ficam bloqueadas enquanto existir depósito pendente ou reserva. Depois do envio de qualquer operação, toda a edição do objeto fica bloqueada na API e no Android, com o badge “Aguardando confirmação”. Nome, categoria e anotações voltam a ser editáveis após confirmação, falha finalizada ou expiração comprovada na rede. Uma falha de conexão não libera o bloqueio.
 
-O contrato guarda um recibo permanente de 226 bytes. Ele impede reabertura/replay e permite recuperar o estado mesmo quando o RPC não retém a transação antiga. O custo dessa conta não é devolvido. A conta SPL do cofre é fechada no pagamento/reembolso, devolvendo seu aluguel ao dono; contas de tokens do destinatário continuam existindo. A revisão apresenta taxa e custo de criação separadamente. Doações extras para o cofre voltam ao depositante e não impedem a liquidação.
+O contrato guarda um recibo permanente de 226 bytes. Ele impede reabertura/replay e permite recuperar o estado mesmo quando o RPC não retém a transação antiga. O custo dessa conta não é devolvido. A conta SPL do cofre é fechada no pagamento/reembolso, devolvendo seu aluguel ao dono; contas de tokens do destinatário e da treasury continuam existindo. A revisão apresenta a comissão de 5%, a taxa da rede e o custo de criação separadamente. Doações extras para o cofre voltam ao depositante e não impedem a liquidação. O cálculo usa unidades inteiras e arredonda a comissão para baixo; recompensas mínimas podem gerar comissão zero.
 
 ## Confirmação e falhas de rede
 
@@ -48,7 +48,7 @@ Em mainnet os mints são fixos no código, ignorando as variáveis de teste:
 - USDC: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`, 6 casas decimais.
 - SKR: `SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`, 6 casas decimais.
 
-O RPC deve corresponder ao genesis hash da rede configurada e conter o programa executável. Não coloque chave privada em `EXPO_PUBLIC_*`, logs ou commits. Monte a chave como arquivo privado no servidor e preserve-a junto ao backup do SQLite. Perder esse verificador impede novos pagamentos das reservas existentes; o cancelamento do dono após o vencimento continua possível no contrato. A autoridade de atualização do programa também deve ser protegida: uma publicação atualizável continua dependendo dela.
+O RPC deve corresponder ao genesis hash da rede configurada e conter o programa executável. Não coloque chave privada em `EXPO_PUBLIC_*`, logs ou commits. Monte a chave como arquivo privado no servidor e preserve-a junto ao backup do SQLite. Perder esse verificador impede novos pagamentos das reservas existentes e também perde o acesso operacional às comissões recebidas nessa carteira; o cancelamento do dono após o vencimento continua possível no contrato. Como primeira versão, verificador e treasury são a mesma hot wallet. Separe essas funções antes da mainnet. A autoridade de atualização do programa também deve ser protegida: uma publicação atualizável continua dependendo dela.
 
 ## Build e testes
 

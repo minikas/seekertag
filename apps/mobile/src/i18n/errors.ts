@@ -26,7 +26,6 @@ export const errors: Record<string, readonly [string, string]> = {
   'E-mail ou senha incorretos.': ['Incorrect email or password.', 'Correo o contraseña incorrectos.'],
   'E-mail ou código de recuperação incorretos.': ['Incorrect email or recovery code.', 'Correo o código de recuperación incorrectos.'],
   'Este código de recuperação já foi usado.': ['This recovery code was already used.', 'Este código de recuperación ya fue utilizado.'],
-  'Você atingiu o limite de 500 etiquetas.': ['You reached the limit of 500 tags.', 'Has alcanzado el límite de 500 etiquetas.'],
   'Senha incorreta.': ['Incorrect password.', 'Contraseña incorrecta.'],
   'A pessoa precisa criar uma conta SeekerTag antes da transferência.': ['The recipient needs to create a SeekerTag account before the transfer.', 'La persona debe crear una cuenta SeekerTag antes de la transferencia.'],
   'A etiqueta já está na sua conta.': ['The tag is already in your account.', 'La etiqueta ya está en tu cuenta.'],

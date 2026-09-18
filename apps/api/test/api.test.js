@@ -417,7 +417,7 @@ test('exact text/reward boundaries, malformed JSON and control characters are va
   assert.equal((await h.request(`/reports/${found.data.report.id}`, { token: owner.token })).data.messages.length, 2);
 });
 
-test('account tag capacity permits the last slot and rejects creates/transfers beyond it atomically', async (t) => {
+test('accounts can create and receive more than 500 tags', async (t) => {
   const h = await harness(); t.after(h.close);
   const owner = await h.register(); const recipient = await h.register(); const tag = await h.tag(owner);
   const db = h.app.locals.db;
@@ -428,11 +428,11 @@ test('account tag capacity permits the last slot and rejects creates/transfers b
   db.exec('COMMIT');
   await h.tag(recipient, { name: '500th tag' });
   const overflow = await h.request('/tags', { method: 'POST', token: recipient.token, body: { name: '501st tag' } });
-  assert.equal(overflow.status, 409); assert.equal(overflow.data.code, 'TAG_LIMIT');
+  assert.equal(overflow.status, 201);
   const transfer = await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: recipient.user.email, password: 'correct horse battery' } });
-  assert.equal(transfer.status, 409); assert.equal(transfer.data.code, 'TAG_LIMIT');
-  assert.equal((await h.request('/tags', { token: recipient.token })).data.tags.length, 500);
-  assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).status, 200);
+  assert.equal(transfer.status, 200);
+  assert.equal((await h.request('/tags', { token: recipient.token })).data.tags.length, 502);
+  assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).status, 404);
 });
 
 test('report capacity reopens after resolution and conversation message cap rejects both roles', async (t) => {

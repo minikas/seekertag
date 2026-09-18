@@ -59,8 +59,8 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
     const recipient = new PublicKey(spec.recipient);
     if (!PublicKey.isOnCurve(recipient.toBytes()) || recipient.equals(owner)) throw new Error('Carteira de recebimento inválida.');
     args = hashBytes(spec.reportHash); name = mint ? 'release_token' : 'release_sol';
-    if (mint) setup.push(createTokenAccount(owner, recipient, mint), createTokenAccount(owner, owner, mint));
-    keys = mint ? [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient), key(mint), key(vault, true), key(tokenAddress(recipient, mint), true), key(tokenAddress(owner, mint), true), key(TOKEN_PROGRAM)] : [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient, true)];
+    if (mint) setup.push(createTokenAccount(owner, recipient, mint), createTokenAccount(owner, verifier, mint), createTokenAccount(owner, owner, mint));
+    keys = mint ? [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient), key(mint), key(vault, true), key(tokenAddress(recipient, mint), true), key(tokenAddress(verifier, mint), true), key(tokenAddress(owner, mint), true), key(TOKEN_PROGRAM)] : [key(owner, true, true), key(verifier, true, true), key(escrow, true), key(recipient, true)];
   } else if (spec.kind === 'refund') {
     name = mint ? 'refund_token' : 'refund_sol';
     if (mint) setup.push(createTokenAccount(owner, owner, mint));

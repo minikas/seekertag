@@ -114,7 +114,7 @@ type Tag = {
 };
 ```
 
-Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pública: até 500. Campos omitidos recebem `category: 'other'`, `color: '#B9C79B'`, `status: 'active'`, textos vazios, `rewardAmount: 0`, `rewardCurrency: 'BRL'`. Até 500 etiquetas por conta. O app arquiva um objeto com `PATCH { status: 'paused' }`; ele sai das listas principais e pode ser restaurado com `PATCH { status: 'active' }`, mantendo seu QR.
+Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pública: até 500. Campos omitidos recebem `category: 'other'`, `color: '#B9C79B'`, `status: 'active'`, textos vazios, `rewardAmount: 0`, `rewardCurrency: 'BRL'`. A quantidade de etiquetas por conta não tem limite de produto. O app arquiva um objeto com `PATCH { status: 'paused' }`; ele sai das listas principais e pode ser restaurado com `PATCH { status: 'active' }`, mantendo seu QR.
 
 Transferência exige conta de destino existente, senha correta ou prova de reautenticação e ausência de conversas abertas. O destino pode ser e-mail, endereço Solana vinculado ou ID da conta. A prova dura cinco minutos, pertence à sessão que a solicitou e é consumida na mesma transação da transferência. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
 

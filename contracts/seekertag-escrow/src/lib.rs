@@ -10,6 +10,8 @@ const MAX_SECONDS: u32 = 5 * 365 * 86_400;
 const RESERVED: u8 = 1;
 const RELEASED: u8 = 2;
 const REFUNDED: u8 = 3;
+const PLATFORM_FEE_BPS: u64 = 500;
+const BPS_DENOMINATOR: u64 = 10_000;
 
 #[program]
 pub mod seekertag_escrow {
@@ -179,10 +181,20 @@ pub mod seekertag_escrow {
         let escrow = &mut ctx.accounts.escrow;
         release_allowed(escrow, ctx.accounts.recipient.key(), report)?;
         require_keys_eq!(escrow.mint, Pubkey::default(), EscrowError::WrongAsset);
+        let fee = platform_fee(escrow.amount)?;
+        let payout = escrow
+            .amount
+            .checked_sub(fee)
+            .ok_or(EscrowError::InvalidAmount)?;
         move_sol(
             &escrow.to_account_info(),
             &ctx.accounts.recipient.to_account_info(),
-            escrow.amount,
+            payout,
+        )?;
+        move_sol(
+            &escrow.to_account_info(),
+            &ctx.accounts.verifier.to_account_info(),
+            fee,
         )?;
         escrow.status = RELEASED;
         escrow.recipient = ctx.accounts.recipient.key();
@@ -214,6 +226,11 @@ pub mod seekertag_escrow {
             &[escrow.bump],
         ];
         let signer = &[seeds];
+        let fee = platform_fee(escrow.amount)?;
+        let payout = escrow
+            .amount
+            .checked_sub(fee)
+            .ok_or(EscrowError::InvalidAmount)?;
         transfer_tokens(
             &ctx.accounts.token_program,
             &ctx.accounts.mint,
@@ -221,7 +238,16 @@ pub mod seekertag_escrow {
             &ctx.accounts.destination,
             &escrow.to_account_info(),
             signer,
-            escrow.amount,
+            payout,
+        )?;
+        transfer_tokens(
+            &ctx.accounts.token_program,
+            &ctx.accounts.mint,
+            &ctx.accounts.vault,
+            &ctx.accounts.treasury_destination,
+            &escrow.to_account_info(),
+            signer,
+            fee,
         )?;
         // Donations cannot prevent settlement or strand the original deposit.
         let surplus = ctx
@@ -305,7 +331,10 @@ fn valid_days(days: u16) -> Result<()> {
     Ok(())
 }
 fn valid_duration(seconds: u32) -> Result<()> {
-    require!((MIN_SECONDS..=MAX_SECONDS).contains(&seconds), EscrowError::InvalidDuration);
+    require!(
+        (MIN_SECONDS..=MAX_SECONDS).contains(&seconds),
+        EscrowError::InvalidDuration
+    );
     Ok(())
 }
 fn init(
@@ -367,6 +396,13 @@ fn move_sol(from: &AccountInfo, to: &AccountInfo, amount: u64) -> Result<()> {
     from.sub_lamports(amount)?;
     to.add_lamports(amount)?;
     Ok(())
+}
+fn platform_fee(amount: u64) -> Result<u64> {
+    let fee = u128::from(amount)
+        .checked_mul(u128::from(PLATFORM_FEE_BPS))
+        .ok_or(EscrowError::InvalidAmount)?
+        / u128::from(BPS_DENOMINATOR);
+    u64::try_from(fee).map_err(|_| EscrowError::InvalidAmount.into())
 }
 fn return_surplus(escrow: &AccountInfo, owner: &AccountInfo) -> Result<()> {
     let rent = Rent::get()?.minimum_balance(Escrow::SPACE);
@@ -436,6 +472,7 @@ pub struct Manage<'info> {
 pub struct ReleaseSol<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
+    #[account(mut)]
     pub verifier: Signer<'info>,
     #[account(mut, has_one = owner, has_one = verifier, seeds = [b"reward", owner.key().as_ref(), &escrow.reward_id], bump = escrow.bump)]
     pub escrow: Account<'info, Escrow>,
@@ -455,6 +492,8 @@ pub struct ReleaseToken<'info> {
     pub vault: Account<'info, TokenAccount>,
     #[account(mut, token::mint = mint, token::authority = recipient)]
     pub destination: Account<'info, TokenAccount>,
+    #[account(mut, token::mint = mint, token::authority = verifier)]
+    pub treasury_destination: Account<'info, TokenAccount>,
     #[account(mut, token::mint = mint, token::authority = owner)]
     pub refund_destination: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
