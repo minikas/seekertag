@@ -77,7 +77,8 @@ export function createRewardChain({ network, rpcUrl, verifier, legacyVerifiers =
   async function prepare(spec) {
     await ready();
     const signingVerifier = verifierKeys.get(spec.verifier);
-    if (!signingVerifier) throw new RewardChainError('O verificador desta reserva não está disponível.');
+    // Owner-only operations must remain available after losing a legacy key.
+    if (spec.kind === 'release' && !signingVerifier) throw new RewardChainError('O verificador desta reserva não está disponível.');
     if (spec.kind === 'fund' && spec.verifier !== config.verifier) throw new RewardChainError('A configuração do verificador mudou. Prepare o depósito novamente.');
     if (spec.kind === 'fund' && (spec.treasury !== config.treasury || spec.feeBps !== config.feeBps)) throw new RewardChainError('A configuração da comissão mudou. Prepare o depósito novamente.');
     const latest = await connection.getLatestBlockhash('confirmed');

@@ -65,7 +65,8 @@ export async function rpcHarness() {
     } catch (error) { res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32002, message: error.message } })); }
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  h.chain = createRewardChain({ network: 'localnet', rpcUrl: `http://127.0.0.1:${server.address().port}`, verifier, treasury: treasury.publicKey.toBase58(), testMints: MAINNET_MINTS });
+  h.rpcUrl = `http://127.0.0.1:${server.address().port}`;
+  h.chain = createRewardChain({ network: 'localnet', rpcUrl: h.rpcUrl, verifier, treasury: treasury.publicKey.toBase58(), testMints: MAINNET_MINTS });
   h.finalize = () => { h.holdFinality = false; unfinalized.clear(); for (const value of receipts.values()) { value.confirmationStatus = 'finalized'; value.confirmations = null; } };
   h.advance = seconds => { const c = svm.getClock(); c.unixTimestamp += BigInt(seconds); svm.setClock(c); };
   h.fund = (wallet, sol = 10_000_000_000n) => {

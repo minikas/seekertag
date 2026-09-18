@@ -16,6 +16,25 @@ O contrato guarda um recibo permanente de 260 bytes, incluindo `treasury` e `fee
 
 ## Confirmação e falhas de rede
 
+### Como identificar uma recompensa oficial
+
+O programa de escrow é público: qualquer pessoa pode criar um depósito diretamente e escolher verificador, treasury e comissão. O ID do programa, um saldo positivo ou três endereços distintos não provam vínculo com o SeekerTag. A política oficial é validada pela API, não por uma configuração global no contrato.
+
+Uma integração deve obter a recompensa pela API SeekerTag de confiança, vinculada ao objeto/conversa, e conferir o recibo finalizado na rede. Não aceite como referência parâmetros fornecidos pelo próprio depositante. Verifique:
+
+- Rede e programa esperados, incluindo o genesis hash do RPC e o proprietário da conta de escrow.
+- Endereço PDA derivado de `reward`, carteira pagadora e ID da reserva; formato e discriminador do recibo de 260 bytes.
+- Carteira pagadora, ID, verificador, treasury, comissão, mint e valor exatos registrados pela API quando o depósito foi preparado.
+- Estado da reserva e prazo. `reserved` com prazo vencido já permite reembolso pelo dono; `released` e `refunded` não são reservas disponíveis.
+- Para SOL reservado, saldo suficiente para recompensa mais aluguel do recibo. Para SPL, PDA do cofre, programa SPL Token original, mint, autoridade do escrow, conta não congelada e saldo suficiente.
+- Para pagamento concluído, destinatário e hash da conversa esperados, além do estado `released`.
+
+Para novos depósitos, use os parâmetros atuais de `/api/rewards/config`. Para depósitos antigos, use os parâmetros históricos da reserva mantidos pela API: rotação de chaves, treasury ou comissão não invalida recibos anteriores. `config.verifiers` lista chaves privadas disponíveis para assinatura, não um registro histórico completo de recompensas oficiais. A remoção de uma chave não torna uma reserva falsa.
+
+O método interno `chain.read(reward)` verifica o recibo contra um registro confiável do banco; passar a ele dados copiados de um escrow desconhecido não autentica a origem desse escrow. Uma integração que não consegue obter a referência confiável ou confirmar a rede deve exibir estado não verificado. Antes de assinar, também confira as instruções e permissões completas com `verifyRewardTransaction`; a API compara a mensagem assinada com a preparação original.
+
+### Reconciliação
+
 Os valores monetários atravessam a API como strings de unidades inteiras. O servidor compara dono, verificador, treasury, percentual, mint, valor e ID do recibo finalizado; consulta também o saldo do cofre. Nunca marca uma reserva apenas porque a carteira retornou uma assinatura. Se não conseguir verificar a rede, informa `unverified`.
 
 Cada operação tem uma transação preparada, com blockhash e prazo de validade. A API e o Android conferem todas as instruções e permissões de todas as contas, preservando a ordem original da mensagem para evitar diferenças de `localeCompare` entre Node e Hermes. Após a assinatura, exigem os mesmos bytes da mensagem preparada e verificam todas as assinaturas: instruções extras, carteira pagadora, valores ou destinatários alterados são rejeitados. O Android guarda a transação assinada antes de enviar, e o servidor grava a mesma assinatura antes de transmitir. Retentativas reutilizam os mesmos bytes, sem criar outro depósito.
@@ -70,6 +89,8 @@ O RPC deve corresponder ao genesis hash da rede configurada e conter o programa 
 - Comissão: altere `REWARD_FEE_BPS` e reinicie. Somente novos depósitos usam o percentual novo.
 - Verificador: mova o caminho atual para `REWARD_LEGACY_VERIFIER_KEYPAIRS`, configure a chave nova em `REWARD_VERIFIER_KEYPAIR` e reinicie. Novos depósitos registram a chave nova; liberações existentes selecionam automaticamente a chave antiga pelo endereço salvo no recibo.
 - Remova uma chave legada somente depois que não existir nenhuma reserva ativa vinculada a ela. Nunca reutilize a treasury como verificador.
+
+Se uma chave legada for perdida, configure um novo verificador válido e remova o caminho indisponível da configuração. Reservas antigas continuam podendo ser renovadas e reembolsadas pela API com a assinatura do dono, respeitando o vencimento on-chain; o pagamento ao visitante permanece indisponível sem a chave antiga. Não remova o verificador atual sem substituí-lo: deixar `REWARD_VERIFIER_KEYPAIR` vazio desabilita a integração inteira. A recuperação não exige alterar o verificador, treasury ou comissão gravados no recibo.
 
 ## Build e testes
 
