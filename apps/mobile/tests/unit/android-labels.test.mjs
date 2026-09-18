@@ -29,6 +29,7 @@ function harness(options = {}) {
     }
     static async downloadFileAsync(url, destination, config) {
       downloads.push({ url, config });
+      if (options.writeError) throw new Error('disk full');
       files.set(destination.uri, options.bytes || pdf);
       if (options.downloadError) throw new Error('connection interrupted');
       return destination;
@@ -45,13 +46,9 @@ function harness(options = {}) {
   };
   const modules = {
     'expo-file-system': { File, Paths: { cache: { uri: 'file://cache' } } },
-    'expo-file-system/legacy': {
-      EncodingType: { Base64: 'base64' },
-      async writeAsStringAsync(uri, value, writeOptions) { assert.equal(uri, 'content://downloads/SeekerTag-item.pdf'); assert.equal(writeOptions.encoding, 'base64'); if (options.writeError) throw new Error('disk full'); files.set(uri, new Uint8Array(Buffer.from(value, 'base64'))); },
-    },
     'expo-intent-launcher': {
       ResultCode: { Success: -1 },
-      async startActivityAsync(action, config) { saveRequests.push({ action, config }); if (options.pickerError) throw options.pickerError; return options.cancelled ? { resultCode: 0 } : { resultCode: -1, data: 'content://downloads/SeekerTag-item.pdf' }; },
+      async startActivityAsync(action, config) { saveRequests.push({ action, config }); if (options.pickerError) throw options.pickerError; return options.cancelled ? { resultCode: 0 } : { resultCode: -1, data: 'Intent { dat=content://downloads/SeekerTag-item.pdf flg=0x43 }' }; },
     },
     'expo-sharing': {
       async isAvailableAsync() { return options.sharingAvailable !== false; },
@@ -70,8 +67,8 @@ function harness(options = {}) {
 test('Android PDF download saves a permanent copy and sends credentials only in the request header', async () => {
   const h = harness();
   assert.equal(await h.downloadLabel(request), true);
-  assert.deepEqual(h.saveRequests, [{ action: 'android.intent.action.CREATE_DOCUMENT', config: { category: 'android.intent.category.OPENABLE', type: 'application/pdf', extra: { 'android.intent.extra.TITLE': 'SeekerTag-item.pdf' } } }]);
-  assert.deepEqual(h.downloads, [{ url: request.url, config: { headers: { Authorization: `Bearer ${request.token}` } } }]);
+  assert.deepEqual(h.saveRequests, [{ action: 'android.intent.action.CREATE_DOCUMENT', config: { category: 'android.intent.category.OPENABLE', type: 'application/pdf', flags: 0x43, extra: { 'android.intent.extra.TITLE': 'SeekerTag-item.pdf' } } }]);
+  assert.deepEqual(h.downloads, [{ url: request.url, config: { headers: { Authorization: `Bearer ${request.token}` }, idempotent: true } }]);
   assert.deepEqual([...h.files.keys()], ['content://downloads/SeekerTag-item.pdf']);
   assert.deepEqual(h.files.values().next().value, pdf);
   assert.equal(h.shares.length, 0);
@@ -90,21 +87,21 @@ test('an unavailable folder picker is reported without sending an authenticated 
   assert.equal(h.downloads.length, 0);
 });
 
-test('invalid PDF responses never reach the chosen folder and temporary data is removed', async () => {
+test('invalid PDF responses are removed from the chosen folder', async () => {
   const h = harness({ bytes: new TextEncoder().encode('{"error":"expired"}') });
   await assert.rejects(h.downloadLabel(request), /Confira a conexão/);
   assert.equal(h.files.size, 0);
 });
 
-test('interrupted downloads remove partial files', async () => {
+test('interrupted downloads remove partial files from the chosen folder', async () => {
   const h = harness({ downloadError: true });
   await assert.rejects(h.downloadLabel(request), /Confira a conexão/);
   assert.equal(h.files.size, 0);
 });
 
-test('failed writes remove the temporary download', async () => {
+test('failed writes remove the empty chosen document', async () => {
   const h = harness({ writeError: true });
-  await assert.rejects(h.downloadLabel(request), /Não foi possível salvar/);
+  await assert.rejects(h.downloadLabel(request), /salvar o PDF/);
   assert.equal(h.files.size, 0);
 });
 
