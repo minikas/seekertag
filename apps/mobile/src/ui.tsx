@@ -56,7 +56,7 @@ export function Notice({ text, error = false, tone = 'info' }: { text: string; e
 
 export function Pill({ status }: { status: 'active' | 'lost' | 'paused' }) {
   const { C, s, t, locale } = useUI();
-  const [label, color, backgroundColor] = status === 'lost' ? [t("Perdido"), C.amber, C.amberSoft] : status === 'paused' ? [t("Pausado"), C.muted, C.surface] : [t("Protegido"), C.green, C.greenSoft];
+  const [label, color, backgroundColor] = status === 'lost' ? [t("Perdido"), C.amber, C.amberSoft] : status === 'paused' ? [t("Arquivado"), C.muted, C.surface] : [t("Protegido"), C.green, C.greenSoft];
   return <View style={[s.pill, { backgroundColor }]}><View style={{ height: 6, width: 6, borderRadius: 3, backgroundColor: color }} /><Text style={{ fontSize: 13, fontWeight: '500', color }}>{label}</Text></View>;
 }
 

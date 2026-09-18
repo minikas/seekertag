@@ -40,7 +40,8 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(true); }, 6000);
     return () => clearInterval(timer);
   }, [refresh, form, selected, account, browsing]);
-  const homeTags = tags.slice(0, 3);
+  const visibleTags = tags.filter(tag => tag.status !== 'paused');
+  const homeTags = visibleTags.slice(0, 3);
   const openReports = reports.filter(r => r.status === 'open');
   const switchTab = (key: Tab) => { setAccount(false); setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
@@ -76,7 +77,12 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
         </Pressable>}
         {tags.length > 0 ? <View>
           <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Objetos")}</Text><Pressable accessibilityRole="button" accessibilityLabel={t("Ver todos")} onPress={() => setBrowsing('all')} style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}><Text style={s.body}>{t("Ver todos")}</Text><Icon name="chevron-right" size={20} color={C.muted} /></Pressable></View>
-          {homeTags.map((tag, index) => <TagRow key={tag.id} tag={tag} last={index === homeTags.length - 1} onPress={() => setSelected(tag)} />)}
+          {homeTags.length > 0 ? homeTags.map((tag, index) => <TagRow key={tag.id} tag={tag} last={index === homeTags.length - 1} onPress={() => setSelected(tag)} />) : <View style={s.empty}>
+            <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="archive" size={32} /></View>
+            <Text style={[s.h2, styles.center]}>{t("Todos os objetos estão arquivados")}</Text>
+            <Text style={[s.body, styles.center]}>{t("Abra a lista de objetos e use o filtro Arquivados para restaurá-los.")}</Text>
+            <Button variant="secondary" icon="archive" onPress={() => setBrowsing('paused')}>{t("Ver arquivados")}</Button>
+          </View>}
         </View> : <View style={s.empty}>
           <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="tag" size={32} /></View>
           <Text style={[s.h2, styles.center]}>{t("Sua primeira etiqueta")}</Text>

@@ -15,7 +15,7 @@ const filters: { key: TagFilter; name: string; icon: IconName }[] = [
   { key: 'active', name: 'Protegidos', icon: 'shield' },
   { key: 'lost', name: 'Perdidos', icon: 'search' },
   { key: 'recovered', name: 'Reencontrados', icon: 'heart' },
-  { key: 'paused', name: 'Pausados', icon: 'pause-circle' },
+  { key: 'paused', name: 'Arquivados', icon: 'archive' },
 ];
 
 type Props = { tags: Tag[]; initialFilter: TagFilter; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean };

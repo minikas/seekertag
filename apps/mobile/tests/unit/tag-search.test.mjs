@@ -20,7 +20,7 @@ test('search accepts accents, casing and extra spaces across name and category',
 test('search uses the displayed language for default categories and preserves custom names', () => {
   assert.deepEqual(ids(searchTags(tags, 'electronics', 'all', createTranslator('en'), 'en-US')), ['a', 'b']);
   assert.deepEqual(ids(searchTags(tags, 'electronica', 'all', createTranslator('es'), 'es-ES')), ['a', 'b']);
-  assert.deepEqual(ids(searchTags(tags, 'pecas unicas', 'all', createTranslator('en'), 'en-US')), ['c']);
+  assert.deepEqual(ids(searchTags(tags, 'pecas unicas', 'paused', createTranslator('en'), 'en-US')), ['c']);
 });
 
 test('status and search combine, including an empty result and clearing both controls', () => {
@@ -29,7 +29,12 @@ test('status and search combine, including an empty result and clearing both con
   for (const [status, id] of [['active', 'a'], ['lost', 'b'], ['paused', 'c']]) {
     assert.deepEqual(ids(searchTags(tags, '', status, pt, 'pt-BR')), [id]);
   }
-  assert.deepEqual(searchTags(tags, '  ', 'all', pt, 'pt-BR'), tags);
+  assert.deepEqual(ids(searchTags(tags, '  ', 'all', pt, 'pt-BR')), ['a', 'b']);
+});
+
+test('the main collection hides archived items while its dedicated filter keeps them accessible', () => {
+  assert.deepEqual(ids(searchTags(tags, '', 'all', pt, 'pt-BR')), ['a', 'b']);
+  assert.deepEqual(ids(searchTags(tags, '', 'paused', pt, 'pt-BR')), ['c']);
 });
 
 test('filtering retains the original order and objects without mutating the collection', () => {

@@ -104,3 +104,18 @@ dialog.addEventListener("click", (event) => {
     dialog.close();
 });
 document.querySelector("#year").textContent = new Date().getFullYear();
+
+const header = document.querySelector(".header");
+let headerFrame;
+const updateHeader = () => {
+  header.classList.toggle("is-scrolled", window.scrollY > 48);
+  headerFrame = undefined;
+};
+window.addEventListener(
+  "scroll",
+  () => {
+    if (!headerFrame) headerFrame = requestAnimationFrame(updateHeader);
+  },
+  { passive: true },
+);
+updateHeader();

@@ -87,7 +87,7 @@ O novo cliente envia `categoryId` na criação/edição do objeto; nome e cor v�
 | `GET /tags/:id/history` | — | `{ events: [{ id, type, status, createdAt }] }`, recentes primeiro |
 | `POST /tags/:id/transfer` | `{ recipient, password }` ou `{ recipient, proof }`; `email` ainda é aceito como alias de `recipient` | `{ ok: true }` |
 | `GET /tags/:id/qr.png` | — | PNG 900×900, attachment |
-| `GET /tags/:id/label.pdf?lang=pt` | `lang`: `pt`, `en` ou `es` (padrão `pt`) | PDF A4 com seis etiquetas recortáveis, attachment |
+| `GET /tags/:id/label.pdf?lang=pt` | `lang`: `pt`, `en` ou `es` (padrão `pt`) | PDF A4 com 1 etiqueta grande, 2 médias e 4 pequenas, attachment |
 
 ```ts
 type Tag = {
@@ -114,7 +114,7 @@ type Tag = {
 };
 ```
 
-Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pública: até 500. Campos omitidos recebem `category: 'other'`, `color: '#B9C79B'`, `status: 'active'`, textos vazios, `rewardAmount: 0`, `rewardCurrency: 'BRL'`. Até 500 etiquetas por conta. O dono desativa uma etiqueta com `PATCH { status: 'paused' }`; a mesma etiqueta pode ser reativada, mantendo seu QR.
+Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pública: até 500. Campos omitidos recebem `category: 'other'`, `color: '#B9C79B'`, `status: 'active'`, textos vazios, `rewardAmount: 0`, `rewardCurrency: 'BRL'`. Até 500 etiquetas por conta. O app arquiva um objeto com `PATCH { status: 'paused' }`; ele sai das listas principais e pode ser restaurado com `PATCH { status: 'active' }`, mantendo seu QR.
 
 Transferência exige conta de destino existente, senha correta ou prova de reautenticação e ausência de conversas abertas. O destino pode ser e-mail, endereço Solana vinculado ou ID da conta. A prova dura cinco minutos, pertence à sessão que a solicitou e é consumida na mesma transação da transferência. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
 
@@ -131,7 +131,7 @@ O campo `rewardAmount` sozinho é um **valor opcional anunciado**, de 0 a 1.000.
 
 As duas rotas `/public/tags/:code` aceitam a sessão da conta no cabeçalho `Authorization`. A consulta informa `viewerIsOwner` sem expor a identidade do dono; a criação de aviso responde `403 SELF_REPORT` se a conta for a dona atual do objeto. Uma sessão informada, mas inválida ou revogada, responde `401`; ela nunca é tratada como visita anônima. Visitantes sem sessão e outras contas continuam podendo avisar o dono.
 
-`PublicTag` contém exclusivamente `{ code, name, category, categoryIcon, color, publicMessage, status, rewardAmount, rewardCurrency }`. Não inclui e-mail, nome da conta, ID do dono, descrição privada ou histórico. Etiqueta pausada responde `410 TAG_PAUSED` à consulta pública, criação de aviso e envio de mensagens. Uma conversa existente pode continuar sendo lida e mostra o status pausado. `active` e `lost` aceitam avisos: encontrar um item antes de o dono perceber a perda também é um caso válido.
+`PublicTag` contém exclusivamente `{ code, name, category, categoryIcon, color, publicMessage, status, rewardAmount, rewardCurrency }`. Não inclui e-mail, nome da conta, ID do dono, descrição privada ou histórico. Objeto arquivado (`status: 'paused'`) responde `410 TAG_PAUSED` à consulta pública, criação de aviso e envio de mensagens. Uma conversa existente pode continuar sendo lida e mostra o estado arquivado. `active` e `lost` aceitam avisos: encontrar um item antes de o dono perceber a perda também é um caso válido.
 
 `finderName`: até 60 caracteres, opcional, padrão `Pessoa que encontrou`. Mensagem inicial e respostas: 1–2.000 caracteres. A API transporta texto como dado; o cliente deve renderizar como texto e não como HTML. Não há envio de localização ou contato implícito; o usuário escolhe o que compartilha na mensagem.
 

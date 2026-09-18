@@ -3,7 +3,11 @@ import { tagCategoryLabel } from './category.model.ts';
 import type { Translate } from './i18n/index.ts';
 
 export type TagFilter = 'all' | 'recovered' | Tag['status'];
-export const matchesTagFilter = (tag: Tag, filter: TagFilter) => filter === 'all' || (filter === 'recovered' ? tag.recoveryCount > 0 : tag.status === filter);
+export const matchesTagFilter = (tag: Tag, filter: TagFilter) => filter === 'all'
+  ? tag.status !== 'paused'
+  : filter === 'recovered'
+    ? tag.status !== 'paused' && tag.recoveryCount > 0
+    : tag.status === filter;
 const normalize = (value: string, locale: string) => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
 
 export function searchTags(tags: Tag[], query: string, filter: TagFilter, t: Translate, locale: string): Tag[] {

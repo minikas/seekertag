@@ -49,7 +49,7 @@ O Docker continua sendo construído a partir da raiz do repositório.
 4. Envia um aviso e conversa com o dono. O acesso à conversa fica salvo no armazenamento seguro do aparelho.
 5. O dono confirma a devolução. As conversas daquele objeto são encerradas e o histórico é atualizado.
 
-Também existem busca, filtros, edição, pausa/reativação de etiquetas, marcação de perdido e transferência para outra conta com confirmação de identidade. A carteira usa Sign In With Solana via Mobile Wallet Adapter no Android.
+Também existem busca, filtros, edição, arquivamento/restauração de objetos, marcação de perdido e transferência para outra conta com confirmação de identidade. Objetos arquivados saem das listas principais e ficam no filtro Arquivados; seus QRs e NFCs não recebem novos avisos até a restauração. A carteira usa Sign In With Solana via Mobile Wallet Adapter no Android.
 
 ## Categorias, idioma e aparência
 
@@ -66,7 +66,7 @@ A atualização migra os objetos existentes para categorias com IDs estáveis, m
 | Cadastro, login, logout e recuperação | Mesmas telas e API; sessão no SecureStore |
 | Criar e editar objetos, categoria, nota privada, mensagem pública e recompensa | Formulário completo de objeto |
 | Busca, filtros e indicadores | Indicadores da home abrem a lista filtrada; busca em Ver todos |
-| Marcar perdido, pausar e reativar | Detalhes da etiqueta |
+| Marcar perdido, arquivar e restaurar | Detalhes da etiqueta |
 | QR, leitura por câmera e entrada manual | QR nativo e leitor Expo |
 | Compartilhar link | Compartilhador Android |
 | Baixar PDF A4 com seis etiquetas | Seletor de pasta Android e arquivo persistente |

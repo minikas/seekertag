@@ -16,7 +16,7 @@ export const errors: Record<string, readonly [string, string]> = {
   'Etiqueta não encontrada.': ['Tag not found.', 'Etiqueta no encontrada.'], 'Esta etiqueta não foi encontrada.': ['This tag was not found.', 'No se encontró esta etiqueta.'],
   'Conversa não encontrada.': ['Conversation not found.', 'Conversación no encontrada.'],
   'Conversa não encontrada. Use o mesmo dispositivo em que enviou o aviso.': ['Conversation not found. Use the same device you used to notify the owner.', 'Conversación no encontrada. Usa el mismo dispositivo desde el que enviaste el aviso.'],
-  'Esta etiqueta está pausada pelo dono.': ['The owner has paused this tag.', 'El dueño ha pausado esta etiqueta.'],
+  'Esta etiqueta está pausada pelo dono.': ['The owner has archived this item.', 'El dueño ha archivado este objeto.'],
   'A devolução já foi concluída. Esta conversa está encerrada.': ['The return is complete. This conversation is closed.', 'La devolución ya se completó. Esta conversación está cerrada.'],
   'Esta conversa atingiu o limite de mensagens.': ['This conversation reached its message limit.', 'Esta conversación alcanzó el límite de mensajes.'],
   'Status inválido.': ['Invalid status.', 'Estado inválido.'], 'Moeda inválida.': ['Invalid currency.', 'Moneda inválida.'],
