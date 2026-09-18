@@ -1,4 +1,6 @@
-import { Directory, File, Paths } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
+import * as LegacyFileSystem from 'expo-file-system/legacy';
+import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import { LabelDownload, labelFileName } from './label.types';
 
@@ -15,23 +17,27 @@ async function fetchLabel({ url, token, fileName }: LabelDownload): Promise<File
   }
 }
 
-/** Save a permanent copy in the folder the user chooses through Android's picker. */
+/** Save a permanent copy through Android's native Save As dialog. */
 export async function downloadLabel(request: LabelDownload): Promise<boolean> {
-  let directory: Directory;
-  try { directory = await Directory.pickDirectoryAsync(); }
-  catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_PICKER_CANCELLED') return false;
-    throw new Error('Não foi possível acessar a pasta. Escolha uma pasta com permissão para salvar arquivos.');
+  let destinationUri: string;
+  try {
+    const result = await IntentLauncher.startActivityAsync('android.intent.action.CREATE_DOCUMENT', {
+      category: 'android.intent.category.OPENABLE',
+      type: 'application/pdf',
+      extra: { 'android.intent.extra.TITLE': labelFileName(request.fileName) },
+    });
+    if (result.resultCode !== IntentLauncher.ResultCode.Success) return false;
+    if (!result.data) throw new Error('missing destination URI');
+    destinationUri = result.data;
+  } catch {
+    throw new Error('Não foi possível abrir o diálogo para salvar o PDF. Tente novamente ou compartilhe o PDF.');
   }
   const cached = await fetchLabel(request);
-  let saved: File | undefined;
   try {
-    saved = directory.createFile(labelFileName(request.fileName), 'application/pdf');
-    saved.write(await cached.bytes());
+    await LegacyFileSystem.writeAsStringAsync(destinationUri, await cached.base64(), { encoding: LegacyFileSystem.EncodingType.Base64 });
     return true;
   } catch {
-    if (saved?.exists) saved.delete();
-    throw new Error('Não foi possível salvar o PDF nessa pasta. Escolha outra pasta e tente novamente.');
+    throw new Error('Não foi possível salvar o PDF. Escolha Downloads ou outra pasta e tente novamente.');
   } finally {
     if (cached.exists) cached.delete();
   }

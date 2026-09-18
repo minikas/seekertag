@@ -18,6 +18,7 @@
     "expo-dev-client": "~57.0.18",
     "expo-file-system": "~57.0.6",
     "expo-haptics": "~57.0.3",
+    "expo-intent-launcher": "~57.0.1",
     "expo-localization": "~57.0.2",
     "expo-navigation-bar": "~57.0.2",
     "expo-secure-store": "~57.0.3",
