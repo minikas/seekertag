@@ -1,5 +1,13 @@
 # SeekerTag
 
+[![SeekerTag — What is yours. Back to you.](presentation/website-hero.png)](https://seekertag.vercel.app)
+
+Lost & found for Solana Seeker: QR/NFC tags, private owner–finder conversations, and on-chain return rewards.
+
+[Website](https://seekertag.vercel.app) · [Pitch deck (PDF)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-pitch.pdf) · [Download Android APK](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/SeekerTag-preview.apk) · [CLOCK IN release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in)
+
+The preview APK is a standalone Android ARM64 build for Seeker, configured to use the public SeekerTag API; Metro and a local backend are not required. The reward implementation supports devnet, testnet, and mainnet, with one network configured per server. The documented demo uses devnet test tokens.
+
 Aplicativo **exclusivamente Android, com foco no Solana Seeker**, feito com Expo SDK 57 e React Native 0.86. Etiquetas QR/NFC ajudam a devolver objetos por conversa privada, sem expor os contatos do dono.
 
 O projeto tem um app Android, uma API Node.js com SQLite e uma landing page institucional independente. Não há projeto iOS nem versão web do aplicativo. A API continua necessária para que dois aparelhos compartilhem objetos, avisos e mensagens.
