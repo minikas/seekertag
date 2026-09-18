@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ComputeBudgetInstruction, ComputeBudgetProgram, Keypair, Transaction } from '@solana/web3.js';
 import { rewardInstructions, verifyRewardTransaction } from '@seekertag/shared/escrow-wire';
-import { MAINNET_MINTS } from '@seekertag/shared/reward';
+import { MAINNET_MINTS, REWARD_PROGRAM, solAccountTopUpTotal } from '@seekertag/shared/reward';
+import { validateRewardIntent } from '../../src/reward.model.ts';
 
 test('reviewed compute budget survives wallet signing and refuses fee or instruction changes', () => {
   const owner = Keypair.generate(); const verifier = Keypair.generate(); const treasury = Keypair.generate(); const finder = Keypair.generate();
@@ -66,5 +67,37 @@ test('replays the Seeker Wallet fee replacement captured after native signing', 
       assert.ok(checked.serializeMessage().equals(prepared.serializeMessage()));
       assert.ok(checked.verifySignatures());
     }
+  }
+});
+
+test('SOL complements are bounded integers restricted to the two settlement destinations', () => {
+  const [owner, verifier, treasury, finder] = Array.from({ length: 4 }, () => Keypair.generate().publicKey.toBase58());
+  const spec = { kind: 'release', payer: owner, verifier, treasury, recipient: finder, feeBps: 500, rewardId: 'ab'.repeat(32), reportHash: 'cd'.repeat(32),
+    mint: null, amountUnits: '20000', solAccountTopUps: { recipientLamports: '871880', treasuryLamports: '889880' } };
+  assert.equal(solAccountTopUpTotal(spec), 1761760n);
+  assert.equal(rewardInstructions(spec).length, 3);
+  for (const topUps of [
+    null, [], {}, { recipientLamports: '1' },
+    { recipientLamports: '871880', treasuryLamports: '889880', address: owner },
+    ...['-1', '1.5', '01', '1e3', '1000001', '18446744073709551616', 1].map(value => ({ recipientLamports: value, treasuryLamports: '0' })),
+  ]) assert.throws(() => rewardInstructions({ ...spec, solAccountTopUps: topUps }));
+  for (const changes of [
+    { kind: 'fund', durationSeconds: 3600 }, { kind: 'renew', durationSeconds: 3600 }, { kind: 'refund' },
+    { mint: MAINNET_MINTS.USDC }, { amountUnits: '1' }, { recipient: treasury },
+  ]) assert.throws(() => rewardInstructions({ ...spec, ...changes }));
+  assert.doesNotThrow(() => rewardInstructions({ ...spec, amountUnits: '1', solAccountTopUps: { recipientLamports: '890879', treasuryLamports: '0' } }));
+  assert.doesNotThrow(() => rewardInstructions({ ...spec, recipient: treasury, solAccountTopUps: { recipientLamports: '870880', treasuryLamports: '0' } }));
+});
+
+test('reviewed SOL account cost must include the complete complement debit', () => {
+  const [owner, verifier, treasury, finder] = Array.from({ length: 4 }, () => Keypair.generate().publicKey.toBase58());
+  const config = { network: 'devnet', verifier, verifiers: [verifier], treasury, feeBps: 500, program: REWARD_PROGRAM, currencies: ['SOL'], mints: {} };
+  const intent = { kind: 'release', currency: 'SOL', amount: '0.00002', recipient: finder, reportHash: 'cd'.repeat(32) };
+  const spec = { kind: 'release', payer: owner, verifier, treasury, recipient: finder, feeBps: 500, rewardId: 'ab'.repeat(32), reportHash: intent.reportHash,
+    mint: null, amountUnits: '20000', solAccountTopUps: { recipientLamports: '871880', treasuryLamports: '889880' } };
+  const operation = { network: 'devnet', currency: 'SOL', spec, feeLamports: '30000', rentLamports: '1761760' };
+  assert.doesNotThrow(() => validateRewardIntent(operation, intent, config, owner));
+  for (const rentLamports of ['0', '1761759', '1761761', '-1', '01761760', undefined]) {
+    assert.throws(() => validateRewardIntent({ ...operation, rentLamports }, intent, config, owner));
   }
 });

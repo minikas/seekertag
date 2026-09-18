@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import { ComputeBudgetProgram, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
-import { ESCROW_SPACE, MAX_REWARD_PLATFORM_FEE_BPS, REWARD_PROGRAM, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE, rewardDuration } from './reward.ts';
+import { ESCROW_SPACE, MAX_REWARD_PLATFORM_FEE_BPS, REWARD_PROGRAM, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE, rewardDuration, solAccountTopUpTotal } from './reward.ts';
 import type { RewardInstructionSpec } from './reward.ts';
 
 export const PROGRAM = new PublicKey(REWARD_PROGRAM);
@@ -30,6 +30,7 @@ export function createTokenAccount(payer: PublicKey, owner: PublicKey, mint: Pub
   return new TransactionInstruction({ programId: ATA_PROGRAM, keys: [key(payer, true, true), key(tokenAddress(owner, mint), true), key(owner), key(mint), key(SystemProgram.programId), key(TOKEN_PROGRAM)], data: Buffer.from([1]) });
 }
 export function rewardInstructions(spec: RewardInstructionSpec): TransactionInstruction[] {
+  solAccountTopUpTotal(spec);
   const owner = new PublicKey(spec.payer); const verifier = new PublicKey(spec.verifier);
   const treasury = new PublicKey(spec.treasury);
   if (!PublicKey.isOnCurve(treasury.toBytes()) || treasury.equals(owner) || treasury.equals(verifier) || !Number.isInteger(spec.feeBps) || spec.feeBps < 1 || spec.feeBps > MAX_REWARD_PLATFORM_FEE_BPS) throw new Error('Configuração da comissão inválida.');
@@ -63,6 +64,11 @@ export function rewardInstructions(spec: RewardInstructionSpec): TransactionInst
     const recipient = new PublicKey(spec.recipient);
     if (!PublicKey.isOnCurve(recipient.toBytes()) || recipient.equals(owner)) throw new Error('Carteira de recebimento inválida.');
     args = hashBytes(spec.reportHash); name = mint ? 'release_token' : 'release_sol';
+    if (spec.solAccountTopUps) {
+      const topUps = spec.solAccountTopUps;
+      if (BigInt(topUps.recipientLamports) > 0n) setup.push(SystemProgram.transfer({ fromPubkey: owner, toPubkey: recipient, lamports: BigInt(topUps.recipientLamports) }));
+      if (BigInt(topUps.treasuryLamports) > 0n) setup.push(SystemProgram.transfer({ fromPubkey: owner, toPubkey: treasury, lamports: BigInt(topUps.treasuryLamports) }));
+    }
     if (mint) setup.push(createTokenAccount(owner, recipient, mint), createTokenAccount(owner, treasury, mint), createTokenAccount(owner, owner, mint));
     keys = mint ? [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient), key(treasury), key(mint), key(vault, true), key(tokenAddress(recipient, mint), true), key(tokenAddress(treasury, mint), true), key(tokenAddress(owner, mint), true), key(TOKEN_PROGRAM)] : [key(owner, true, true), key(verifier, false, true), key(escrow, true), key(recipient, true), key(treasury, true)];
   } else if (spec.kind === 'refund') {

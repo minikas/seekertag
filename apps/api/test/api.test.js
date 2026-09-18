@@ -172,7 +172,7 @@ test('paused labels stop lookup, new reports, and message writes; reactivation r
 test('transfer needs current password and resolved reports, clears private information, isolates old chat history', async (t) => {
   const h = await harness(); t.after(h.close);
   const original = await h.register('Owner 1', 'first@example.com'); const recipient = await h.register('Owner 2', 'second@example.com'); const tag = await h.tag(original, { rewardAmount: 30 }); const found = await h.report(tag);
-  const transfer = (passwordValue = 'correct horse battery') => h.request(`/tags/${tag.id}/transfer`, { token: original.token, method: 'POST', body: { email: recipient.user.email, password: passwordValue } });
+  const transfer = (passwordValue = 'correct horse battery') => h.request(`/tags/${tag.id}/transfer`, { token: original.token, method: 'POST', body: { recipient: recipient.user.id, password: passwordValue } });
   assert.equal((await transfer('wrong password here')).status, 401);
   assert.equal((await transfer()).data.code, 'OPEN_REPORTS');
   await h.request(`/reports/${found.report.id}/resolve`, { token: original.token, method: 'POST' });
@@ -360,7 +360,7 @@ test('concurrent transfer has one winner, and an in-flight transfer cannot outli
   const h = await harness(); t.after(h.close);
   const owner = await h.register(); const first = await h.register(); const second = await h.register();
   const tag = await h.tag(owner);
-  const results = await Promise.all([first, second].map((recipient) => h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: recipient.user.email, password: 'correct horse battery' } })));
+  const results = await Promise.all([first, second].map((recipient) => h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { recipient: recipient.user.id, password: 'correct horse battery' } })));
   assert.deepEqual(results.map((result) => result.status).sort(), [200, 404]);
   const winner = results[0].status === 200 ? first : second;
   const loser = results[0].status === 200 ? second : first;
@@ -368,7 +368,7 @@ test('concurrent transfer has one winner, and an in-flight transfer cannot outli
   assert.equal((await h.request(`/tags/${tag.id}`, { token: loser.token })).status, 404);
   const another = await h.tag(owner);
   const [transfer, logout] = await Promise.all([
-    h.request(`/tags/${another.id}/transfer`, { method: 'POST', token: owner.token, body: { email: first.user.email, password: 'correct horse battery' } }),
+    h.request(`/tags/${another.id}/transfer`, { method: 'POST', token: owner.token, body: { recipient: first.user.id, password: 'correct horse battery' } }),
     h.request('/auth/logout', { method: 'POST', token: owner.token }),
   ]);
   assert.equal(logout.status, 204); assert.equal(transfer.status, 401, 'authorization is checked again after asynchronous password hashing');
@@ -381,14 +381,14 @@ test('resolution racing transfer preserves old conversation ownership and never 
   const h = await harness(); t.after(h.close);
   const owner = await h.register(); const recipient = await h.register(); const tag = await h.tag(owner); const found = await h.report(tag);
   const [transfer, resolved] = await Promise.all([
-    h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: recipient.user.email, password: 'correct horse battery' } }),
+    h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { recipient: recipient.user.id, password: 'correct horse battery' } }),
     h.request(`/reports/${found.report.id}/resolve`, { method: 'POST', token: owner.token }),
   ]);
   assert.equal(resolved.status, 200);
   assert.ok([200, 409].includes(transfer.status), 'valid serialization either resolves then transfers or rejects the still-open report');
   if (transfer.status === 409) {
     assert.equal(transfer.data.code, 'OPEN_REPORTS');
-    assert.equal((await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: recipient.user.email, password: 'correct horse battery' } })).status, 200);
+    assert.equal((await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { recipient: recipient.user.id, password: 'correct horse battery' } })).status, 200);
   }
   assert.equal((await h.request(`/reports/${found.report.id}`, { token: owner.token })).data.report.status, 'resolved');
   assert.equal((await h.request(`/reports/${found.report.id}`, { token: recipient.token })).status, 404);
@@ -404,9 +404,9 @@ test('concurrent registration commits one account and rejected target transfers 
   assert.deepEqual(attempts.map((result) => result.status).sort(), [201, 409]);
   const owner = attempts.find((result) => result.status === 201).data;
   const tag = await h.tag(owner);
-  const self = await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: owner.user.email, password: 'correct horse battery' } });
+  const self = await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { recipient: owner.user.id, password: 'correct horse battery' } });
   assert.equal(self.status, 400);
-  const absent = await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: 'missing@example.com', password: 'correct horse battery' } });
+  const absent = await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { recipient: '00000000-0000-4000-8000-000000000000', password: 'correct horse battery' } });
   assert.equal(absent.status, 404); assert.equal(absent.data.code, 'RECIPIENT_NOT_FOUND');
   assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).data.tag.id, tag.id);
   assert.equal((await h.request(`/tags/${tag.id}/history`, { token: owner.token })).data.events.length, 1);
@@ -445,7 +445,7 @@ test('accounts can create and receive more than 500 tags', async (t) => {
   await h.tag(recipient, { name: '500th tag' });
   const overflow = await h.request('/tags', { method: 'POST', token: recipient.token, body: { name: '501st tag' } });
   assert.equal(overflow.status, 201);
-  const transfer = await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { email: recipient.user.email, password: 'correct horse battery' } });
+  const transfer = await h.request(`/tags/${tag.id}/transfer`, { method: 'POST', token: owner.token, body: { recipient: recipient.user.id, password: 'correct horse battery' } });
   assert.equal(transfer.status, 200);
   assert.equal((await h.request('/tags', { token: recipient.token })).data.tags.length, 502);
   assert.equal((await h.request(`/tags/${tag.id}`, { token: owner.token })).status, 404);

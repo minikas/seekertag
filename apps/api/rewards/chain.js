@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, SYSVAR_CLOCK_PUBKEY } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { PROGRAM, TOKEN_PROGRAM, escrowAddress, vaultAddress, tokenAddress, rewardInstructions, decodeEscrow, verifyRewardTransaction } from '@seekertag/shared/escrow-wire';
-import { DEFAULT_REWARD_PLATFORM_FEE_BPS, ESCROW_SPACE, MAINNET_MINTS, MAX_REWARD_PLATFORM_FEE_BPS, REWARD_DECIMALS, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE } from '@seekertag/shared/reward';
+import { DEFAULT_REWARD_PLATFORM_FEE_BPS, ESCROW_SPACE, MAINNET_MINTS, MAX_REWARD_PLATFORM_FEE_BPS, MAX_SOL_ACCOUNT_TOP_UP_LAMPORTS, REWARD_DECIMALS, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE, rewardPlatformFee, solAccountTopUpTotal } from '@seekertag/shared/reward';
 
 const GENESIS = { mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG', testnet: '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY' };
 export class RewardChainError extends Error {}
@@ -76,16 +76,39 @@ export function createRewardChain({ network, rpcUrl, verifier, legacyVerifiers =
   }
   async function prepare(spec) {
     await ready();
+    spec = { ...spec }; // Return the enriched spec; never change an existing review in place.
     const signingVerifier = verifierKeys.get(spec.verifier);
     // Owner-only operations must remain available after losing a legacy key.
     if (spec.kind === 'release' && !signingVerifier) throw new RewardChainError('O verificador desta reserva não está disponível.');
     if (spec.kind === 'fund' && spec.verifier !== config.verifier) throw new RewardChainError('A configuração do verificador mudou. Prepare o depósito novamente.');
     if (spec.kind === 'fund' && (spec.treasury !== config.treasury || spec.feeBps !== config.feeBps)) throw new RewardChainError('A configuração da comissão mudou. Prepare o depósito novamente.');
+    if (spec.kind === 'release' && !spec.mint) {
+      const fee = rewardPlatformFee(spec.amountUnits, spec.feeBps);
+      const payouts = new Map([[spec.recipient, BigInt(spec.amountUnits) - fee]]);
+      if (fee > 0n) payouts.set(spec.treasury, (payouts.get(spec.treasury) || 0n) + fee);
+      const addresses = [...payouts.keys()];
+      const [accounts, minimum] = await Promise.all([
+        connection.getMultipleAccountsInfo(addresses.map(address => new PublicKey(address)), 'confirmed'),
+        connection.getMinimumBalanceForRentExemption(0),
+      ]);
+      // web3.js returns zero after some RPC errors. Missing rent is not a valid
+      // quote permitting us to omit a required complement.
+      if (!Number.isSafeInteger(minimum) || minimum <= 0) throw new RewardChainError('Não foi possível verificar o saldo mínimo da rede. Tente novamente.');
+      if (BigInt(minimum) > MAX_SOL_ACCOUNT_TOP_UP_LAMPORTS) throw new RewardChainError('O saldo mínimo da rede excede o limite para complementos. Tente novamente após atualizar o aplicativo.');
+      const complements = new Map();
+      for (const [i, address] of addresses.entries()) {
+        const account = accounts[i];
+        if (account && (!account.owner.equals(SystemProgram.programId) || account.data.length !== 0 || !Number.isSafeInteger(account.lamports) || account.lamports < 0)) throw new RewardChainError('Carteira de recebimento inválida.');
+        const deficit = BigInt(minimum) - BigInt(account?.lamports || 0) - payouts.get(address);
+        complements.set(address, deficit > 0n ? deficit : 0n);
+      }
+      spec.solAccountTopUps = { recipientLamports: String(complements.get(spec.recipient)), treasuryLamports: String(spec.recipient === spec.treasury ? 0n : (complements.get(spec.treasury) || 0n)) };
+    }
     const latest = await connection.getLatestBlockhash('confirmed');
     const transaction = new Transaction({ feePayer: new PublicKey(spec.payer), recentBlockhash: latest.blockhash }).add(...rewardInstructions(spec));
     const fee = await connection.getFeeForMessage(transaction.compileMessage(), 'confirmed');
     if (fee.value == null) throw new RewardChainError('Não foi possível calcular a taxa. Tente novamente.');
-    let rent = 0;
+    let rent = Number(solAccountTopUpTotal(spec));
     if (spec.kind === 'fund') rent = await connection.getMinimumBalanceForRentExemption(ESCROW_SPACE) + (spec.mint ? await connection.getMinimumBalanceForRentExemption(165) : 0);
     if (spec.mint && ['release', 'refund'].includes(spec.kind)) {
       const owners = spec.kind === 'release' ? [spec.payer, spec.recipient, spec.treasury] : [spec.payer];
@@ -93,7 +116,7 @@ export function createRewardChain({ network, rpcUrl, verifier, legacyVerifiers =
       rent += accounts.filter(account => !account).length * await connection.getMinimumBalanceForRentExemption(165);
     }
     if (spec.kind === 'release') transaction.partialSign(signingVerifier);
-    return { transaction: transaction.serialize({ requireAllSignatures: false }).toString('base64'), feeLamports: String(fee.value), rentLamports: String(rent), lastValidBlockHeight: latest.lastValidBlockHeight };
+    return { spec, transaction: transaction.serialize({ requireAllSignatures: false }).toString('base64'), feeLamports: String(fee.value), rentLamports: String(rent), lastValidBlockHeight: latest.lastValidBlockHeight };
   }
   async function read(reward, minContextSlot) {
     await ready();

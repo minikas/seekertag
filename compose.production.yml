@@ -13,6 +13,8 @@ services:
       PORT: "4318"
       DATABASE_PATH: /data/seekertag.sqlite
       NODE_ENV: production
+      # One Caddy ingress; keep the API port private (expose, never ports).
+      TRUST_PROXY_HOPS: "1"
     expose:
       - "4318"
     volumes:

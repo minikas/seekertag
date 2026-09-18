@@ -42,6 +42,13 @@ O retorno deve conter `"publicUrl":"https://api-seeker.viralizai.co"`.
 O arquivo `deploy/api.env` nunca deve entrar no Git. Preencha as credenciais de
 Google, Apple ou recompensas somente quando esses recursos forem ativados.
 
+O Compose configura `TRUST_PROXY_HOPS=1`: a API confia apenas no primeiro salto,
+o Caddy, para identificar o IP do cliente e separar as cotas de autenticação.
+Mantenha a porta `4318` sem publicação no host e sem outra entrada pública.
+O Caddy deve substituir os cabeçalhos de encaminhamento recebidos do cliente.
+Ao executar a API diretamente, use o padrão `TRUST_PROXY_HOPS=0`; não reutilize
+o valor `1` em uma topologia com acesso direto à API ou caminhos de tamanhos diferentes.
+
 ## Aplicativo Android
 
 Publique uma nova compilação Android com a origem da API embutida:

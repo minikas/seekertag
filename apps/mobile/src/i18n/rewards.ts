@@ -1,5 +1,7 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  'Não foi possível verificar o saldo mínimo da rede. Tente novamente.': ['Could not verify the network minimum balance. Try again.', 'No se pudo verificar el saldo mínimo de la red. Inténtalo de nuevo.'],
+  'A reserva mudou. Revise a renovação novamente.': ['The reservation changed. Review the renewal again.', 'La reserva cambió. Revisa la renovación de nuevo.'],
   "Confirmar ação": ["Confirm action", "Confirmar acción"],
   "Marcar esta etiqueta como perdida?": ["Mark this tag as lost?", "¿Marcar esta etiqueta como perdida?"],
   "Pausar esta etiqueta?": ["Pause this tag?", "¿Pausar esta etiqueta?"],
@@ -109,6 +111,10 @@ export const rewards: Record<string, readonly [string, string]> = {
   'Taxa SeekerTag ({percent}%)': ['SeekerTag fee ({percent}%)', 'Comisión de SeekerTag ({percent}%)'],
   'Taxa da rede': ['Network fee', 'Comisión de la red'],
   'Criação de contas na rede': ['On-chain account creation', 'Creación de cuentas en la red'],
+  'Complemento para a carteira de quem encontrou': ['Finder’s wallet top-up', 'Complemento para la cartera de quien encontró el objeto'],
+  'Complemento para a carteira SeekerTag': ['SeekerTag wallet top-up', 'Complemento para la cartera de SeekerTag'],
+  'Custo adicional desta operação': ['Additional cost of this operation', 'Coste adicional de esta operación'],
+  'Algumas carteiras precisam de um saldo mínimo para receber SOL. Os complementos abaixo saem da sua carteira e permanecem com os destinatários.': ['Some wallets need a minimum balance to receive SOL. The top-ups below come from your wallet and stay with the recipients.', 'Algunas carteras necesitan un saldo mínimo para recibir SOL. Los complementos de abajo salen de tu cartera y permanecen con los destinatarios.'],
   'O depósito fica bloqueado até o prazo escolhido. A conta que registra a reserva permanece na rede; seu custo de criação não é devolvido.': ['The deposit is locked until your chosen date. The account recording the reservation stays on the network; its creation cost is not refunded.', 'El depósito queda bloqueado hasta el plazo elegido. La cuenta que registra la reserva permanece en la red; su coste de creación no se devuelve.'],
   'Se a recompensa for entregue, {percent}% serão destinados ao SeekerTag. Cancelamentos após o prazo devolvem o depósito integral.': ['If the reward is paid, {percent}% goes to SeekerTag. Refunds after expiry return the full deposit.', 'Si se paga la recompensa, el {percent}% se destina a SeekerTag. Las cancelaciones tras el vencimiento devuelven el depósito completo.'],
   'Confirme somente se o objeto já estiver com você. O pagamento é definitivo e encerra as conversas deste objeto.': ['Confirm only when you have your item back. Payment is final and closes this item’s conversations.', 'Confirma solo si ya tienes el objeto. El pago es definitivo y cierra las conversaciones de este objeto.'],

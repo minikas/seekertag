@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, View } from 'react-native';
 import type { RewardView } from '@seekertag/shared/reward';
-import { api } from './api';
+import { api, type Report } from './api';
 import { Button, Notice, useUI } from './ui';
 import { confirmFinderWallet } from './platform/reward-wallet';
 import RewardSummary from './RewardSummary';
@@ -10,7 +10,7 @@ import { Address } from './RewardReview';
 import { rewardLocked } from './reward.model';
 
 type State = { reward: RewardView | null; recipient: string | null; tagId: string };
-export default function ConversationReward({ id, token, finder, open, onLocked, onReleased, showSummary = true }: { id: string; token: string; finder: boolean; open: boolean; onLocked: (locked: boolean) => void; onReleased: () => void; showSummary?: boolean }) {
+export default function ConversationReward({ id, token, finder, open, onLocked, onReleased, showSummary = true, amount = 0, currency = 'SOL' }: { id: string; token: string; finder: boolean; open: boolean; onLocked: (locked: boolean) => void; onReleased: () => void; showSummary?: boolean; amount?: number; currency?: string }) {
   const { C, s, t, locale } = useUI();
   const [data, setData] = useState<State>();
   const [error, setError] = useState('');
@@ -26,11 +26,16 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
     try {
       const next = await api<State>(path, token);
       if (!alive.current) return;
-      setData(next); setError(''); callbacks.current.onLocked(rewardLocked(next.reward));
-      if (next.reward?.status === 'released' && !wasPaid.current) { wasPaid.current = true; callbacks.current.onReleased(); }
+      setData(next); setError(''); callbacks.current.onLocked(rewardLocked(next.reward) || !!next.reward?.operation);
+      if (open && next.reward?.status === 'released' && !wasPaid.current) {
+        // A previous reward may still be visible after a new loss. Only close
+        // this conversation when the server confirms its own returned state.
+        const { report } = await api<{ report: Report }>(`${finder ? '/finder' : ''}/reports/${id}`, token);
+        if (alive.current) { wasPaid.current = true; if (report.status === 'resolved') callbacks.current.onReleased(); }
+      }
     } catch (cause) { if (alive.current) { setError((cause as Error).message); callbacks.current.onLocked(true); } }
     finally { fetching.current = false; }
-  }, [path, token]);
+  }, [path, token, finder, id, open]);
   useEffect(() => {
     alive.current = true; void load(); const timer = setInterval(() => { if (!show) void load(); }, 6000);
     const subscription = AppState.addEventListener('change', state => { if (state === 'active' && !show) void load(); });
@@ -53,18 +58,20 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
     </View>
     {open && <View style={{ width: '100%', height: 52, borderRadius: 18, backgroundColor: C.surface }} />}
   </View>;
-  if (!data?.reward) return null;
   return <View style={{ gap: 12 }}>
-    {showSummary && <View style={[s.between, s.card, { padding: 16 }]}><RewardSummary reward={data.reward} /></View>}
+    {showSummary && (data?.reward || amount > 0) && <View style={[s.between, s.card, { padding: 16 }]}><RewardSummary reward={data?.reward} amount={amount} currency={currency} /></View>}
     {!!error && <><Notice error text={error} /><Button variant="ghost" onPress={() => void load()}>{t('Tentar novamente')}</Button></>}
-    {open && rewardLocked(data.reward) && (finder ? <>
+    {open && data && rewardLocked(data.reward) && (finder ? <>
       {data.recipient ? <Address label={t('Sua carteira de recebimento')} address={data.recipient} /> : <>
         <Button variant="accent" icon="link" onPress={() => void connect()} busy={busy}>{t('Confirmar carteira de recebimento')}</Button>
       </>}
-    </> : <Button variant="success" icon="check-circle" onPress={() => setShow(true)} disabled={!data.recipient}>{t('Finalizar devolução')}</Button>)}
+    </> : <>
+      {!data.recipient && <Notice text={t('Quem encontrou precisa confirmar a carteira de recebimento na conversa.')} />}
+      <Button variant="success" icon="check-circle" onPress={() => setShow(true)} disabled={!data.recipient || !!error}>{t('Finalizar devolução')}</Button>
+    </>)}
     {show && data && <RewardReleaseSheet tagId={data.tagId} token={token} reportId={id} recipient={data.recipient}
       onClose={() => { setShow(false); void load(); }}
-      onChanged={reward => { setData(prev => prev ? { ...prev, reward } : prev); callbacks.current.onLocked(rewardLocked(reward)); }}
+      onChanged={reward => { setData(prev => prev ? { ...prev, reward } : prev); callbacks.current.onLocked(rewardLocked(reward) || !!reward?.operation); }}
       onReleased={() => callbacks.current.onReleased()} />}
   </View>;
 }

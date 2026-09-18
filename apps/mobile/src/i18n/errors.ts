@@ -1,4 +1,5 @@
 export const errors: Record<string, readonly [string, string]> = {
+  'Use o ID da conta ou a carteira de quem vai receber.': ['Use the recipient’s account ID or wallet.', 'Usa el ID de la cuenta o la cartera de quien recibirá.'],
   'O conteúdo enviado é muito grande.': ['The submitted content is too large.', 'El contenido enviado es demasiado grande.'],
   'JSON inválido.': ['Invalid JSON.', 'JSON inválido.'],
   'Não foi possível acessar este recurso.': ['Could not access this resource.', 'No se pudo acceder a este recurso.'],

@@ -1,4 +1,4 @@
-import { amountToUnits, unitsToAmount, MAINNET_MINTS, REWARD_DECIMALS, REWARD_PROGRAM, validRewardSeconds } from '@seekertag/shared/reward';
+import { amountToUnits, unitsToAmount, MAINNET_MINTS, REWARD_DECIMALS, REWARD_PROGRAM, solAccountTopUpTotal, validRewardSeconds } from '@seekertag/shared/reward';
 import type { RewardAction, RewardConfig, RewardCurrency, RewardOperation, RewardView } from '@seekertag/shared/reward';
 
 export type RewardIntent = { kind: RewardAction; currency: RewardCurrency; amount: string; days?: number; durationSeconds?: number; recipient?: string; reportHash?: string };
@@ -8,6 +8,8 @@ export function rewardDeadline(days: number, refundAfter?: string | null, now = 
   return new Date(Math.max(now, refundAfter ? Date.parse(refundAfter) : now) + days * 86_400_000);
 }
 export function validateRewardIntent(operation: RewardOperation, intent: RewardIntent, config: RewardConfig, payer: string) {
+  const topUpTotal = solAccountTopUpTotal(operation.spec);
+  if (operation.spec.solAccountTopUps && (typeof operation.rentLamports !== 'string' || !/^(0|[1-9]\d*)$/.test(operation.rentLamports) || BigInt(operation.rentLamports) !== topUpTotal)) throw new Error('A transação não corresponde à recompensa escolhida.');
   const mint = intent.currency === 'SOL' ? null : config.network === 'mainnet' ? MAINNET_MINTS[intent.currency] : config.mints[intent.currency];
   const spec = operation.spec;
   const fundingConfigChanged = intent.kind === 'fund' && (spec.verifier !== config.verifier || spec.treasury !== config.treasury || spec.feeBps !== config.feeBps);

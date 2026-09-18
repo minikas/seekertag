@@ -85,7 +85,7 @@ A atualização migra os objetos existentes para categorias com IDs estáveis, m
 | Aviso anônimo e conversa nos dois sentidos | Mesmas telas e API; credencial do visitante no SecureStore |
 | Voltar à conversa após fechar | Releitura da etiqueta ou link no mesmo aplicativo |
 | Confirmar devolução e atualizar histórico/contadores | Conversas do dono e API |
-| Transferir objeto com confirmação de identidade | Senha existente ou novo login por carteira/provedor; destino por e-mail, carteira ou ID |
+| Transferir objeto com confirmação de identidade | Senha existente ou novo login por carteira/provedor; destino por carteira vinculada ou ID da conta |
 | Falha de rede e reenvio | Erro visível e rascunho preservado enquanto a tela está aberta |
 | Etiqueta inválida/pausada e conversa sem credencial | Estados de erro e retorno ao início |
 
@@ -155,7 +155,7 @@ Para desabilitar depósitos on-chain, deixe `REWARD_VERIFIER_KEYPAIR` vazio. Goo
 
 A tela inicial unifica cadastro e entrada. **Continuar com Seeker / Solana** pede uma assinatura de login, sem transação ou taxa. A API gera o domínio, nonce e prazo de cinco minutos e verifica a assinatura Ed25519; o mesmo pedido não cria duas sessões. A carteira precisa suportar Sign In With Solana. Isso autentica a carteira, sem atestar que o aparelho é um Seeker ou verificar um Seeker Genesis Token.
 
-Em **Minha conta → Formas de entrar**, vincule uma carteira ou provedor à conta atual para preservar seus objetos. Contas com o mesmo e-mail nunca são unidas automaticamente. Contas por carteira podem não ter e-mail; o ID da conta e o endereço Solana também servem para receber etiquetas. Transferências de contas sem senha exigem nova confirmação, válida por cinco minutos e para uma única transferência.
+Em **Minha conta → Formas de entrar**, vincule uma carteira ou provedor à conta atual para preservar seus objetos. Contas com o mesmo e-mail nunca são unidas automaticamente. Para receber etiquetas, informe o ID da conta ou o endereço Solana vinculado. E-mails não são aceitos como destino de transferência porque o cadastro por senha não verifica a titularidade da caixa postal. Transferências de contas sem senha exigem nova confirmação, válida por cinco minutos e para uma única transferência.
 
 Google e Apple usam a autenticação oficial em uma aba do navegador Android e retornam ao aplicativo. Só são habilitados quando a API tem as credenciais completas e `PUBLIC_URL` HTTPS. Sem essa configuração, aparecem como **Em breve**. Nenhum projeto web ou iOS é necessário no repositório; os callbacks pertencem à API.
 

@@ -85,7 +85,7 @@ O novo cliente envia `categoryId` na criação/edição do objeto; nome e cor v�
 | `GET /tags/:id` | — | `{ tag }` |
 | `PATCH /tags/:id` | Campos editáveis da criação | `{ tag }` |
 | `GET /tags/:id/history` | — | `{ events: [{ id, type, status, createdAt }] }`, recentes primeiro |
-| `POST /tags/:id/transfer` | `{ recipient, password }` ou `{ recipient, proof }`; `email` ainda é aceito como alias de `recipient` | `{ ok: true }` |
+| `POST /tags/:id/transfer` | `{ recipient, password }` ou `{ recipient, proof }`; `recipient` recebe o ID da conta ou endereço de carteira vinculado; e-mails são rejeitados | `{ ok: true }` |
 | `GET /tags/:id/qr.png` | — | PNG 900×900, attachment |
 | `GET /tags/:id/label.pdf?lang=pt` | `lang`: `pt`, `en` ou `es` (padrão `pt`) | PDF A4 com 6 formatos distintos (90×45, 70×35, 55×28, 45×24, 30×35 e 25×30 mm), logo e QR vetoriais, instrução de leitura em todas as etiquetas, régua de conferência de 50 mm; imprimir a 100%, attachment |
 
@@ -116,7 +116,7 @@ type Tag = {
 
 Nome: 1–80 caracteres; categoria/cor: 1–32; descrição privada/mensagem pública: até 500. Campos omitidos recebem `category: 'other'`, `color: '#B9C79B'`, `status: 'active'`, textos vazios, `rewardAmount: 0`, `rewardCurrency: 'BRL'`. A quantidade de etiquetas por conta não tem limite de produto. O app arquiva um objeto com `PATCH { status: 'paused' }`; ele sai das listas principais e pode ser restaurado com `PATCH { status: 'active' }`, mantendo seu QR.
 
-Transferência exige conta de destino existente, senha correta ou prova de reautenticação e ausência de conversas abertas. O destino pode ser e-mail, endereço Solana vinculado ou ID da conta. A prova dura cinco minutos, pertence à sessão que a solicitou e é consumida na mesma transação da transferência. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
+Transferência exige conta de destino existente, senha correta ou prova de reautenticação e ausência de conversas abertas. O destino deve ser um endereço Solana vinculado ou ID da conta fornecido por quem vai receber. E-mails não identificam destinatários de transferência: o cadastro por senha não comprova posse da caixa postal; a API responde `400 RECIPIENT_ID_REQUIRED` para destinos contendo `@`, inclusive pelo campo legado `email`. A prova dura cinco minutos, pertence à sessão que a solicitou e é consumida na mesma transação da transferência. O QR continua igual. Descrição privada, mensagem pública, recompensa e métricas de devoluções anteriores são zeradas. Conversas antigas permanecem acessíveis apenas ao dono anterior e aos respectivos finders; o novo dono recebe somente conversas criadas após a transferência. O histórico do novo dono inicia na transferência.
 
 O campo `rewardAmount` sozinho é um **valor opcional anunciado**, de 0 a 1.000.000 na unidade escolhida. A reserva real usa o contrato Solana e só recebe estado `reserved` após confirmação finalizada do depósito. Depósito, renovação, liberação ao visitante e reembolso exigem assinatura da carteira do dono; as rotas e regras estão em [REWARDS.md](REWARDS.md). Enquanto há reserva pendente/ativa, a API bloqueia alteração do valor, transferência da etiqueta e confirmação comum de devolução.
 
@@ -176,7 +176,7 @@ Faça polling da conversa e lista de avisos enquanto a tela estiver visível. O 
 - CORS restringe origens web. Tokens nunca são aceitos por query string e não são cookies. Respostas usam `Cache-Control: no-store`, `Referrer-Policy: no-referrer` e `X-Content-Type-Options: nosniff`.
 - Corpo JSON máximo: 16 KiB. Até 100 conversas abertas por etiqueta e 1.000 mensagens por conversa.
 - Limite global: 300 requests/min/IP. Autenticação: 30 requests/15 min/IP; login/recovery também 10/15 min/e-mail. Avisos anônimos: 6/10 min/IP. Mensagens: 30/min/conta ou conversa. Escritas de dono: 100/min/conta. Limites são locais ao processo e reiniciam junto com ele.
-- O serviço não confia em `X-Forwarded-For`. Atrás de proxy, limite também na borda; as cotas locais podem agregar visitantes pelo IP do proxy. Escala com vários processos exige rate limiting compartilhado e banco apropriado.
+- O serviço ignora `X-Forwarded-For` por padrão (`TRUST_PROXY_HOPS=0`). O Compose fornecido configura `TRUST_PROXY_HOPS=1`, pois somente o Caddy alcança a porta privada da API e substitui o cabeçalho de encaminhamento. Assim as cotas separam os IPs dos visitantes. Não publique a porta da API nem permita caminhos diretos com essa configuração. Outras topologias exigem revisão da fronteira de confiança. Escala com vários processos exige rate limiting compartilhado e banco apropriado.
 - Banco em arquivo recebe permissão `0600`; diretório novo, `0700`. Use disco persistente, backup consistente do SQLite e acesso restrito ao host. Mensagens são privadas por autorização, não criptografadas ponta a ponta.
 
 ## Verificação

@@ -69,7 +69,7 @@ name: Android account, label, sharing, PDF picker, visitor and app links
 - assertVisible: "Abrir ${QA_OBJECT_NAME}"
 - takeScreenshot: native-persisted-session
 - tapOn: "Escanear etiqueta"
-- tapOn: "https://…/found/sua-etiqueta"
+- tapOn: "Link da etiqueta"
 - inputText: ${QA_PUBLIC_URL}
 - pressKey: Enter
 - extendedWaitUntil:
@@ -95,13 +95,20 @@ name: Android account, label, sharing, PDF picker, visitor and app links
     visible: "Conversa"
     timeout: 20000
 - takeScreenshot: native-finder-chat
+- tapOn: "Ver objeto"
+- extendedWaitUntil:
+    visible: "Detalhes do objeto"
+    timeout: 10000
+- assertVisible: ${QA_PUBLIC_OBJECT_NAME}
+- takeScreenshot: native-finder-details
+- back
 - stopApp
 - launchApp
 - extendedWaitUntil:
     visible: "Adicionar objeto"
     timeout: 20000
 - tapOn: "Escanear etiqueta"
-- tapOn: "https://…/found/sua-etiqueta"
+- tapOn: "Link da etiqueta"
 - inputText: ${QA_PUBLIC_URL}
 - pressKey: Enter
 - extendedWaitUntil:

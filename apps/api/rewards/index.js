@@ -43,6 +43,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
   const current = tag => get("SELECT * FROM rewards WHERE tag_id=? AND owner_id=? AND status!='abandoned' ORDER BY created_at DESC,rowid DESC LIMIT 1", tag.id, tag.owner_id);
   const inflight = reward => get("SELECT * FROM reward_operations WHERE reward_id=? AND status IN ('prepared','submitted')", reward.id);
   const broadcasts = new Map();
+  const refreshes = new Map();
   async function broadcast(op) {
     if (op.status !== 'submitted' || !op.signed_tx) return;
     const previous = broadcasts.get(op.id);
@@ -84,23 +85,59 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     run("UPDATE tags SET status='active',updated_at=?,returned_at=?,recovery_count=recovery_count+1 WHERE id=? AND owner_id=?", at, at, reward.tag_id, reward.owner_id);
     run("INSERT INTO tag_events(tag_id,owner_id,type,status,created_at) VALUES(?,?,'returned','active',?)", reward.tag_id, reward.owner_id, at);
   }
+  function releasedReport(reward, state) {
+    // The mutable release fields may have been overwritten by an older server
+    // after confirming a receipt against a stale account read. Recover only
+    // from the prepared operation and its report-bound wallet proof.
+    const authorized = all("SELECT spec FROM reward_operations WHERE reward_id=? AND kind='release'", reward.id).some(operation => {
+      const spec = JSON.parse(operation.spec);
+      return spec.kind === 'release' && spec.payer === reward.payer && spec.verifier === reward.verifier
+        && spec.treasury === reward.treasury && spec.feeBps === reward.fee_bps && spec.rewardId === reward.seed
+        && spec.mint === reward.mint && spec.amountUnits === reward.amount_units
+        && spec.reportHash === state.reportHash && spec.recipient === state.recipient;
+    });
+    const report = authorized && all(`SELECT r.id FROM reports r JOIN finder_reward_wallets w ON w.report_id=r.id
+      WHERE r.tag_id=? AND r.owner_id=? AND w.address=?`, reward.tag_id, reward.owner_id, state.recipient).find(report => hash(report.id) === state.reportHash);
+    if (!report) fail(409, 'A liberação não corresponde a esta conversa.', 'REWARD_MISMATCH');
+    return report.id;
+  }
   async function refresh(reward) {
+    if (!reward) return reward;
+    const previous = refreshes.get(reward.id);
+    if (previous) return previous;
+    // Share one reconciliation per escrow. Every caller reloads persisted state
+    // rather than letting a delayed request reconcile an obsolete operation.
+    const pending = reconcile(reward.id);
+    refreshes.set(reward.id, pending);
+    try { return await pending; }
+    finally { if (refreshes.get(reward.id) === pending) refreshes.delete(reward.id); }
+  }
+  async function reconcile(rewardId) {
+    const reward = get('SELECT * FROM rewards WHERE id=?', rewardId);
     if (!reward || !activeStatuses.includes(reward.status)) return reward;
     configured();
     if (reward.network !== chain.config.network) throw new RewardChainError('Esta reserva pertence a outra rede.');
-    let state = await chain.read(reward);
     const operation = inflight(reward);
+    let state = await chain.read(reward);
     let operationStatus;
     let seenOnChain = false;
-    if (operation?.signature) {
-      const receipt = await chain.signatureState(operation.signature);
-      seenOnChain = !!receipt;
-      if (receipt?.confirmationStatus === 'finalized') operationStatus = receipt.err ? 'failed' : 'confirmed';
-    }
     function reflected() {
       if (!operation || !state) return false;
       const spec = JSON.parse(operation.spec);
       return operation.kind === 'fund' || (operation.kind === 'release' && state.status === 2 && state.reportHash === spec.reportHash && state.recipient === spec.recipient) || (operation.kind === 'refund' && state.status === 3) || (operation.kind === 'renew' && state.refundAfter >= spec.previousRefundAfter + rewardDuration(spec));
+    }
+    if (operation?.signature) {
+      const receipt = await chain.signatureState(operation.signature);
+      seenOnChain = !!receipt;
+      if (receipt?.confirmationStatus === 'finalized') {
+        if (!Number.isSafeInteger(receipt.slot) || receipt.slot < 0) throw new RewardChainError('Não foi possível verificar o slot da confirmação.');
+        // Receipt finality can advance after the first read. Never unlock the
+        // operation until a finalized account at least this recent agrees.
+        try { state = await chain.read(reward, receipt.slot); }
+        catch { throw new RewardChainError('Não foi possível confirmar a reserva na rede. Tente atualizar.'); }
+        if (!receipt.err && !reflected()) throw new RewardChainError('A reserva ainda não reflete a confirmação. Tente atualizar.');
+        operationStatus = receipt.err ? 'failed' : 'confirmed';
+      }
     }
     if (!operationStatus && reflected()) operationStatus = 'confirmed';
     if (operation && !operationStatus) {
@@ -117,19 +154,23 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       if (!activeStatuses.includes(live.status)) return;
       if (state) {
         if (state.status === 2) {
-          // Only a co-signed release prepared for this exact verified report can settle a return.
-          if (!live.release_report_id || state.reportHash !== hash(live.release_report_id) || state.recipient !== live.release_wallet) fail(409, 'A liberação não corresponde a esta conversa.', 'REWARD_MISMATCH');
-          run("UPDATE rewards SET status='released',refund_after=?,checked_at=? WHERE id=?", state.refundAfter, now(), live.id);
-          settleReport(live, live.release_report_id);
+          const reportId = releasedReport(live, state);
+          run("UPDATE rewards SET status='released',refund_after=?,checked_at=?,release_report_id=?,release_wallet=? WHERE id=?", state.refundAfter, now(), reportId, state.recipient, live.id);
+          settleReport(live, reportId);
         } else run('UPDATE rewards SET status=?,refund_after=MAX(COALESCE(refund_after,0),?),checked_at=? WHERE id=?', state.status === 3 ? 'refunded' : 'reserved', state.refundAfter, now(), live.id);
       }
       if (operation && operationStatus) {
-        run("UPDATE reward_operations SET status=? WHERE id=? AND status IN ('prepared','submitted')", operationStatus, operation.id);
-        if (operationStatus === 'confirmed' && operation.signature) run(`UPDATE rewards SET ${operation.kind === 'fund' ? 'deposit_signature' : 'settlement_signature'}=? WHERE id=?`, operation.signature, live.id);
+        const changed = run("UPDATE reward_operations SET status=? WHERE id=? AND status IN ('prepared','submitted')", operationStatus, operation.id).changes;
+        if (changed && operationStatus === 'confirmed' && operation.signature) run(`UPDATE rewards SET ${operation.kind === 'fund' ? 'deposit_signature' : 'settlement_signature'}=? WHERE id=?`, operation.signature, live.id);
         if (!state && live.status === 'pending' && ['failed', 'expired'].includes(operationStatus)) run("UPDATE rewards SET status='abandoned' WHERE id=?", live.id);
       }
+      if (state && [2, 3].includes(state.status)) {
+        // A permanent terminal receipt also proves that obsolete preparations
+        // (including a second release created by the old race) cannot succeed.
+        run("UPDATE reward_operations SET status='failed' WHERE reward_id=? AND status IN ('prepared','submitted')", live.id);
+      }
     });
-    if (operationStatus) broadcasts.delete(operation.id);
+    if (operation && (operationStatus || state && [2, 3].includes(state.status))) broadcasts.delete(operation.id);
     else if (operation?.status === 'submitted' && !seenOnChain) {
       // Reads from either the editor or object details keep a dropped send alive.
       // Only resend the original signature, after verifying it has not expired.
@@ -222,6 +263,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
         spec.recipient = finder.address; spec.reportHash = hash(report.id);
       }
       const [balance, prepared] = await Promise.all([chain.balance(wallet, reward.currency), chain.prepare(spec)]);
+      Object.assign(spec, prepared.spec);
       const solNeeded = BigInt(prepared.feeLamports) + BigInt(prepared.rentLamports) + (kind === 'fund' && !reward.mint ? BigInt(reward.amount_units) : 0n);
       if (BigInt(balance.solLamports) < solNeeded || (kind === 'fund' && BigInt(balance.availableUnits) < BigInt(reward.amount_units))) fail(409, 'Saldo insuficiente para a recompensa e as taxas da rede.', 'INSUFFICIENT_BALANCE');
       const id = randomUUID();
@@ -234,6 +276,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
         } else {
           const fresh = get('SELECT * FROM rewards WHERE id=?', reward.id);
           if (fresh.status !== 'reserved' || inflight(fresh)) fail(409, 'Uma transação está em andamento. Aguarde a confirmação ou retome o pedido.', 'REWARD_PENDING');
+          if (kind === 'renew' && fresh.refund_after !== spec.previousRefundAfter) fail(409, 'A reserva mudou. Revise a renovação novamente.', 'REWARD_CHANGED');
           if (kind === 'release') {
             if (!get("SELECT id FROM reports WHERE id=? AND tag_id=? AND owner_id=? AND status='open'", req.body.reportId, tag.id, req.user.id)) fail(409, 'Esta conversa já foi encerrada.');
             run('UPDATE rewards SET release_report_id=?,release_wallet=? WHERE id=?', req.body.reportId, spec.recipient, reward.id);

@@ -7,6 +7,7 @@ const app = createApp({
   dbPath: process.env.DATABASE_PATH || fileURLToPath(new URL('./data/seekertag.sqlite', import.meta.url)),
   publicUrl: process.env.PUBLIC_URL || `http://localhost:${port}`,
   corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean),
+  trustedProxyHops: Number(process.env.TRUST_PROXY_HOPS || '0'),
 });
 const server = app.listen(port, process.env.HOST || '0.0.0.0', () => {
   console.log(`SeekerTag API ready on port ${port}`);

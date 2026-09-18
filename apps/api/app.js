@@ -47,7 +47,8 @@ async function passwordMatches(value, stored) {
   const actual = await scrypt(value, salt, 64, { N: 32768, maxmem: 64 * 1024 * 1024 });
   return timingSafeEqual(actual, Buffer.from(expected, 'hex'));
 }
-export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:4318', corsOrigins = [], rateLimits = true, oauthProviders = createOAuthProviders(), rewardChain = rewardChainFromEnv() } = {}) {
+export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:4318', corsOrigins = [], rateLimits = true, trustedProxyHops = 0, oauthProviders = createOAuthProviders(), rewardChain = rewardChainFromEnv() } = {}) {
+  if (![0, 1].includes(trustedProxyHops)) throw new Error('TRUST_PROXY_HOPS must be 0 (direct access) or 1 (one private reverse proxy).');
   const canonical = new URL(publicUrl);
   if (!['http:', 'https:'].includes(canonical.protocol) || canonical.username || canonical.password || canonical.search || canonical.hash || canonical.pathname !== '/') throw new Error('PUBLIC_URL must be an http(s) origin without credentials, query, or path.');
   const publicOrigin = canonical.origin;
@@ -113,6 +114,9 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   };
   const app = express();
   app.disable('x-powered-by');
+  // Production has exactly one Caddy ingress and no published API port. Never
+  // trust an arbitrary forwarding chain; direct/local deployments default to 0.
+  app.set('trust proxy', trustedProxyHops);
   app.locals.db = db;
   app.locals.close = () => db.close();
   const origins = new Set([publicOrigin, ...corsOrigins]);
@@ -339,6 +343,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   app.post('/api/tags/:id/transfer', requireOwner, authLimit, async (req, res) => {
     const tag = ownerTag(req);
     const recipient = string(req.body.recipient ?? req.body.email, 'Quem vai receber', 254);
+    if (recipient.includes('@')) fail(400, 'Use o ID da conta ou a carteira de quem vai receber.', 'RECIPIENT_ID_REQUIRED');
     const usingPassword = req.body.proof === undefined;
     if (usingPassword) {
       const pass = password(req.body.password);
@@ -351,8 +356,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       if (!usingPassword) consumeProof(req, req.body.proof);
       if (!current) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
       rewards.assertUnlocked(tag.id);
-      const target = recipient.includes('@') ? get('SELECT id FROM users WHERE email=?', email(recipient))
-        : get("SELECT users.id FROM users LEFT JOIN auth_identities ON auth_identities.user_id=users.id AND auth_identities.provider='solana' WHERE users.id=? OR auth_identities.subject=? LIMIT 1", recipient, recipient);
+      const target = get("SELECT users.id FROM users LEFT JOIN auth_identities ON auth_identities.user_id=users.id AND auth_identities.provider='solana' WHERE users.id=? OR auth_identities.subject=? LIMIT 1", recipient, recipient);
       if (!target) fail(404, 'A pessoa precisa criar uma conta SeekerTag antes da transferência.', 'RECIPIENT_NOT_FOUND');
       if (target.id === req.user.id) fail(400, 'A etiqueta já está na sua conta.');
       if (get("SELECT id FROM reports WHERE tag_id=? AND status='open'", tag.id)) fail(409, 'Conclua as conversas abertas antes de transferir esta etiqueta.', 'OPEN_REPORTS');

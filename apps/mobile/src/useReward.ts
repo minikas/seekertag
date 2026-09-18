@@ -171,8 +171,10 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
       validateRewardIntent(op, intent, data.config!, data.payer!);
       // Fees or required accounts may have changed since an expired review.
       // Show their updated cost before asking for a signature.
-      if (op.feeLamports !== reviewed.feeLamports || op.rentLamports !== reviewed.rentLamports) {
-        if (alive.current) setError('As taxas mudaram. Revise os valores atualizados e toque em Assinar novamente.');
+      if (op.feeLamports !== reviewed.feeLamports || op.rentLamports !== reviewed.rentLamports
+        || (op.spec.solAccountTopUps?.recipientLamports || '0') !== (reviewed.spec.solAccountTopUps?.recipientLamports || '0')
+        || (op.spec.solAccountTopUps?.treasuryLamports || '0') !== (reviewed.spec.solAccountTopUps?.treasuryLamports || '0')) {
+        if (alive.current) { setOperation(current); setError('As taxas mudaram. Revise os valores atualizados e toque em Assinar novamente.'); }
         return;
       }
       let signed = await secureStorage.get(storageKey(op.id));

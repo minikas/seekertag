@@ -32,6 +32,9 @@ const buildFile = resolve(mobileRoot, 'android/app/build.gradle');
 const incremental = process.argv.includes('--incremental') && existsSync(buildFile) && readFileSync(buildFile, 'utf8').includes('SeekerTag: package only');
 if (!incremental) run('npx', ['expo', 'prebuild', '--platform', 'android', '--no-install']);
 run(process.platform === 'win32' ? 'gradlew.bat' : './gradlew', [
+  // Gradle does not track EXPO_PUBLIC_* in the bundle task inputs. Regenerate
+  // JavaScript even for incremental native builds when the API origin changes.
+  ':app:createBundleReleaseJsAndAssets', '--rerun',
   ':app:assembleRelease', '-PreactNativeArchitectures=arm64-v8a', '--max-workers=2', '--no-daemon', '--console=plain',
   '-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m',
 ], resolve(mobileRoot, 'android'));

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Text, ToastAndroid, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { REWARD_DECIMALS, rewardDuration, rewardPlatformFee, unitsToAmount } from '@seekertag/shared/reward';
+import { REWARD_DECIMALS, rewardDuration, rewardPlatformFee, solAccountTopUpTotal, unitsToAmount } from '@seekertag/shared/reward';
 import type { RewardAction } from '@seekertag/shared/reward';
 import { Button, Icon, Notice, useUI } from './ui';
 import Pressable from './HapticPressable';
@@ -17,6 +17,8 @@ export default function RewardReview({ controller }: { controller: RewardControl
   const timed = op.spec.kind === 'fund' || op.spec.kind === 'renew';
   const platformFee = rewardPlatformFee(op.spec.amountUnits, op.spec.feeBps);
   const finderPayout = BigInt(op.spec.amountUnits) - platformFee;
+  const topUpTotal = solAccountTopUpTotal(op.spec);
+  const accountRent = BigInt(op.rentLamports) - topUpTotal;
   const feePercent = (op.spec.feeBps / 100).toLocaleString(locale, { maximumFractionDigits: 2 });
   const date = timed ? reservationDeadline(rewardDuration(op.spec), op.spec.kind === 'renew' && op.spec.previousRefundAfter ? new Date(op.spec.previousRefundAfter * 1_000).toISOString() : null) : null;
   return <View style={{ gap: 20 }}>
@@ -28,7 +30,13 @@ export default function RewardReview({ controller }: { controller: RewardControl
     {op.spec.kind === 'release' && <Detail label={t('Quem encontrou recebe')} value={`${unitsToAmount(finderPayout, REWARD_DECIMALS[op.currency])} ${op.currency}`} />}
     {op.spec.kind === 'release' && <Detail label={t('Taxa SeekerTag ({percent}%)', { percent: feePercent })} value={`${unitsToAmount(platformFee, REWARD_DECIMALS[op.currency])} ${op.currency}`} />}
     <Detail label={t('Taxa da rede')} value={`${unitsToAmount(op.feeLamports, 9)} SOL`} />
-    {BigInt(op.rentLamports) > 0n && <Detail label={t('Criação de contas na rede')} value={`${unitsToAmount(op.rentLamports, 9)} SOL`} />}
+    {accountRent > 0n && <Detail label={t('Criação de contas na rede')} value={`${unitsToAmount(accountRent, 9)} SOL`} />}
+    {topUpTotal > 0n && <>
+      <Text style={s.small}>{t('Algumas carteiras precisam de um saldo mínimo para receber SOL. Os complementos abaixo saem da sua carteira e permanecem com os destinatários.')}</Text>
+      {BigInt(op.spec.solAccountTopUps!.recipientLamports) > 0n && <Detail label={t('Complemento para a carteira de quem encontrou')} value={`${unitsToAmount(op.spec.solAccountTopUps!.recipientLamports, 9)} SOL`} />}
+      {BigInt(op.spec.solAccountTopUps!.treasuryLamports) > 0n && <Detail label={t('Complemento para a carteira SeekerTag')} value={`${unitsToAmount(op.spec.solAccountTopUps!.treasuryLamports, 9)} SOL`} />}
+      <Detail label={t('Custo adicional desta operação')} value={`${unitsToAmount(BigInt(op.feeLamports) + BigInt(op.rentLamports), 9)} SOL`} />
+    </>}
     <Address label={t('Carteira do depósito')} address={op.spec.payer} />
     {op.spec.kind === 'fund' && <Text style={s.small}>{t('O depósito fica bloqueado até o prazo escolhido. A conta que registra a reserva permanece na rede; seu custo de criação não é devolvido.')}</Text>}
     {op.spec.kind === 'fund' && <Text style={s.small}>{t('Se a recompensa for entregue, {percent}% serão destinados ao SeekerTag. Cancelamentos após o prazo devolvem o depósito integral.', { percent: feePercent })}</Text>}

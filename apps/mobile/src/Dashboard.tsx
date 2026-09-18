@@ -47,6 +47,11 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const activeConversation = reports.find(report => report.id === chat);
   const switchTab = (key: Tab) => { setAccount(false); setTab(key); setChat(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
+  const finishReturn = (tagId: string) => {
+    setReports(previous => previous.map(report => report.tagId === tagId ? { ...report, status: 'resolved' } : report));
+    setConversationTag(previous => previous?.tagId === tagId ? { ...previous, status: 'resolved' } : previous);
+    void refresh(true);
+  };
 
   const stats: { label: string; value: number; filter: TagFilter }[] = [
     { label: t("Protegidos"), value: tags.filter(t => t.status === 'active').length, filter: 'active' },
@@ -113,7 +118,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     </Pressable>)}</View>}
     {browsing && <ObjectsScreen initialFilter={browsing} tags={tags} onSelect={setSelected} onClose={() => setBrowsing(null)} refreshing={refreshing} onRefresh={() => void refresh()} error={error} covered={!!selected || !!form} suspended={!!form} />}
     {form && <TagForm focusReward={focusReward} onCategoriesChanged={() => void refresh(true)} token={token} user={user} onUserUpdated={onUserUpdated} tag={form === 'new' ? undefined : form} onClose={() => { setForm(null); setFocusReward(false); }} onSaved={tag => { saveTag(tag); setForm(null); setFocusReward(false); }} />}
-    {selected && !form && <TagDetails tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { const conversationId = conversationTag?.tagId === selected.id ? conversationTag.id : undefined; setSelected(undefined); setConversationTag(undefined); if (conversationId) setChat(conversationId); }} onUpdated={saveTag} onEdit={(tag, reward = false) => { setFocusReward(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); setConversationTag(undefined); void refresh(); }} />}
+    {selected && !form && <TagDetails tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { const conversationId = conversationTag?.tagId === selected.id ? conversationTag.id : undefined; setSelected(undefined); setConversationTag(undefined); if (conversationId) setChat(conversationId); }} onUpdated={saveTag} onResolved={() => finishReturn(selected.id)} onEdit={(tag, reward = false) => { setFocusReward(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); setConversationTag(undefined); void refresh(); }} />}
     {chat && <AccountActionSheet title={t('Conversa')} onClose={() => setChat(undefined)} headerRight={activeConversation ? <Button variant="ghost" icon="external-link" label={t('Ver objeto')} onPress={() => { const tag = tags.find(item => item.id === activeConversation.tagId); if (!tag) return; setConversationTag(activeConversation); setChat(undefined); setSelected(tag); }} style={{ minHeight: 44, paddingHorizontal: 10 }}>{t('Ver objeto')}</Button> : undefined}>
       <Conversation key={chat} id={chat} token={token} presentation="sheet" />
     </AccountActionSheet>}
