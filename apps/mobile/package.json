@@ -45,6 +45,13 @@
     "typescript": "~6.0.3"
   },
   "private": true,
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-intent-launcher"]
+      }
+    }
+  },
   "engines": {
     "node": ">=24"
   },

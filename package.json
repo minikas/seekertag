@@ -13,7 +13,7 @@
   "scripts": {
     "dev:landing": "npm run dev --workspace=@seekertag/landing",
     "build:landing": "npm run build --workspace=@seekertag/landing",
-    "postinstall": "node scripts/patch-android-statusbar.cjs",
+    "postinstall": "node scripts/patch-android-statusbar.cjs && node scripts/patch-android-intent-result.cjs",
     "start": "npm run start --workspace=@seekertag/mobile --",
     "android": "npm run android --workspace=@seekertag/mobile --",
     "dev": "turbo run dev --env-mode=loose",
