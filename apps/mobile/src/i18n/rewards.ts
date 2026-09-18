@@ -78,7 +78,7 @@ export const rewards: Record<string, readonly [string, string]> = {
   'Reserva não verificada': ['Reservation not verified', 'Reserva sin verificar'],
   'Reservar uma recompensa': ['Reserve a reward', 'Reservar una recompensa'],
   'Rede de teste · sem valor real': ['Test network · no real value', 'Red de prueba · sin valor real'],
-  'Rede de recompensas': ['Reward network', 'Red de recompensas'],
+  'Rede': ['Network', 'Red'],
   'Desativada': ['Disabled', 'Desactivada'],
   'Carregando…': ['Loading…', 'Cargando…'],
   'Ativa neste servidor': ['Active on this server', 'Activa en este servidor'],

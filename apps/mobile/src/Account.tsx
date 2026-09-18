@@ -46,7 +46,7 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
         <Text accessibilityRole="header" style={styles.sectionTitle}>{t("Preferências")}</Text>
         <AccountRow icon="sun" title={t("Aparência")} value={{ system: t("Automático"), light: t("Claro"), dark: t("Escuro") }[preferences.theme]} onPress={() => setSheet('theme')} />
         <AccountRow icon="globe" title={t("Idioma")} value={{ system: t("Automático"), pt: 'Português', en: 'English', es: 'Español' }[preferences.language]} onPress={() => setSheet('language')} />
-        <AccountRow icon="server" title={t("Rede de recompensas")} value={rewardConfig ? rewardConfig.network : rewardConfig === null ? t("Desativada") : t("Carregando…")} onPress={() => setSheet('network')} />
+        <AccountRow icon="server" title={t("Rede")} value={rewardConfig ? rewardConfig.network : rewardConfig === null ? t("Desativada") : t("Carregando…")} onPress={() => setSheet('network')} />
       </View>
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>{t("Conta e objetos")}</Text>
@@ -62,7 +62,7 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
     {!!error && <Notice error text={error} />}
     </Screen>
     </View>
-    {!!sheet && <AccountActionSheet ref={sheetRef} title={sheet === 'receive' ? t("Receber etiquetas") : sheet === 'language' ? t("Idioma") : sheet === 'network' ? t("Rede de recompensas") : t("Aparência")} onClose={() => setSheet(null)}>
+    {!!sheet && <AccountActionSheet ref={sheetRef} title={sheet === 'receive' ? t("Receber etiquetas") : sheet === 'language' ? t("Idioma") : sheet === 'network' ? t("Rede") : t("Aparência")} onClose={() => setSheet(null)}>
       {sheet === 'receive' ? <ReceiveLabels accountId={user.id} /> : sheet === 'network' ? <RewardNetworkOptions network={rewardConfig?.network || null} onSelected={dismissSheet} /> : <PreferenceOptions section={sheet} onSelected={dismissSheet} />}
     </AccountActionSheet>}
   </View>;

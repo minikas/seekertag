@@ -53,7 +53,7 @@ Em mainnet os mints são fixos no código, ignorando as variáveis de teste:
 
 ### Ambientes e redes
 
-Uma instância da API atende exatamente uma rede. A seleção é feita no servidor por `REWARD_NETWORK` e `REWARD_RPC_URL`; o aplicativo mostra a rede ativa em **Minha conta → Rede de recompensas**, no mesmo formato das demais preferências, mas mantém treasury, verificador e programa fora dessa tela. O usuário não pode trocar a rede sem trocar de servidor. Isso impede que uma reserva criada em uma rede seja confundida com saldo, programa ou mint de outra.
+Uma instância da API atende exatamente uma rede. A seleção é feita no servidor por `REWARD_NETWORK` e `REWARD_RPC_URL`; o aplicativo mostra a rede ativa em **Minha conta → Rede**, no mesmo formato das demais preferências, mas mantém treasury, verificador e programa fora dessa tela. O usuário não pode trocar a rede sem trocar de servidor. Isso impede que uma reserva criada em uma rede seja confundida com saldo, programa ou mint de outra.
 
 - `devnet`: ambiente recomendado para desenvolvimento do aplicativo e testes funcionais; tokens não têm valor real.
 - `testnet`: ambiente de stress dos validadores, pode ficar indisponível e exige publicação própria do programa e mints de teste explícitos.

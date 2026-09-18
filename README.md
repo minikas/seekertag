@@ -116,6 +116,33 @@ EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run android
 
 NFC e carteira precisam de uma compilação nativa compatível. Expo Go não substitui essa compilação. Não há conta padrão nem dados simulados no produto.
 
+## Configuração do ambiente
+
+Copie `apps/api/.env.example` para `apps/api/.env`. Esse arquivo é local, ignorado pelo Git e carregado por `npm run api`. O aplicativo recebe somente variáveis `EXPO_PUBLIC_*`; qualquer valor com chave privada ou `SECRET` deve existir apenas no servidor.
+
+| Variável | Obrigatória | Como definir ou obter |
+|---|---:|---|
+| `PORT` | Não | Porta local da API; padrão `4318`. |
+| `HOST` | Não | Interface de escuta. Use `0.0.0.0` em contêiner/LAN ou `127.0.0.1` para acesso apenas local. |
+| `PUBLIC_URL` | Produção | Origem pública estável da API, sem `/api`, por exemplo `https://api.exemplo.com`. É usada nos QRs, callbacks e links. |
+| `DATABASE_PATH` | Não | Caminho persistente do SQLite. Monte esse arquivo/volume e faça backup em produção. |
+| `CORS_ORIGINS` | Só para clientes web extras | Lista de origens HTTPS separadas por vírgula. O app Android nativo não precisa dela. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Só para Google | Crie um cliente OAuth **Web application** no Google Cloud e registre o callback indicado abaixo. |
+| `APPLE_CLIENT_ID` | Só para Apple | Services ID criado no Apple Developer e associado a um App ID com Sign in with Apple. |
+| `APPLE_TEAM_ID` | Só para Apple | Team ID exibido na conta Apple Developer. |
+| `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | Só para Apple | ID e conteúdo da chave `.p8` criada para Sign in with Apple. Use `\n` literais no `.env`. |
+| `REWARD_NETWORK` | Para recompensas on-chain | `devnet`, `testnet`, `mainnet` ou `localnet`. Comece por `devnet`. |
+| `REWARD_RPC_URL` | Para recompensas on-chain | Endpoint HTTPS de um provedor RPC da rede escolhida. Os endpoints públicos servem para testes; produção deve usar um RPC privado com SLA. |
+| `REWARD_VERIFIER_KEYPAIR` | Para recompensas on-chain | Caminho absoluto para a hot key do verificador. Gere fora do repositório com `solana-keygen new --outfile /caminho/seguro/verifier.json`. |
+| `REWARD_TREASURY` | Para recompensas on-chain | Apenas o endereço público de uma carteira Solana separada, preferencialmente hardware wallet ou multisig. A chave privada não deve ficar na API. |
+| `REWARD_FEE_BPS` | Não | Comissão das novas reservas em basis points: `500` = 5%. Intervalo permitido: 1–1000. |
+| `REWARD_LEGACY_VERIFIER_KEYPAIRS` | Só durante rotação | Caminhos das chaves antigas separados por vírgula. Deixe vazio na primeira instalação. |
+| `REWARD_TEST_USDC_MINT` / `REWARD_TEST_SKR_MINT` | Só para tokens de teste | Endereços públicos dos mints criados na rede de teste. `node scripts/devnet-rewards.mjs init` cria/configura os fixtures de devnet. |
+| `REWARDS_ALLOW_MAINNET` | Só em mainnet | Precisa ser exatamente `true` depois da publicação e revisão do contrato em mainnet. |
+| `EXPO_PUBLIC_API_URL` | No build do aplicativo | URL pública da API com `/api`, por exemplo `https://api.exemplo.com/api`. É embutida no APK e nunca deve conter segredo. |
+
+Para desabilitar depósitos on-chain, deixe `REWARD_VERIFIER_KEYPAIR` vazio. Google e Apple também são opcionais: cada botão só é habilitado quando todas as variáveis daquele provedor estão presentes. A referência detalhada da API está em [apps/api/API.md](apps/api/API.md#configuração), e contrato, RPC, mints, publicação e rotação estão em [apps/api/REWARDS.md](apps/api/REWARDS.md#configuração).
+
 ## Acesso por carteira, Google e Apple
 
 A tela inicial unifica cadastro e entrada. **Continuar com Seeker / Solana** pede uma assinatura de login, sem transação ou taxa. A API gera o domínio, nonce e prazo de cinco minutos e verifica a assinatura Ed25519; o mesmo pedido não cria duas sessões. A carteira precisa suportar Sign In With Solana. Isso autentica a carteira, sem atestar que o aparelho é um Seeker ou verificar um Seeker Genesis Token.
@@ -259,7 +286,7 @@ O fluxo `apps/mobile/tests/android/preferences-categories.yaml` começa com a co
 
 O verificador é uma hot key do serviço que coassina pagamentos confirmados pelo dono; a treasury é uma carteira independente que recebe a comissão e pode permanecer fria. Configure `REWARD_VERIFIER_KEYPAIR` com o caminho privado do verificador, `REWARD_TREASURY` apenas com o endereço público da treasury e `REWARD_FEE_BPS=500` para 5%. O depósito grava verificador, treasury e percentual no recibo on-chain, portanto alterações posteriores valem somente para reservas novas.
 
-A rede também é configuração do servidor, não uma preferência do usuário: use `REWARD_NETWORK=devnet`, `testnet`, `mainnet` ou `localnet` junto de `REWARD_RPC_URL`. Cada instância atende uma única rede e precisa encontrar nela o programa publicado. “Minha conta” mostra qual rede está ativa; treasury, verificador e programa permanecem detalhes internos da infraestrutura. Para oferecer várias redes, publique instâncias separadas da API (com bancos, RPCs, chaves e URLs próprias) e distribua builds apontando para a instância desejada; não misture reservas de redes diferentes no mesmo serviço.
+A rede também é configuração do servidor, não uma preferência do usuário: use `REWARD_NETWORK=devnet`, `testnet`, `mainnet` ou `localnet` junto de `REWARD_RPC_URL`. Cada instância atende uma única rede e precisa encontrar nela o programa publicado. “Minha conta → Rede” mostra qual rede está ativa; treasury, verificador e programa permanecem detalhes internos da infraestrutura. Para oferecer várias redes, publique instâncias separadas da API (com bancos, RPCs, chaves e URLs próprias) e distribua builds apontando para a instância desejada; não misture reservas de redes diferentes no mesmo serviço.
 
 Para trocar a treasury, altere `REWARD_TREASURY` e reinicie a API. Para rotacionar o verificador sem interromper reservas abertas, mova o caminho antigo para `REWARD_LEGACY_VERIFIER_KEYPAIRS` (lista separada por vírgulas), coloque a chave nova em `REWARD_VERIFIER_KEYPAIR` e reinicie. Remova uma chave antiga somente quando todas as reservas vinculadas a ela estiverem encerradas. A configuração completa e os cuidados operacionais estão em [`apps/api/REWARDS.md`](apps/api/REWARDS.md#rotação-segura).
 
