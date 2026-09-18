@@ -5,8 +5,7 @@ import { promisify } from 'node:util';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
 import QRCode from 'qrcode';
-import PDFDocument from 'pdfkit';
-import { labelCopy } from './label-copy.js';
+import { renderLabelPdf } from './label-pdf.js';
 import { installAuth, migrateAuth } from './auth.js';
 import { createOAuthProviders } from './oauth.js';
 import { createCategories } from './categories.js';
@@ -373,55 +372,8 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   });
   app.get('/api/tags/:id/label.pdf', requireOwner, async (req, res) => {
     const tag = ownerTag(req); const url = `${publicOrigin}/found/${tag.code}`;
-    const copy = labelCopy(req.query.lang);
-    const labels = [
-      { size: 'large', x: 40, y: 100, width: 515, height: 210 },
-      { size: 'medium', x: 40, y: 323, width: 250, height: 190 },
-      { size: 'medium', x: 301, y: 323, width: 250, height: 190 },
-      { size: 'small', x: 40, y: 526, width: 250, height: 120 },
-      { size: 'small', x: 301, y: 526, width: 250, height: 120 },
-      { size: 'small', x: 40, y: 659, width: 250, height: 120 },
-      { size: 'small', x: 301, y: 659, width: 250, height: 120 },
-    ];
-    const png = await QRCode.toBuffer(url, { width: 900, margin: 4, errorCorrectionLevel: 'M' });
-    const doc = new PDFDocument({ size: 'A4', margin: 40, info: { Title: `SeekerTag — ${tag.name}`, Author: 'SeekerTag' } });
-    const chunks = [];
-    const pdf = new Promise((resolve, reject) => { doc.on('data', (chunk) => chunks.push(chunk)); doc.on('end', () => resolve(Buffer.concat(chunks))); doc.on('error', reject); });
-    const ink = '#101918'; const muted = '#667371'; const accent = '#00AEBB'; const paper = '#F2F7F5';
-    doc.fillColor(ink).font('Helvetica-Bold').fontSize(24).text('SeekerTag', 40, 31);
-    doc.fillColor(accent).roundedRect(40, 63, 34, 4, 2).fill();
-    doc.fillColor(ink).font('Helvetica').fontSize(10).text(copy.print, 84, 56, { width: 471 });
-    doc.fillColor(muted).fontSize(8).text(copy.test, 84, 72, { width: 471 });
-    for (const label of labels) {
-      const { x, y, width, height } = label;
-      const compact = label.size === 'small'; const spacious = label.size === 'large';
-      const inset = 5; const innerWidth = width - inset * 2; const innerHeight = height - inset * 2;
-      const headerHeight = compact ? 35 : spacious ? 58 : 50;
-      const padding = compact ? 17 : spacious ? 30 : 22;
-      const qrSize = compact ? 62 : spacious ? 118 : 92;
-      const qrX = x + width - padding - qrSize; const qrY = y + headerHeight + (compact ? 8 : 12);
-      const leftX = x + padding; const leftWidth = qrX - leftX - (compact ? 11 : 16);
-      const footerY = y + height - (compact ? 25 : spacious ? 36 : 34);
-      doc.save().dash(3, { space: 3 }).lineWidth(0.6).strokeColor('#AAB7B4').roundedRect(x, y, width, height, 12).stroke().restore();
-      doc.save().roundedRect(x + inset, y + inset, innerWidth, innerHeight, 9).clip();
-      doc.fillColor(paper).rect(x + inset, y + inset, innerWidth, innerHeight).fill();
-      doc.fillColor(ink).rect(x + inset, y + inset, innerWidth, headerHeight).fill();
-      doc.fillColor(accent).rect(x + inset, y + inset, compact ? 6 : 7, innerHeight).fill();
-      doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(compact ? 6 : spacious ? 8 : 7).text(copy.item, leftX, y + (compact ? 11 : spacious ? 16 : 14), { width: width - padding * 2, characterSpacing: compact ? 0.5 : 0.9 });
-      doc.fontSize(compact ? 11 : spacious ? 20 : 15).text(copy.found, leftX, y + (compact ? 22 : spacious ? 31 : 27), { width: width - padding * 2, height: spacious ? 25 : 19, ellipsis: true });
-      doc.fillColor(ink).fontSize(compact ? 6 : spacious ? 9 : 7).text('SEEKERTAG', leftX, y + headerHeight + (compact ? 9 : 17), { width: leftWidth, characterSpacing: compact ? 0.7 : 1.15 });
-      doc.font('Helvetica-Bold').fontSize(compact ? 9 : spacious ? 17 : 11).text(tag.name, leftX, y + headerHeight + (compact ? 19 : spacious ? 31 : 28), { width: leftWidth, height: compact ? 18 : spacious ? 42 : 28, ellipsis: true });
-      if (!compact) doc.font('Helvetica').fillColor(muted).fontSize(spacious ? 10 : 8).text(copy.scan, leftX, y + headerHeight + (spacious ? 76 : 64), { width: leftWidth, height: spacious ? 36 : 30, lineGap: 2 });
-      doc.fillColor('#FFFFFF').roundedRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8, 7).fill();
-      doc.image(png, qrX, qrY, { width: qrSize, height: qrSize });
-      doc.fillColor(accent).roundedRect(leftX, footerY, compact ? 16 : spacious ? 24 : 20, compact ? 16 : spacious ? 24 : 20, compact ? 8 : spacious ? 12 : 10).fill();
-      doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(compact ? 7 : spacious ? 10 : 8).text('1', leftX, footerY + (compact ? 5 : spacious ? 7 : 6), { width: compact ? 16 : spacious ? 24 : 20, align: 'center' });
-      doc.fillColor(ink).font('Helvetica-Bold').fontSize(compact ? 6 : spacious ? 8 : 7).text(copy.privacy, leftX + (compact ? 22 : spacious ? 34 : 27), footerY + (compact ? 1 : 3), { width: width - padding * 2 - 30, characterSpacing: 0.1 });
-      doc.fillColor(muted).font('Helvetica').fontSize(compact ? 5 : spacious ? 6 : 6).text(`ID ${tag.code.slice(-8).toUpperCase()}`, leftX + (compact ? 22 : spacious ? 34 : 27), footerY + (compact ? 11 : spacious ? 15 : 14), { width: width - padding * 2 - 30 });
-      doc.restore();
-    }
-    doc.end();
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="seekertag-${tag.code}.pdf"` }).send(await pdf);
+    const pdf = await renderLabelPdf({ tag, url, language: req.query.lang });
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="seekertag-${tag.code}.pdf"` }).send(pdf);
   });
 
   app.get('/api/public/tags/:code', optionalOwner, async (req, res) => {

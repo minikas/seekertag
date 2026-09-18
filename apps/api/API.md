@@ -87,7 +87,7 @@ O novo cliente envia `categoryId` na criação/edição do objeto; nome e cor v�
 | `GET /tags/:id/history` | — | `{ events: [{ id, type, status, createdAt }] }`, recentes primeiro |
 | `POST /tags/:id/transfer` | `{ recipient, password }` ou `{ recipient, proof }`; `email` ainda é aceito como alias de `recipient` | `{ ok: true }` |
 | `GET /tags/:id/qr.png` | — | PNG 900×900, attachment |
-| `GET /tags/:id/label.pdf?lang=pt` | `lang`: `pt`, `en` ou `es` (padrão `pt`) | PDF A4 com 1 etiqueta grande, 2 médias e 4 pequenas, attachment |
+| `GET /tags/:id/label.pdf?lang=pt` | `lang`: `pt`, `en` ou `es` (padrão `pt`) | PDF A4 com 6 formatos distintos (90×45, 70×35, 55×28, 45×24, 30×35 e 25×30 mm), logo e QR vetoriais, instrução de leitura em todas as etiquetas, régua de conferência de 50 mm; imprimir a 100%, attachment |
 
 ```ts
 type Tag = {
