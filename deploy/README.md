@@ -1,0 +1,54 @@
+# Publicação da API
+
+Este diretório publica a API em `https://api-seeker.viralizai.co` com Docker e
+Caddy. O volume `seekertag_data` mantém o SQLite entre reinicializações e o
+volume `caddy_data` preserva os certificados TLS.
+
+## Antes de iniciar
+
+1. Crie uma VM Oracle Cloud Always Free com Ubuntu e IP público reservado.
+2. No DNS de `viralizai.co`, crie o registro `A`:
+
+   ```text
+   api-seeker  <IP-público-da-VM>
+   ```
+
+   Remova qualquer registro `AAAA` para esse nome, a menos que a VM também
+   tenha IPv6 público configurado.
+3. Libere TCP `80` e `443` no Security List/Network Security Group da Oracle e
+   no firewall da VM. Caddy só obtém e renova o certificado quando o DNS aponta
+   para a VM e essas portas estão acessíveis.
+4. Instale Docker Engine e o plugin Docker Compose na VM. Clone este repositório
+   em um diretório privado do usuário que operará o serviço.
+
+## Configurar e iniciar
+
+Na raiz do repositório na VM:
+
+```sh
+cp deploy/api.env.example deploy/api.env
+chmod 600 deploy/api.env
+docker compose -f compose.production.yml up --build -d
+docker compose -f compose.production.yml logs -f
+```
+
+Depois que o DNS propagar, confirme:
+
+```sh
+curl --fail https://api-seeker.viralizai.co/api/health
+```
+
+O retorno deve conter `"publicUrl":"https://api-seeker.viralizai.co"`.
+O arquivo `deploy/api.env` nunca deve entrar no Git. Preencha as credenciais de
+Google, Apple ou recompensas somente quando esses recursos forem ativados.
+
+## Aplicativo Android
+
+Publique uma nova compilação Android com a origem da API embutida:
+
+```sh
+EXPO_PUBLIC_API_URL=https://api-seeker.viralizai.co/api npm run build:android
+```
+
+Instale e valide essa compilação antes de emitir etiquetas definitivas. QRs e
+NFCs criados por ela apontarão para o domínio HTTPS estável acima.
