@@ -16,6 +16,7 @@ import { authenticate, AuthAvailability } from './platform/auth';
 import ProviderButton from './ProviderButton';
 import AccountActionSheet from './AccountActionSheet';
 import { translateNotice } from './i18n';
+import Pressable from './HapticPressable';
 
 export default function Found({ code, chatId, token, goHome, goChat, onAuth }: { code?: string; chatId?: string; token: string | null; goHome: () => void; goChat: (id: string) => void; onAuth: (token: string, user: User) => Promise<void> }) {
   const { C, s, t, locale } = useUI();
@@ -106,7 +107,7 @@ export default function Found({ code, chatId, token, goHome, goChat, onAuth }: {
         </View>
       </View>}
       {!!error && <Notice error text={error} />}
-      {chatId && chatToken ? <><Conversation id={chatId} token={chatToken} finder />{!token && <View style={s.card}><Text style={s.h3}>{t('Salve esta conversa')}</Text><Text style={s.body}>{t('Crie uma conta para continuar esta conversa em outro celular.')}</Text><Button variant="secondary" icon="user" onPress={() => setAccount(true)}>{t('Criar conta ou entrar')}</Button></View>}</> : tag ? <>
+      {chatId && chatToken ? <><Conversation id={chatId} token={chatToken} finder />{!token && <AccountPrompt onPress={() => setAccount(true)} />}</> : tag ? <>
         <View style={styles.identity}>
           <View style={[styles.itemIcon, { backgroundColor: cat.color }]}><Icon name={cat.icon} color={categoryInk(cat.color)} size={28} /></View>
           <View style={{ flex: 1, gap: 4 }}><Text accessibilityRole="header" style={s.h2}>{tag.name}</Text><Text style={s.body}>{tagCategoryLabel(tag, t)}</Text></View>
@@ -121,7 +122,7 @@ export default function Found({ code, chatId, token, goHome, goChat, onAuth }: {
         <Controller control={control} name="finderName" render={({ field }) => <Field label={t("Seu nome (opcional)")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.finderName?.message} placeholder={t("Seu primeiro nome ou apelido")} maxLength={60} editable={!busy} autoComplete="nickname" />} />
         <Controller control={control} name="message" render={({ field }) => <Field label={t("Mensagem para o dono")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.message?.message} placeholder={t("Conte onde encontrou o objeto.")} multiline maxLength={2000} editable={!busy} />} />
         <Button onPress={() => void handleSubmit(submit)()} busy={busy} disabled={loading || !message.trim() || !!errors.message || !!errors.finderName} icon="send">{t("Avisar o dono")}</Button>
-        {!token && <View style={s.card}><Text style={s.h3}>{t('Quer continuar em outro celular?')}</Text><Text style={s.body}>{t('Crie uma conta antes de avisar o dono para salvar a conversa.')}</Text><Button variant="secondary" icon="user" onPress={() => setAccount(true)}>{t('Criar conta ou entrar')}</Button></View>}
+        {!token && <AccountPrompt beforeMessage onPress={() => setAccount(true)} />}
         <View style={[s.row, { alignItems: 'flex-start' }]}><Icon name="shield" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Converse pelo app sem compartilhar seus contatos.")}</Text></View>
         </>}
       </> : null}
@@ -151,4 +152,17 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   itemIcon: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   message: { padding: 18, borderRadius: 22, backgroundColor: C.surface, gap: 8 },
   methods: { gap: 14 }, divider: { flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 9 }, line: { flex: 1, height: 1, backgroundColor: C.line },
+  accountPrompt: { marginTop: 14, paddingTop: 30, gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line },
+  accountAction: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
 });
+
+function AccountPrompt({ onPress, beforeMessage = false }: { onPress: () => void; beforeMessage?: boolean }) {
+  const { C, s, t } = useUI();
+  const styles = useThemedStyles(makeStyles);
+  return <View style={styles.accountPrompt}>
+    <View style={{ gap: 5 }}><Text style={s.h3}>{t(beforeMessage ? 'Quer continuar em outro celular?' : 'Salve esta conversa')}</Text><Text style={s.body}>{t(beforeMessage ? 'Crie uma conta antes de avisar o dono para salvar a conversa.' : 'Crie uma conta para continuar esta conversa em outro celular.')}</Text></View>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('Criar conta ou entrar')} onPress={onPress} style={({ pressed }) => [styles.accountAction, pressed && { opacity: 0.65 }]}>
+      <View style={[s.circle, { width: 42, height: 42, borderRadius: 14, backgroundColor: C.raised }]}><Icon name="user" size={20} color={C.accent} /></View><Text style={[s.body, { flex: 1, color: C.ink, fontWeight: '500' }]}>{t('Criar conta ou entrar')}</Text><Icon name="chevron-right" color={C.muted} size={22} />
+    </Pressable>
+  </View>;
+}
