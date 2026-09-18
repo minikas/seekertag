@@ -40,16 +40,27 @@ Instale as dependências na raiz e em `server`. A API lê:
 | `REWARD_LEGACY_VERIFIER_KEYPAIRS` | Caminhos privados antigos, separados por vírgula; somente para concluir reservas que registraram esses verificadores |
 | `REWARD_TREASURY` | Endereço público on-curve que recebe a comissão; deve ser distinto do verificador e do pagador |
 | `REWARD_FEE_BPS` | Comissão para novos depósitos em basis points; padrão `500` (5%), mínimo 1 e máximo 1000 |
-| `REWARD_NETWORK` | `devnet` por padrão; `localnet` somente para testes; `mainnet` exige ativação adicional |
+| `REWARD_NETWORK` | `devnet` por padrão; aceita `devnet`, `testnet`, `mainnet` ou `localnet`; mainnet exige ativação adicional |
 | `REWARD_RPC_URL` | RPC HTTPS; loopback HTTP permitido somente para localnet |
-| `REWARD_TEST_USDC_MINT` | Mint de teste em devnet/localnet; padrão é o mint Circle devnet |
-| `REWARD_TEST_SKR_MINT` | Mint de teste em devnet/localnet; se ausente, SKR não é oferecido |
+| `REWARD_TEST_USDC_MINT` | Mint de teste fora da mainnet; em devnet o padrão é o mint Circle devnet |
+| `REWARD_TEST_SKR_MINT` | Mint de teste fora da mainnet; se ausente, SKR não é oferecido |
 | `REWARDS_ALLOW_MAINNET` | Deve ser `true` para ativar deliberadamente mainnet |
 
 Em mainnet os mints são fixos no código, ignorando as variáveis de teste:
 
 - USDC: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`, 6 casas decimais.
 - SKR: `SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`, 6 casas decimais.
+
+### Ambientes e redes
+
+Uma instância da API atende exatamente uma rede. A seleção é feita no servidor por `REWARD_NETWORK` e `REWARD_RPC_URL`; o aplicativo consulta essa configuração e a exibe em **Minha conta → Rede de recompensas**, mas o usuário não pode trocar a rede sem trocar de servidor. Isso impede que uma reserva criada em uma rede seja confundida com saldo, programa ou mint de outra.
+
+- `devnet`: ambiente recomendado para desenvolvimento do aplicativo e testes funcionais; tokens não têm valor real.
+- `testnet`: ambiente de stress dos validadores, pode ficar indisponível e exige publicação própria do programa e mints de teste explícitos.
+- `mainnet`: dinheiro real; exige `REWARDS_ALLOW_MAINNET=true`, programa publicado, treasury de produção, RPC privado com SLA e revisão operacional.
+- `localnet`: somente testes automatizados, aceitando RPC HTTP apenas em loopback.
+
+Para manter ambientes simultâneos, execute instâncias separadas da API, cada uma com banco SQLite, URL pública, RPC, verifier e treasury próprios. O endereço da treasury é sempre variável de ambiente; somente seu endereço público chega à API. Nunca copie a chave privada da treasury para o servidor. O ID do programa precisa existir na rede escolhida, e a API recusa RPC cujo genesis hash não corresponda ao ambiente declarado.
 
 O RPC deve corresponder ao genesis hash da rede configurada e conter o programa executável. Não coloque chave privada em `EXPO_PUBLIC_*`, logs ou commits. Monte as chaves de verificação como arquivos privados no servidor e preserve-as junto ao backup do SQLite. A treasury pode e deve ser uma carteira fria: a API conhece apenas o endereço público. Perder o verificador de uma reserva impede seu pagamento, mas o cancelamento do dono após o vencimento continua possível. A autoridade de atualização do programa também deve ser protegida: uma publicação atualizável continua dependendo dela.
 

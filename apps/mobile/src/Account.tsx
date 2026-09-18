@@ -12,6 +12,9 @@ import Categories from './Categories';
 import { User } from './api';
 import { WalletPanel } from './platform/WalletPanel';
 import { Button, Icon, IconName, Notice, useUI } from './ui';
+import { api } from './api';
+import type { RewardConfig } from '@seekertag/shared/reward';
+import { Address } from './RewardReview';
 
 type Props = { token: string; user: User; onUserUpdated: (user: User) => void; onClose: () => void; onHelp: () => void; onLogout: () => Promise<void>; onCategoriesChanged: () => void };
 export default function Account({ token, user, onUserUpdated, onClose, onHelp, onLogout, onCategoriesChanged }: Props) {
@@ -19,13 +22,19 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
   const { preferences } = usePreferences();
   const styles = useThemedStyles(makeStyles);
   const [page, setPage] = useState<'main' | 'access' | 'categories'>('main');
-  const [sheet, setSheet] = useState<'language' | 'theme' | 'receive' | null>(null);
+  const [sheet, setSheet] = useState<'language' | 'theme' | 'receive' | 'network' | null>(null);
+  const [rewardConfig, setRewardConfig] = useState<RewardConfig | null>();
   const sheetRef = useRef<AccountActionSheetHandle>(null);
   const dismissSheet = () => sheetRef.current?.dismiss();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const shortAddress = user.walletAddress ? `${user.walletAddress.slice(0, 4)}…${user.walletAddress.slice(-4)}` : null;
   const walletName = shortAddress && user.name === `Solana ${shortAddress}`;
+  React.useEffect(() => {
+    let active = true;
+    void api<{ config: RewardConfig | null }>('/rewards/config', token).then(result => { if (active) setRewardConfig(result.config); }).catch(() => { if (active) setRewardConfig(null); });
+    return () => { active = false; };
+  }, [token]);
   const back = () => { if (sheet) { dismissSheet(); return; } setError(''); if (page === 'main') onClose(); else setPage('main'); };
   async function logout() { setBusy(true); setError(''); try { await onLogout(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
   if (page === 'categories') return <Categories presentation="screen" token={token} onClose={() => setPage('main')} onChanged={onCategoriesChanged} />;
@@ -38,6 +47,7 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
         <Text accessibilityRole="header" style={styles.sectionTitle}>{t("Preferências")}</Text>
         <AccountRow icon="sun" title={t("Aparência")} value={{ system: t("Automático"), light: t("Claro"), dark: t("Escuro") }[preferences.theme]} onPress={() => setSheet('theme')} />
         <AccountRow icon="globe" title={t("Idioma")} value={{ system: t("Automático"), pt: 'Português', en: 'English', es: 'Español' }[preferences.language]} onPress={() => setSheet('language')} />
+        <AccountRow icon="server" title={t("Rede de recompensas")} value={rewardConfig ? rewardConfig.network : rewardConfig === null ? t("Desativada") : t("Carregando…")} onPress={() => setSheet('network')} />
       </View>
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>{t("Conta e objetos")}</Text>
@@ -53,9 +63,23 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
     {!!error && <Notice error text={error} />}
     </Screen>
     </View>
-    {!!sheet && <AccountActionSheet ref={sheetRef} title={sheet === 'receive' ? t("Receber etiquetas") : sheet === 'language' ? t("Idioma") : t("Aparência")} onClose={() => setSheet(null)}>
-      {sheet === 'receive' ? <ReceiveLabels accountId={user.id} /> : <PreferenceOptions section={sheet} onSelected={dismissSheet} />}
+    {!!sheet && <AccountActionSheet ref={sheetRef} title={sheet === 'receive' ? t("Receber etiquetas") : sheet === 'language' ? t("Idioma") : sheet === 'network' ? t("Rede de recompensas") : t("Aparência")} onClose={() => setSheet(null)}>
+      {sheet === 'receive' ? <ReceiveLabels accountId={user.id} /> : sheet === 'network' ? <RewardNetworkInfo config={rewardConfig} /> : <PreferenceOptions section={sheet} onSelected={dismissSheet} />}
     </AccountActionSheet>}
+  </View>;
+}
+function RewardNetworkInfo({ config }: { config: RewardConfig | null | undefined }) {
+  const { s, t, locale } = useUI();
+  if (config === undefined) return <Notice text={t('Carregando configuração da rede…')} />;
+  if (config === null) return <Notice text={t('As recompensas on-chain estão desativadas neste servidor.')} />;
+  const testNetwork = config.network !== 'mainnet';
+  return <View style={{ gap: 18 }}>
+    {testNetwork && <Notice text={t('Esta é uma rede de teste. Os tokens não têm valor real.')} />}
+    <View style={{ gap: 5 }}><Text style={s.label}>{t('Rede ativa')}</Text><Text style={s.body}>{config.network}</Text></View>
+    <View style={{ gap: 5 }}><Text style={s.label}>{t('Comissão para novas reservas')}</Text><Text style={s.body}>{(config.feeBps / 100).toLocaleString(locale, { maximumFractionDigits: 2 })}%</Text></View>
+    <Address label={t('Treasury')} address={config.treasury} />
+    <Address label={t('Programa on-chain')} address={config.program} />
+    <Text style={s.small}>{t('A rede e estes endereços são definidos pelo administrador do servidor. Alterações valem apenas para novas reservas.')}</Text>
   </View>;
 }
 function AccountRow({ icon, title, value, onPress }: { icon: IconName; title: string; value?: string; onPress: () => void }) {

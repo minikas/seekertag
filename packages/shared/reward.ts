@@ -1,5 +1,5 @@
 export type RewardCurrency = 'SOL' | 'USDC' | 'SKR';
-export type RewardNetwork = 'devnet' | 'mainnet' | 'localnet';
+export type RewardNetwork = 'devnet' | 'testnet' | 'mainnet' | 'localnet';
 export const REWARD_DECIMALS: Record<RewardCurrency, number> = { SOL: 9, USDC: 6, SKR: 6 };
 export const REWARD_PROGRAM = '4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB';
 export const ESCROW_SPACE = 260;

@@ -259,6 +259,8 @@ O fluxo `apps/mobile/tests/android/preferences-categories.yaml` começa com a co
 
 O verificador é uma hot key do serviço que coassina pagamentos confirmados pelo dono; a treasury é uma carteira independente que recebe a comissão e pode permanecer fria. Configure `REWARD_VERIFIER_KEYPAIR` com o caminho privado do verificador, `REWARD_TREASURY` apenas com o endereço público da treasury e `REWARD_FEE_BPS=500` para 5%. O depósito grava verificador, treasury e percentual no recibo on-chain, portanto alterações posteriores valem somente para reservas novas.
 
+A rede também é configuração do servidor, não uma preferência do usuário: use `REWARD_NETWORK=devnet`, `testnet`, `mainnet` ou `localnet` junto de `REWARD_RPC_URL`. Cada instância atende uma única rede e precisa encontrar nela o programa publicado. “Minha conta” mostra a rede, a comissão, a treasury e o programa ativos para que o usuário saiba onde assinar. Para oferecer várias redes, publique instâncias separadas da API (com bancos, RPCs, chaves e URLs próprias) e distribua builds apontando para a instância desejada; não misture reservas de redes diferentes no mesmo serviço.
+
 Para trocar a treasury, altere `REWARD_TREASURY` e reinicie a API. Para rotacionar o verificador sem interromper reservas abertas, mova o caminho antigo para `REWARD_LEGACY_VERIFIER_KEYPAIRS` (lista separada por vírgulas), coloque a chave nova em `REWARD_VERIFIER_KEYPAIR` e reinicie. Remova uma chave antiga somente quando todas as reservas vinculadas a ela estiverem encerradas. A configuração completa e os cuidados operacionais estão em [`apps/api/REWARDS.md`](apps/api/REWARDS.md#rotação-segura).
 
 ## Limites atuais

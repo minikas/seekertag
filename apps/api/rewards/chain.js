@@ -4,7 +4,7 @@ import bs58 from 'bs58';
 import { PROGRAM, TOKEN_PROGRAM, escrowAddress, vaultAddress, tokenAddress, rewardInstructions, decodeEscrow, verifyRewardTransaction } from '@seekertag/shared/escrow-wire';
 import { DEFAULT_REWARD_PLATFORM_FEE_BPS, ESCROW_SPACE, MAINNET_MINTS, MAX_REWARD_PLATFORM_FEE_BPS, REWARD_DECIMALS, REWARD_COMPUTE_UNITS, REWARD_COMPUTE_UNIT_PRICE } from '@seekertag/shared/reward';
 
-const GENESIS = { mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG' };
+const GENESIS = { mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG', testnet: '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY' };
 export class RewardChainError extends Error {}
 export function rewardChainFromEnv() {
   if (!process.env.REWARD_VERIFIER_KEYPAIR) return null;
@@ -15,13 +15,13 @@ export function rewardChainFromEnv() {
   const legacyVerifiers = (process.env.REWARD_LEGACY_VERIFIER_KEYPAIRS || '').split(',').map(path => path.trim()).filter(Boolean).map(loadKeypair);
   if (!process.env.REWARD_TREASURY) throw new Error('Set REWARD_TREASURY to the public address that receives platform fees.');
   const feeBps = process.env.REWARD_FEE_BPS === undefined ? DEFAULT_REWARD_PLATFORM_FEE_BPS : Number(process.env.REWARD_FEE_BPS);
-  const rpcUrl = process.env.REWARD_RPC_URL || (network === 'mainnet' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com');
+  const rpcUrl = process.env.REWARD_RPC_URL || (network === 'mainnet' ? 'https://api.mainnet.solana.com' : network === 'testnet' ? 'https://api.testnet.solana.com' : 'https://api.devnet.solana.com');
   return createRewardChain({ network, rpcUrl, verifier, legacyVerifiers, treasury: process.env.REWARD_TREASURY, feeBps, testMints: {
-    USDC: process.env.REWARD_TEST_USDC_MINT || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', SKR: process.env.REWARD_TEST_SKR_MINT,
+    USDC: process.env.REWARD_TEST_USDC_MINT || (network === 'devnet' ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' : undefined), SKR: process.env.REWARD_TEST_SKR_MINT,
   } });
 }
 export function createRewardChain({ network, rpcUrl, verifier, legacyVerifiers = [], treasury, feeBps = DEFAULT_REWARD_PLATFORM_FEE_BPS, testMints = {} }) {
-  if (!['mainnet', 'devnet', 'localnet'].includes(network)) throw new Error('Invalid reward network');
+  if (!['mainnet', 'devnet', 'testnet', 'localnet'].includes(network)) throw new Error('Invalid reward network');
   const url = new URL(rpcUrl);
   if (url.username || url.password || (url.protocol !== 'https:' && !(network === 'localnet' && url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))) throw new Error('Reward RPC must use HTTPS (or loopback for localnet)');
   const mints = network === 'mainnet' ? MAINNET_MINTS : testMints;

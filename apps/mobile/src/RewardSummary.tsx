@@ -37,6 +37,6 @@ export function RewardNetworkBadge({ network }: { network: RewardNetwork }) {
   const { C, s } = useUI();
   if (network === 'mainnet') return null;
   return <View style={{ alignSelf: 'flex-start', backgroundColor: C.amberSoft, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4 }}>
-    <Text style={[s.small, { color: C.amber, fontWeight: '600', fontSize: 12 }]}>{network === 'devnet' ? 'Devnet' : 'Localnet'}</Text>
+    <Text style={[s.small, { color: C.amber, fontWeight: '600', fontSize: 12 }]}>{network === 'devnet' ? 'Devnet' : network === 'testnet' ? 'Testnet' : 'Localnet'}</Text>
   </View>;
 }

@@ -195,6 +195,14 @@ test('verifier keyring exposes the current signer and retains distinct legacy si
   assert.throws(() => createRewardChain({ network: 'localnet', rpcUrl: 'http://127.0.0.1:8899', verifier, treasury: verifier.publicKey.toBase58() }));
 });
 
+test('testnet is an explicit server environment with no implicit devnet token mint', () => {
+  const verifier = Keypair.generate(); const treasury = Keypair.generate();
+  const chain = createRewardChain({ network: 'testnet', rpcUrl: 'https://api.testnet.solana.com', verifier, treasury: treasury.publicKey.toBase58() });
+  assert.equal(chain.config.network, 'testnet');
+  assert.deepEqual(chain.config.currencies, ['SOL']);
+  assert.deepEqual(chain.config.mints, {});
+});
+
 test('wallet inspection preserves the signed message across different JS locale sorting implementations', () => {
   const f = fixture(MAINNET_MINTS.SKR);
   const tx = new Transaction({ feePayer: f.owner.publicKey, recentBlockhash: f.svm.latestBlockhash() }).add(...rewardInstructions(f.spec));
