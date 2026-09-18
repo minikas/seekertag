@@ -21,15 +21,16 @@ type Props = {
   tag: Tag;
   token: string;
   user: User;
+  onUserUpdated: (user: User) => void;
   onClose: () => void;
   onUpdated: (tag: Tag) => void;
   onEdit: (tag: Tag, focusReward?: boolean) => void;
   onTransferred: () => void;
   conversation?: { id: string; status: 'open' | 'resolved' };
 };
-type Action = 'status' | 'download' | 'sharePdf' | 'share' | 'transfer' | 'nfc' | null;
+type Action = 'status' | 'download' | 'sharePdf' | 'share' | 'transfer' | 'nfc' | 'wallet' | null;
 
-export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdit, onTransferred, conversation }: Props) {
+export default function TagDetails({ tag, token, user, onUserUpdated, onClose, onUpdated, onEdit, onTransferred, conversation }: Props) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const { width } = useWindowDimensions();
@@ -49,6 +50,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
   currentIdentity.current = `${tag.id}:${token}`;
   const info = { color: tag.color, icon: (tag.categoryIcon || 'box') as IconName };
   const waiting = rewardAwaitingConfirmation(tag.reward);
+  const needsWalletForReward = !user.walletAddress && !tag.reward && tag.rewardAmount === 0;
   const latest = useRef({ tag, onUpdated }); latest.current = { tag, onUpdated };
 
   // The dashboard pauses its polling while details are open. Reconcile this
@@ -205,6 +207,13 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
     });
   }
 
+  function connectWallet() {
+    void run('wallet', async () => {
+      const result = await authenticate('solana', 'link', token, locale.slice(0, 2));
+      return () => { if (result?.user) onUserUpdated(result.user); };
+    });
+  }
+
   const actions = <ScreenBottomSheet title={t("Opções do objeto")} onClose={closeOverlay}>
     <View>
       <ActionRow icon="info" title={t("Detalhes do objeto")} onPress={() => choose(() => setPage('info'))} />
@@ -242,7 +251,10 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
         <QrAction icon="wifi" label={t("Gravar NFC")} onPress={writeNfc} disabled={!!busy || nfcStopping} />
         <QrAction icon="share-2" label={t("Compartilhar")} accessibilityLabel={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} />
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={t("Recompensa")} accessibilityState={{ disabled: waiting }} disabled={waiting} onPress={() => onEdit(tag, true)} style={[s.between, s.card]}><RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} /><Icon name={waiting ? 'lock' : 'chevron-right'} size={20} color={waiting ? C.amber : C.muted} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={t(needsWalletForReward ? 'Conecte sua carteira para adicionar uma recompensa' : 'Recompensa')} accessibilityState={{ disabled: waiting || !!busy }} disabled={waiting || !!busy} onPress={() => { if (needsWalletForReward) connectWallet(); else onEdit(tag, true); }} style={[s.between, s.card]}>
+        {needsWalletForReward ? <View style={[s.row, { flex: 1 }]}><View style={s.settingsIcon}><Icon name="credit-card" size={20} color={C.accent} /></View><View style={{ flex: 1, gap: 5 }}><Text style={s.h3}>{t('Conecte sua carteira para adicionar uma recompensa')}</Text><Text style={s.small}>{t('A recompensa fica reservada na sua carteira Solana até a devolução do objeto.')}</Text></View></View> : <RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} />}
+        <Icon name={busy === 'wallet' ? 'loader' : waiting ? 'lock' : 'chevron-right'} size={20} color={waiting ? C.amber : C.muted} />
+      </Pressable>
       {conversation && <ConversationReward id={conversation.id} token={token} finder={false} open={conversation.status === 'open'} showSummary={false} onLocked={() => {}} onReleased={() => {}} />}
       {tag.status === 'paused' ? <View style={{ gap: 12 }}><Notice tone="warning" text={t("Este objeto está arquivado. O QR e o NFC não recebem novos avisos ou mensagens até você restaurá-lo.")} /><Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="rotate-ccw">{t("Restaurar objeto")}</Button></View> : tag.status === 'lost' ? <Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="check-circle">{t("Já está comigo")}</Button> : null}
     </> : page === 'info' ? <>
