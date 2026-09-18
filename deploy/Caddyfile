@@ -1,0 +1,4 @@
+api-seeker.viralizai.co {
+  encode zstd gzip
+  reverse_proxy api:4318
+}

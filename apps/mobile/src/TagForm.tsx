@@ -1,6 +1,8 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { BackHandler, Keyboard, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
 import {
@@ -23,6 +25,7 @@ import RewardReview, { reviewTitle } from './RewardReview';
 import RewardEditorSheet from './RewardEditorSheet';
 import RewardSummary, { RewardPendingNotice, RewardNetworkBadge } from './RewardSummary';
 import AccountActionSheet from './AccountActionSheet';
+import { tagFormSchema, type TagFormValues } from './form.model';
 
 export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChanged, focusReward = false }: { token: string; tag?: Tag; focusReward?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
   const { C, s, t, locale } = useUI();
@@ -40,7 +43,11 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const closing = useRef(false);
   const mounted = useRef(false);
   const savedTag = useRef<Tag | null>(null);
-  const [name, setName] = useState(tag?.name || '');
+  const { control, handleSubmit, watch, formState: { errors } } = useForm<TagFormValues>({
+    resolver: zodResolver(tagFormSchema), mode: 'onChange',
+    defaultValues: { name: tag?.name || '', description: tag?.description || '', publicMessage: tag?.publicMessage || t("Obrigado por cuidar do que é importante para mim. Me envie uma mensagem para combinarmos a devolução.") },
+  });
+  const name = watch('name');
   const [categories, setCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState(tag?.categoryId || '');
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -48,8 +55,6 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
   const categoryScreenOpen = useRef(false);
   const lastSheetIndex = useRef(0);
   const [sheetIndex, setSheetIndex] = useState(-1);
-  const [description, setDescription] = useState(tag?.description || '');
-  const [publicMessage, setPublicMessage] = useState(tag?.publicMessage || t("Obrigado por cuidar do que é importante para mim. Me envie uma mensagem para combinarmos a devolução."));
   const [currentTag, setCurrentTag] = useState(tag);
   const currentTagRef = useRef(currentTag); currentTagRef.current = currentTag;
   const supported = !tag?.rewardCurrency || ['SOL', 'USDC', 'SKR'].includes(tag.rewardCurrency);
@@ -135,10 +140,9 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     else onClose();
   }
 
-  async function save(action?: RewardAction) {
+  async function submit(values: TagFormValues, action?: RewardAction) {
     if (saving.current || busyRef.current || closing.current || waiting || wallet.loading) return;
     if (categoriesLoading || !category) { setError('Escolha uma categoria.'); return; }
-    if (!name.trim()) { setError('Dê um nome ao objeto.'); return; }
     const amount = reward.trim() ? Number(canonicalRewardAmount(reward)) : 0;
     if (!lockedReward && (!Number.isFinite(amount) || amount < 0 || amount > 1_000_000)) { setError('Valor de recompensa inválido.'); return; }
     const kind = action || (renewing ? 'renew' : !lockedReward && wantsReward ? 'fund' : undefined);
@@ -146,8 +150,8 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     saving.current = true; setSavedBusy(true); setError(''); Keyboard.dismiss();
     try {
       const { tag: saved } = await api<{ tag: Tag }>(currentTag ? `/tags/${currentTag.id}` : '/tags', token, {
-        name: name.trim(), categoryId: category,
-        description, publicMessage, ...(!lockedReward && !legacyReward ? { rewardAmount: amount, rewardCurrency: currency } : {}),
+        name: values.name, categoryId: category,
+        description: values.description, publicMessage: values.publicMessage, ...(!lockedReward && !legacyReward ? { rewardAmount: amount, rewardCurrency: currency } : {}),
       }, currentTag ? 'PATCH' : 'POST');
       if (!mounted.current) return;
       // Creation is durable before preparing a deposit. A retry edits this same
@@ -164,9 +168,11 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
     }
   }
 
+  function save(action?: RewardAction) { void handleSubmit(values => submit(values, action))(); }
+
   const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.6} pressBehavior={busy ? 'none' : 'close'} onPress={() => { closing.current = true; Keyboard.dismiss(); }} accessible={!busy} accessibilityLabel={t("Fechar formulário")} accessibilityHint={t("Fecha o formulário sem salvar.")} />, [busy, t]);
   // Keep the footer mounted while typing; the action always reads current fields.
-  const saveDisabled = waiting || categoriesLoading || !category || !name.trim() || wallet.loading || (!lockedReward && !!reward && (!amountValid || wantsReward && !canReserve)) || renewing && !durationValid;
+  const saveDisabled = waiting || categoriesLoading || !category || !name.trim() || !!errors.name || wallet.loading || (!lockedReward && !!reward && (!amountValid || wantsReward && !canReserve)) || renewing && !durationValid;
   const footerError = error || wallet.error;
   const actionLabel = renewing ? t('Salvar e revisar renovação') : !lockedReward && wantsReward ? t('Salvar e revisar depósito') : currentTag ? t('Salvar alterações') : t('Criar etiqueta');
   const walletAction = useRef(wallet); walletAction.current = wallet;
@@ -230,10 +236,10 @@ export default function TagForm({ token, tag, onClose, onSaved, onCategoriesChan
       enableFooterMarginAdjustment
     >
       {waiting && <RewardPendingNotice />}
-      <Field inSheet testID="object-name" label={t("Nome do objeto")} placeholder={t("Ex.: Minha mochila verde")} value={name} onChangeText={setName} maxLength={80} editable={!editingDisabled} />
+      <Controller control={control} name="name" render={({ field }) => <Field inSheet testID="object-name" label={t("Nome do objeto")} placeholder={t("Ex.: Minha mochila verde")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.name?.message} maxLength={80} editable={!editingDisabled} />} />
       <View style={{ gap: 12 }}><Text style={s.label}>{t("Categoria")}</Text><View style={styles.categories}>{categories.map(c => <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={categoryLabel(c, t)} accessibilityState={{ selected: c.id === category, disabled: editingDisabled }} disabled={editingDisabled} onPress={() => setCategory(c.id)} style={({ pressed }) => [styles.category, { backgroundColor: c.id === category ? C.primary : C.secondary, opacity: pressed || editingDisabled ? 0.65 : 1 }]}><Icon name={c.icon as IconName} size={20} color={c.id === category ? C.onPrimary : C.ink} /><Text style={{ color: c.id === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{categoryLabel(c, t)}</Text></Pressable>)}</View><Button variant="ghost" icon="edit-2" onPress={() => { categoryScreenOpen.current = true; Keyboard.dismiss(); setManagingCategories(true); }} disabled={editingDisabled}>{t("Gerenciar categorias")}</Button></View>
-      <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={description} onChangeText={setDescription} maxLength={500} help={t("Só você vê esta anotação.")} editable={!editingDisabled} />
-      <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={publicMessage} onChangeText={setPublicMessage} maxLength={500} help={t("Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço.")} editable={!editingDisabled} />
+      <Controller control={control} name="description" render={({ field }) => <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.description?.message} maxLength={500} help={t("Só você vê esta anotação.")} editable={!editingDisabled} />} />
+      <Controller control={control} name="publicMessage" render={({ field }) => <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.publicMessage?.message} maxLength={500} help={t("Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço.")} editable={!editingDisabled} />} />
       <Pressable accessibilityRole="button" accessibilityLabel={t('Recompensa (Opcional)')} accessibilityState={{ disabled: busy || wallet.loading }} disabled={busy || wallet.loading}
         onPress={() => { Keyboard.dismiss(); setRewardOpen(true); }} style={({ pressed }) => [s.card, s.between, { opacity: pressed ? 0.65 : 1 }]}>
         {activeReward ? <RewardSummary reward={activeReward} /> : <View style={[s.row, { flex: 1 }]}>

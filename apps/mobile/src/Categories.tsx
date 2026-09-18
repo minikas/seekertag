@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { ActivityIndicator, Keyboard, Text, View } from 'react-native';
 import Screen from './Screen';
 import ScreenBottomSheet from './ScreenBottomSheet';
@@ -7,6 +9,7 @@ import { objectCount } from './i18n';
 import { categoryLabel, categoryInk } from './category.model';
 import { api, Category } from './api';
 import { Button, Field, Icon, IconName, Notice, Sheet, useUI } from './ui';
+import { categoryFormSchema, type CategoryFormValues } from './form.model';
 
 const icons: IconName[] = ['shopping-bag', 'briefcase', 'key', 'heart', 'headphones', 'box', 'smartphone', 'watch', 'book', 'camera', 'credit-card', 'umbrella', 'truck', 'home', 'coffee', 'tag'];
 const colors = ['#304441', '#34434B', '#634457', '#5B4938', '#403D67', '#285569'];
@@ -55,21 +58,31 @@ function CategoryListSkeleton() {
 function CategoryEditor({ token, category, categories, onSaved, onClose, presentation }: { token: string; category?: Category; categories: Category[]; onSaved: () => Promise<void>; onClose: () => void; presentation: 'screen' | 'modal' }) {
   const Frame = presentation === 'screen' ? Screen : Sheet;
   const { C, s, t, locale } = useUI();
-  const [name, setName] = useState(category ? categoryLabel(category, t) : '');
+  const { control, handleSubmit, watch, formState: { errors } } = useForm<CategoryFormValues>({
+    resolver: zodResolver(categoryFormSchema), mode: 'onChange', defaultValues: { name: category ? categoryLabel(category, t) : '' },
+  });
+  const name = watch('name');
   const [icon, setIcon] = useState<IconName>((category?.icon || 'tag') as IconName);
   const [color, setColor] = useState(category?.color || colors[0]);
   const [deleting, setDeleting] = useState(false);
   const [replacement, setReplacement] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  async function save(remove = false) {
+  async function submit(values: CategoryFormValues) {
     if (busy) return;
     setBusy(true); setError('');
     try {
-      if (remove && category) await api(`/categories/${category.id}`, token, { replacementId: replacement || undefined }, 'DELETE');
-      else await api(category ? `/categories/${category.id}` : '/categories', token, { name: category && name === categoryLabel(category, t) ? category.name : name.trim(), icon, color }, category ? 'PATCH' : 'POST');
+      await api(category ? `/categories/${category.id}` : '/categories', token, { name: category && values.name === categoryLabel(category, t) ? category.name : values.name, icon, color }, category ? 'PATCH' : 'POST');
       await onSaved();
     } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  }
+  function save() { void handleSubmit(submit)(); }
+  async function remove() {
+    if (!category || busy) return;
+    setBusy(true); setError('');
+    try { await api(`/categories/${category.id}`, token, { replacementId: replacement || undefined }, 'DELETE'); await onSaved(); }
+    catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
   return <Frame title={category ? t('Editar categoria') : t('Nova categoria')} onClose={() => { if (busy) return; if (deleting) { setDeleting(false); setError(''); } else onClose(); }}
@@ -77,17 +90,17 @@ function CategoryEditor({ token, category, categories, onSaved, onClose, present
       <Text style={s.body}>{category.tagCount ? t("Escolha para onde mover os objetos. As etiquetas e os QRs serão mantidos.") : t("Esta categoria não tem objetos e será removida da sua lista.")}</Text>
       {category.tagCount > 0 && categories.filter(c => c.id !== category.id).map(c => <Button key={c.id} variant={replacement === c.id ? 'primary' : 'secondary'} onPress={() => setReplacement(c.id)} disabled={busy}>{categoryLabel(c, t)}</Button>)}
       {category.tagCount > 0 && categories.length < 2 && <Notice text={t("Crie outra categoria antes de excluir esta.")} />}
-      <Button variant="danger" icon="trash-2" onPress={() => void save(true)} busy={busy} disabled={category.tagCount > 0 && !replacement}>{t("Excluir categoria")}</Button>
+      <Button variant="danger" icon="trash-2" onPress={() => void remove()} busy={busy} disabled={category.tagCount > 0 && !replacement}>{t("Excluir categoria")}</Button>
       <Button variant="secondary" disabled={busy} onPress={() => { setDeleting(false); setError(''); }}>{t("Cancelar")}</Button>
       {!!error && <Notice error text={error} />}
     </ScreenBottomSheet> : undefined}>
-      <Field testID="category-name" label={t("Nome da categoria")} placeholder={t("Ex.: Bicicleta")} value={name} onChangeText={setName} selectTextOnFocus={!!category} maxLength={32} editable={!busy} />
+      <Controller control={control} name="name" render={({ field }) => <Field testID="category-name" label={t("Nome da categoria")} placeholder={t("Ex.: Bicicleta")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.name?.message} selectTextOnFocus={!!category} maxLength={32} editable={!busy} />} />
       <Text style={s.label}>{t("Ícone")}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{icons.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={t("Ícone {name}", { name: t(iconNames[value]) })} accessibilityState={{ selected: icon === value, disabled: busy }} disabled={busy} onPress={() => setIcon(value)} style={[s.settingsIcon, { width: 48, height: 48, backgroundColor: icon === value ? C.primary : C.secondary }]}><Icon name={value} color={icon === value ? C.onPrimary : C.ink} /></Pressable>)}</View>
       <Text style={s.label}>{t("Cor")}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{colors.map((value, index) => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={t("Cor {number}", { number: index + 1 })} accessibilityState={{ selected: color === value, disabled: busy }} disabled={busy} onPress={() => setColor(value)} style={[s.settingsIcon, { width: 48, height: 48, backgroundColor: value, borderColor: C.ink, borderWidth: color === value ? 2 : 0 }]}>{color === value && <Icon name="check" color={categoryInk(value)} />}</Pressable>)}</View>
       <View style={[s.row, { gap: 12 }]}>
-        <Button style={{ flex: 1 }} icon="check" onPress={() => void save()} busy={busy} disabled={!name.trim()}>{t("Salvar categoria")}</Button>
+        <Button style={{ flex: 1 }} icon="check" onPress={save} busy={busy} disabled={!name.trim() || !!errors.name}>{t("Salvar categoria")}</Button>
         {category && <Button variant="danger" icon="trash-2" label={t('Excluir categoria')} disabled={busy} onPress={() => { Keyboard.dismiss(); setError(''); setDeleting(true); }} />}
       </View>
       {!!error && !deleting && <Notice error text={error} />}

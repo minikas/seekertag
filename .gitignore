@@ -32,6 +32,8 @@ yarn-error.*
 
 # local env files
 .env*.local
+/deploy/api.env
+/deploy/reward-keys/
 
 # typescript
 *.tsbuildinfo
@@ -57,3 +59,6 @@ contracts/**/target/
 # Turborepo
 .turbo/
 /.omo
+
+# Vercel project metadata is specific to each developer machine.
+.vercel

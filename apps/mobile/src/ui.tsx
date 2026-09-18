@@ -35,16 +35,16 @@ export function Button({ children, onPress, icon, variant = 'primary', busy = fa
   </Pressable>;
 }
 
-export function Field({ label, help, inSheet = false, hideLabel = false, onFocus, onBlur, ...props }: TextInputProps & { label: string; help?: string; inSheet?: boolean; hideLabel?: boolean }) {
+export function Field({ label, help, error, inSheet = false, hideLabel = false, onFocus, onBlur, ...props }: TextInputProps & { label: string; help?: string; error?: string; inSheet?: boolean; hideLabel?: boolean }) {
   const { C, s, t, locale } = useUI();
   const [focused, setFocused] = useState(false);
   const Input = inSheet ? BottomSheetTextInput : TextInput;
   return <View style={{ gap: 10 }}>
     {!hideLabel && <Text style={s.label}>{label}</Text>}
-    <Input accessibilityLabel={label} placeholderTextColor={C.muted} selectionColor={C.accent} cursorColor={C.ink} keyboardAppearance={C === darkColors ? "dark" : "light"} {...props}
+    <Input accessibilityLabel={label} accessibilityHint={error || help} placeholderTextColor={C.muted} selectionColor={C.accent} cursorColor={C.ink} keyboardAppearance={C === darkColors ? "dark" : "light"} {...props}
       onFocus={event => { setFocused(true); onFocus?.(event); }} onBlur={event => { setFocused(false); onBlur?.(event); }}
-      style={[s.input, props.multiline && s.multiline, focused && s.inputFocused, props.style]} />
-    {!!help && <Text style={s.small}>{help}</Text>}
+      style={[s.input, props.multiline && s.multiline, focused && s.inputFocused, !!error && { borderColor: C.red }, props.style]} />
+    {!!error ? <Text accessibilityRole="alert" style={[s.small, { color: C.red }]}>{error}</Text> : !!help && <Text style={s.small}>{help}</Text>}
   </View>;
 }
 

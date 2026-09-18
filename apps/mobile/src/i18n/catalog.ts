@@ -184,6 +184,8 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Permitir câmera': ['Allow camera', 'Permitir cámara'], 'Abrir configurações': ['Open settings', 'Abrir ajustes'],
   'Abrir etiqueta': ['Open tag', 'Abrir etiqueta'],
   'Conversa privada': ['Private conversation', 'Conversación privada'], 'Você': ['You', 'Tú'], 'Dono': ['Owner', 'Dueño'],
+  'Finalizar devolução': ['Finish return', 'Finalizar devolución'],
+  'Ver objeto': ['View item', 'Ver objeto'], 'Escreva uma mensagem…': ['Write a message…', 'Escribe un mensaje…'],
   'Quem encontrou': ['Finder', 'Quien lo encontró'], 'quem encontrou': ['the finder', 'quien lo encontró'],
   'Mensagem': ['Message', 'Mensaje'], 'Enviar': ['Send', 'Enviar'], 'Confirmar devolução': ['Confirm return', 'Confirmar devolución'],
   'Devolução confirmada. Obrigado por fazer parte deste reencontro!': ['Return confirmed. Thank you for helping bring them back together!', 'Devolución confirmada. ¡Gracias por ayudar en este reencuentro!'],

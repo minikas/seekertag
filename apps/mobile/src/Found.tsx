@@ -1,5 +1,7 @@
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import React, { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { api, Report, Tag } from './api';
 import { useThemedStyles } from './PreferencesProvider';
@@ -9,12 +11,15 @@ import Conversation from './Conversation';
 import RewardSummary from './RewardSummary';
 import { secureStorage } from './platform/storage';
 import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
+import { finderFormSchema, type FinderFormValues } from './form.model';
 
 export default function Found({ code, chatId, token, goHome, goChat }: { code?: string; chatId?: string; token: string | null; goHome: () => void; goChat: (id: string) => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const [viewerIsOwner, setViewerIsOwner] = useState(false);
-  const [tag, setTag] = useState<Tag>(); const [finderName, setFinderName] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [chatToken, setChatToken] = useState<string | null>(null);
+  const [tag, setTag] = useState<Tag>(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [chatToken, setChatToken] = useState<string | null>(null);
+  const { control, handleSubmit, watch, formState: { errors } } = useForm<FinderFormValues>({ resolver: zodResolver(finderFormSchema), mode: 'onChange', defaultValues: { finderName: '', message: '' } });
+  const message = watch('message');
   useEffect(() => {
     let live = true;
     setLoading(true); setError(''); setTag(undefined); setChatToken(null); setViewerIsOwner(false);
@@ -46,7 +51,7 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
     void load();
     return () => { live = false; };
   }, [code, chatId, token]);
-  async function submit() { if (busy || loading || viewerIsOwner || !tag) return; if (!message.trim()) { setError('Escreva uma mensagem para avisar onde encontrou o objeto.'); return; } setError(''); setBusy(true); try { const result = await api<{ report: Report; token: string }>(`/public/tags/${code}/reports`, token, { finderName: finderName.trim() || t('Uma pessoa que quer ajudar'), message: message.trim() }); await secureStorage.set(`finder-${result.report.id}`, result.token); await secureStorage.set(`tag-chat-${code}`, result.report.id); goChat(result.report.id); } catch(e) { setError((e as Error).message); } finally { setBusy(false); } }
+  async function submit(values: FinderFormValues) { if (busy || loading || viewerIsOwner || !tag) return; setError(''); setBusy(true); try { const result = await api<{ report: Report; token: string }>(`/public/tags/${code}/reports`, token, { finderName: values.finderName || t('Uma pessoa que quer ajudar'), message: values.message }); await secureStorage.set(`finder-${result.report.id}`, result.token); await secureStorage.set(`tag-chat-${code}`, result.report.id); goChat(result.report.id); } catch(e) { setError((e as Error).message); } finally { setBusy(false); } }
   const cat = { color: tag?.color || C.raised, icon: (tag?.categoryIcon || 'box') as IconName };
   return <View style={{ flex: 1, backgroundColor: C.bg }}>
     <View style={s.screenHeader}>
@@ -90,9 +95,9 @@ export default function Found({ code, chatId, token, goHome, goChat }: { code?: 
           <Text style={[s.h2, { textAlign: 'center' }]}>{t("Esta etiqueta é sua")}</Text>
           <Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t("Você está vendo como seu objeto aparece para quem o encontrar.")}</Text>
         </View> : <>
-        <Field label={t("Seu nome (opcional)")} value={finderName} onChangeText={setFinderName} placeholder={t("Seu primeiro nome ou apelido")} maxLength={60} editable={!busy} autoComplete="nickname" />
-        <Field label={t("Mensagem para o dono")} value={message} onChangeText={setMessage} placeholder={t("Conte onde encontrou o objeto.")} multiline maxLength={2000} editable={!busy} />
-        <Button onPress={submit} busy={busy} disabled={loading || !message.trim()} icon="send">{t("Avisar o dono")}</Button>
+        <Controller control={control} name="finderName" render={({ field }) => <Field label={t("Seu nome (opcional)")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.finderName?.message} placeholder={t("Seu primeiro nome ou apelido")} maxLength={60} editable={!busy} autoComplete="nickname" />} />
+        <Controller control={control} name="message" render={({ field }) => <Field label={t("Mensagem para o dono")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.message?.message} placeholder={t("Conte onde encontrou o objeto.")} multiline maxLength={2000} editable={!busy} />} />
+        <Button onPress={() => void handleSubmit(submit)()} busy={busy} disabled={loading || !message.trim() || !!errors.message || !!errors.finderName} icon="send">{t("Avisar o dono")}</Button>
         <View style={[s.row, { alignItems: 'flex-start' }]}><Icon name="shield" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Converse pelo app sem compartilhar seus contatos.")}</Text></View>
         </>}
       </> : null}

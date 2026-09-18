@@ -1,0 +1,40 @@
+name: seekertag
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./deploy/api.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "4318"
+      DATABASE_PATH: /data/seekertag.sqlite
+      NODE_ENV: production
+    expose:
+      - "4318"
+    volumes:
+      - seekertag_data:/data
+      - ./deploy/reward-keys:/run/seekertag-keys:ro
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  seekertag_data:
+  caddy_data:
+  caddy_config:

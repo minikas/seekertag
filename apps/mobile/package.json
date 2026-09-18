@@ -5,6 +5,8 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@hookform/resolvers": "^5.9.1",
+    "@seekertag/shared": "*",
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.3.0",
     "@solana/web3.js": "1.99.0",
     "buffer": "^6.0.3",
@@ -25,6 +27,7 @@
     "expo-system-ui": "~57.0.3",
     "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
+    "react-hook-form": "^7.88.0",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-keyboard-controller": "1.21.9",
@@ -34,7 +37,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",
     "react-native-worklets": "0.10.1",
-    "@seekertag/shared": "*"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

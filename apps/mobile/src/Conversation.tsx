@@ -1,31 +1,45 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ScrollView, Text, TextInput, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { api, Message, Report } from './api';
-import { Button, Field, Icon, Notice, useUI } from './ui';
-import ConversationReward from './ConversationReward';
+import { Button, Icon, Notice, useUI } from './ui';
+import { messageFormSchema, type MessageFormValues } from './form.model';
 
-export default function Conversation({ id, token, finder = false, onResolved }: { id: string; token: string; finder?: boolean; onResolved?: () => void }) {
+export default function Conversation({ id, token, finder = false, presentation = 'page' }: { id: string; token: string; finder?: boolean; presentation?: 'page' | 'sheet' }) {
   const { C, s, t, locale } = useUI();
-  const [report, setReport] = useState<Report>(); const [messages, setMessages] = useState<Message[]>([]); const [body, setBody] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [confirm, setConfirm] = useState(false);
-  const [rewardBlocksReturn, setRewardBlocksReturn] = useState(true);
+  const [report, setReport] = useState<Report>(); const [messages, setMessages] = useState<Message[]>([]); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<MessageFormValues>({ resolver: zodResolver(messageFormSchema), mode: 'onChange', defaultValues: { body: '' } });
+  const body = watch('body');
   const scroll = useRef<ScrollView>(null); const generation = useRef(0);
   const path = finder ? `/finder/reports/${id}` : `/reports/${id}`;
-  useEffect(() => { let live = true; let fetching = false; setReport(undefined); setMessages([]); setBody(''); setConfirm(false); setBusy(false); setError(''); const current = ++generation.current; async function load() { if (fetching) return; fetching = true; try { const data = await api<{ report: Report; messages: Message[] }>(path, token); if (live && current === generation.current) { setReport(data.report); setMessages(data.messages); setError(''); } } catch(e) { if (live) setError((e as Error).message); } finally { fetching = false; } } load(); const timer = setInterval(load, 4000); return () => { live = false; clearInterval(timer); }; }, [path, token]);
-  async function send() { if (!body.trim() || busy) return; setBusy(true); setError(''); const draft = body.trim(); const current = generation.current; try { const { message } = await api<{ message: Message }>(`${path}/messages`, token, { body: draft }); if (current === generation.current) { setMessages(prev => prev.some(m => m.id === message.id) ? prev : [...prev, message]); setBody(''); } } catch(e) { if (current === generation.current) setError((e as Error).message); } finally { if (current === generation.current) setBusy(false); } }
-  async function resolve() { setBusy(true); setError(''); const current = generation.current; try { const result = await api<{ report: Report }>(`${path}/resolve`, token, {}); if (current === generation.current) { setReport(result.report); setConfirm(false); onResolved?.(); } } catch(e) { if (current === generation.current) setError((e as Error).message); } finally { if (current === generation.current) setBusy(false); } }
-  return <View style={{ flex: 1, gap: 18, minHeight: 440 }}>
-    <View style={[s.between, { flexWrap: 'wrap' }]}><View style={{ gap: 6 }}><Text style={s.h3}>{report?.tagName || t("Conversa privada")}</Text><Text style={s.small}>{finder ? t("Você está falando com o dono.") : t("Com {name}", { name: report?.finderName || t("quem encontrou") })}</Text></View><View style={[s.row, { backgroundColor: C.soft, padding: 10, borderRadius: 16 }]}><Icon name="shield" size={17} color={C.accent} /><Text style={{ color: C.accent, fontSize: 13 }}>{t("Contatos protegidos")}</Text></View></View>
+  useEffect(() => { let live = true; let fetching = false; setReport(undefined); setMessages([]); reset({ body: '' }); setBusy(false); setError(''); const current = ++generation.current; async function load() { if (fetching) return; fetching = true; try { const data = await api<{ report: Report; messages: Message[] }>(path, token); if (live && current === generation.current) { setReport(data.report); setMessages(data.messages); setError(''); } } catch(e) { if (live) setError((e as Error).message); } finally { fetching = false; } } load(); const timer = setInterval(load, 4000); return () => { live = false; clearInterval(timer); }; }, [path, token, reset]);
+  async function send(values: MessageFormValues) { if (busy) return; setBusy(true); setError(''); const current = generation.current; try { const { message } = await api<{ message: Message }>(`${path}/messages`, token, { body: values.body }); if (current === generation.current) { setMessages(prev => prev.some(m => m.id === message.id) ? prev : [...prev, message]); reset({ body: '' }); } } catch(e) { if (current === generation.current) setError((e as Error).message); } finally { if (current === generation.current) setBusy(false); } }
+  const sheet = presentation === 'sheet';
+  const ComposerInput = sheet ? BottomSheetTextInput : TextInput;
+  return <View style={{ flex: 1, gap: 14, minHeight: sheet ? 0 : 440 }}>
+    {!sheet && <View style={{ gap: 5 }}>
+      <Text style={s.h3}>{report?.tagName || t("Conversa privada")}</Text>
+      <View style={s.row}>
+        <Text style={s.small}>{finder ? t("Você está falando com o dono.") : t("Com {name}", { name: report?.finderName || t("quem encontrou") })}</Text>
+        <View style={[s.row, { gap: 5 }]}><Icon name="shield" size={14} color={C.accent} /><Text style={{ color: C.accent, fontSize: 12, fontWeight: '600' }}>{t("Contatos protegidos")}</Text></View>
+      </View>
+    </View>}
     {!!error && <Notice error text={error} />}
     {!report && !error ? <View accessibilityLabel={t("Carregando conversa")} style={{ gap: 14, paddingVertical: 10 }}>
       <View style={{ width: '78%', height: 54, borderRadius: 16, backgroundColor: C.surface }} />
       <View style={{ width: '58%', height: 42, borderRadius: 16, backgroundColor: C.surface, alignSelf: 'flex-end' }} />
       <View style={{ width: '70%', height: 58, borderRadius: 16, backgroundColor: C.surface }} />
     </View> : null}
-    {finder && <Text style={s.small}>{t("Escaneie a etiqueta novamente para voltar à conversa neste aplicativo. Apagar os dados do aplicativo remove o acesso salvo neste aparelho.")}</Text>}
-    <ScrollView ref={scroll} style={{ maxHeight: 400, minHeight: 200, backgroundColor: C.bg, borderRadius: 15, display: report ? 'flex' : 'none' }} contentContainerStyle={{ padding: 15, gap: 14 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}>
+    <ScrollView ref={scroll} style={{ maxHeight: sheet ? 300 : 360, minHeight: sheet ? 180 : 220, display: report ? 'flex' : 'none' }} contentContainerStyle={{ paddingVertical: 6, gap: 14 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}>
       {messages.map(message => { const own = message.role === (finder ? 'finder' : 'owner'); return <View key={message.id} style={{ alignSelf: own ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 5 }}><View style={{ backgroundColor: own ? C.primary : C.surface, paddingHorizontal: 16, paddingVertical: 13, borderRadius: 16, borderBottomRightRadius: own ? 4 : 16, borderBottomLeftRadius: own ? 16 : 4 }}><Text style={{ color: own ? C.onPrimary : C.ink, fontSize: 17, lineHeight: 25 }}>{message.body}</Text></View><Text style={[s.small, { fontSize: 12, alignSelf: own ? 'flex-end' : 'flex-start' }]}>{own ? t("Você") : message.role === 'owner' ? t("Dono") : report?.finderName || t("Quem encontrou")} · {new Date(message.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</Text></View>; })}
     </ScrollView>
-    {report && <ConversationReward key={id} id={id} token={token} finder={finder} open={report.status === 'open'} onLocked={setRewardBlocksReturn} onReleased={() => { setReport(previous => previous ? { ...previous, status: 'resolved' } : previous); onResolved?.(); }} />}
-    {report?.status === 'resolved' ? <Notice tone="success" text={t("Devolução confirmada. Obrigado por fazer parte deste reencontro!")} /> : report ? <><Field label={t("Mensagem")} value={body} onChangeText={setBody} placeholder={t("Combine um lugar público para a entrega…")} multiline maxLength={2000} /><Button onPress={send} icon="send" busy={busy} disabled={!body.trim()}>{t("Enviar")}</Button>{!finder && !rewardBlocksReturn && (confirm ? <View style={{ gap: 12 }}><Text style={s.body}>{t("O objeto já está com você? A confirmação encerra todas as conversas abertas sobre este objeto e marca o objeto como protegido.")}</Text><Button variant="success" onPress={resolve} busy={busy} icon="check">{t("Sim, recebi meu objeto")}</Button><Button variant="ghost" onPress={() => setConfirm(false)}>{t("Ainda não")}</Button></View> : <Button variant="success" onPress={() => setConfirm(true)} icon="check-circle">{t("Confirmar devolução")}</Button>)}</> : null}
+    {report?.status === 'resolved' ? <Notice tone="success" text={t("Devolução confirmada. Obrigado por fazer parte deste reencontro!")} /> : report ? <>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Controller control={control} name="body" render={({ field }) => <View style={{ flex: 1 }}><ComposerInput accessibilityLabel={t('Mensagem')} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} placeholder={t('Escreva uma mensagem…')} placeholderTextColor={C.muted} selectionColor={C.accent} cursorColor={C.ink} multiline maxLength={2000} style={{ minHeight: 58, maxHeight: 112, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 14, backgroundColor: C.input, color: C.ink, fontSize: 17, lineHeight: 24, textAlignVertical: 'center' }} />{!!errors.body?.message && <Text accessibilityRole="alert" style={[s.small, { color: C.red, marginTop: 6 }]}>{errors.body.message}</Text>}</View>} />
+        <Button onPress={() => void handleSubmit(send)()} icon="send" label={t('Enviar')} busy={busy} disabled={!body.trim() || !!errors.body} style={{ minWidth: 58, paddingHorizontal: 14, alignSelf: 'center' }} />
+      </View>
+    </> : null}
   </View>;
 }

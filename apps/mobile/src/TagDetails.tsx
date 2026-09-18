@@ -15,6 +15,7 @@ import { cancelNfcWrite, writeTagUrl } from './platform/nfc';
 import RewardSummary, { RewardPendingNotice } from './RewardSummary';
 import { rewardAwaitingConfirmation } from './reward.model';
 import { secureStorage } from './platform/storage';
+import ConversationReward from './ConversationReward';
 
 type Props = {
   tag: Tag;
@@ -24,10 +25,11 @@ type Props = {
   onUpdated: (tag: Tag) => void;
   onEdit: (tag: Tag, focusReward?: boolean) => void;
   onTransferred: () => void;
+  conversation?: { id: string; status: 'open' | 'resolved' };
 };
 type Action = 'status' | 'download' | 'sharePdf' | 'share' | 'transfer' | 'nfc' | null;
 
-export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdit, onTransferred }: Props) {
+export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdit, onTransferred, conversation }: Props) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const { width } = useWindowDimensions();
@@ -241,6 +243,7 @@ export default function TagDetails({ tag, token, user, onClose, onUpdated, onEdi
         <QrAction icon="share-2" label={t("Compartilhar")} accessibilityLabel={t("Compartilhar link")} onPress={shareLink} busy={busy === 'share'} disabled={!!busy} />
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={t("Recompensa")} accessibilityState={{ disabled: waiting }} disabled={waiting} onPress={() => onEdit(tag, true)} style={[s.between, s.card]}><RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} /><Icon name={waiting ? 'lock' : 'chevron-right'} size={20} color={waiting ? C.amber : C.muted} /></Pressable>
+      {conversation && <ConversationReward id={conversation.id} token={token} finder={false} open={conversation.status === 'open'} showSummary={false} onLocked={() => {}} onReleased={() => {}} />}
       {tag.status === 'paused' ? <View style={{ gap: 12 }}><Notice tone="warning" text={t("Este objeto está arquivado. O QR e o NFC não recebem novos avisos ou mensagens até você restaurá-lo.")} /><Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="rotate-ccw">{t("Restaurar objeto")}</Button></View> : tag.status === 'lost' ? <Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="check-circle">{t("Já está comigo")}</Button> : null}
     </> : page === 'info' ? <>
       <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} /></View>

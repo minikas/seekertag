@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Text, View } from 'react-native';
+import { AppState, View } from 'react-native';
 import type { RewardView } from '@seekertag/shared/reward';
 import { api } from './api';
 import { Button, Notice, useUI } from './ui';
@@ -10,7 +10,7 @@ import { Address } from './RewardReview';
 import { rewardLocked } from './reward.model';
 
 type State = { reward: RewardView | null; recipient: string | null; tagId: string };
-export default function ConversationReward({ id, token, finder, open, onLocked, onReleased }: { id: string; token: string; finder: boolean; open: boolean; onLocked: (locked: boolean) => void; onReleased: () => void }) {
+export default function ConversationReward({ id, token, finder, open, onLocked, onReleased, showSummary = true }: { id: string; token: string; finder: boolean; open: boolean; onLocked: (locked: boolean) => void; onReleased: () => void; showSummary?: boolean }) {
   const { C, s, t, locale } = useUI();
   const [data, setData] = useState<State>();
   const [error, setError] = useState('');
@@ -45,7 +45,7 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
     } catch (cause) { if (alive.current) setError((cause as Error).message); }
     finally { acting.current = false; if (alive.current) setBusy(false); }
   }
-  if (!data?.reward && !error) return <View style={{ gap: 16 }} accessibilityLabel={t('Carregando recompensa')}>
+  if (!data && !error) return <View style={{ gap: 16 }} accessibilityLabel={t('Carregando recompensa')}>
     <View style={[s.card, { gap: 14 }]}>
       <View style={{ width: '44%', height: 18, borderRadius: 9, backgroundColor: C.surface }} />
       <View style={{ width: '32%', height: 28, borderRadius: 8, backgroundColor: C.surface }} />
@@ -53,16 +53,15 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
     </View>
     {open && <View style={{ width: '100%', height: 52, borderRadius: 18, backgroundColor: C.surface }} />}
   </View>;
-  return <View style={{ gap: 16 }}>
-    {data?.reward && <RewardSummary reward={data.reward} />}
+  if (!data?.reward) return null;
+  return <View style={{ gap: 12 }}>
+    {showSummary && <View style={[s.between, s.card, { padding: 16 }]}><RewardSummary reward={data.reward} /></View>}
     {!!error && <><Notice error text={error} /><Button variant="ghost" onPress={() => void load()}>{t('Tentar novamente')}</Button></>}
-    {open && data?.reward && rewardLocked(data.reward) && (finder ? <>
+    {open && rewardLocked(data.reward) && (finder ? <>
       {data.recipient ? <Address label={t('Sua carteira de recebimento')} address={data.recipient} /> : <>
-        <Text style={s.small}>{t('Confirme sua carteira para receber após a devolução. Vincular a carteira não cobra taxas e não autoriza pagamentos.')}</Text>
         <Button variant="accent" icon="link" onPress={() => void connect()} busy={busy}>{t('Confirmar carteira de recebimento')}</Button>
       </>}
-      <Text style={s.small}>{t('O dono precisa confirmar a devolução e assinar o pagamento. Após o prazo, ele também pode cancelar e recuperar o depósito.')}</Text>
-    </> : <Button variant="success" icon="check-circle" onPress={() => setShow(true)}>{t('Devolução e recompensa')}</Button>)}
+    </> : <Button variant="success" icon="check-circle" onPress={() => setShow(true)} disabled={!data.recipient}>{t('Finalizar devolução')}</Button>)}
     {show && data && <RewardReleaseSheet tagId={data.tagId} token={token} reportId={id} recipient={data.recipient}
       onClose={() => { setShow(false); void load(); }}
       onChanged={reward => { setData(prev => prev ? { ...prev, reward } : prev); callbacks.current.onLocked(rewardLocked(reward)); }}
