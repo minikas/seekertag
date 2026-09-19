@@ -46,8 +46,7 @@ export default function Conversation({ id, token, finder = false, presentation =
         <Button onPress={() => void handleSubmit(send)()} icon="send" label={t('Enviar')} busy={busy} disabled={!body.trim() || !!errors.body} style={{ minWidth: 58, paddingHorizontal: 14, alignSelf: 'center' }} />
       </View>
     </> : null}
-    {finder && details && report && <AccountActionSheet title={t('Detalhes do objeto')} onClose={() => setDetails(false)}>
-      <Text style={s.h2}>{report.tagName}</Text>
+    {finder && details && report && <AccountActionSheet title={report.tagName} onClose={() => setDetails(false)}>
       <ConversationReward key={id} id={id} token={token} finder open={report.status === 'open'} onLocked={() => {}}
         onReleased={() => setReport(previous => previous ? { ...previous, status: 'resolved' } : previous)} />
     </AccountActionSheet>}

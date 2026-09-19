@@ -2,10 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createPrivateKey, sign } from 'node:crypto';
-import { Keypair, Transaction, SystemProgram } from '@solana/web3.js';
+import { Keypair, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { createSignInMessage } from '@solana/wallet-standard-util';
 import { createApp } from '../../app.js';
 import { rpcHarness } from './rpc-harness.js';
+import { tokenAddress } from '@seekertag/shared/escrow-wire';
+import { MAINNET_MINTS } from '@seekertag/shared/reward';
 
 function proof(wallet, payload) {
   const privateKey = createPrivateKey({ type: 'pkcs8', format: 'der', key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.from(wallet.secretKey.slice(0, 32))]) });
@@ -223,6 +225,9 @@ test('finder wallet proof is report-bound; confirmed payout resolves exactly one
   assert.equal((await h.request(`${base}/verify`, report.token, { challengeId: challenge.challengeId, ...proof(owner.wallet, challenge.payload) })).status, 403);
   const identity = { challengeId: challenge.challengeId, ...proof(finder.wallet, challenge.payload) };
   assert.equal((await h.request(`${base}/verify`, report.token, identity)).status, 200);
+  assert.equal((await h.request(base, report.token, { address: finder.wallet.publicKey.toBase58() })).status, 200);
+  assert.equal((await h.request(`/finder/reports/${report.report.id}/reward`, report.token)).data.recipientMethod, 'signature');
+  assert.equal((await h.request(base, report.token, { address: Keypair.generate().publicKey.toBase58() })).status, 409);
   assert.equal((await h.request(`${base}/verify`, report.token, identity)).status, 401);
   const payout = await h.prepare(owner, tag, { kind: 'release', reportId: report.report.id }); assert.equal(payout.status, 201, JSON.stringify(payout));
   assert.equal(payout.data.operation.spec.recipient, finder.wallet.publicKey.toBase58());
@@ -235,6 +240,48 @@ test('finder wallet proof is report-bound; confirmed payout resolves exactly one
   await h.state(owner, tag); await h.request(`/reports/${report.report.id}/resolve`, owner.token, {});
   assert.equal((await h.request(`/tags/${tag.id}`, owner.token)).data.tag.recoveryCount, 1);
   assert.equal((await h.prepare(owner, tag, { kind: 'refund' })).status, 409);
+});
+
+for (const currency of ['SOL', 'USDC', 'SKR']) test(`an anonymous finder can receive ${currency} using only a pasted address`, async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const recipient = Keypair.generate().publicKey; // No finder account, wallet connection or recipient signature.
+  const amount = currency === 'SOL' ? '0.02' : '12.25';
+  const funding = (await h.prepare(owner, tag, { currency, amount })).data.operation;
+  await h.submit(owner, funding); await h.state(owner, tag);
+  const report = (await h.request(`/public/tags/${tag.code}/reports`, null, { message: 'Found your item' })).data;
+  const other = (await h.request(`/public/tags/${tag.code}/reports`, null, { message: 'Another finder' })).data;
+  const base = `/finder/reports/${report.report.id}/reward/wallet`;
+  for (const token of [undefined, owner.token, other.token]) {
+    assert.equal((await h.request(base, token, { address: recipient.toBase58() })).status, token ? 404 : 401);
+  }
+  for (const address of ['', null, 123, {}, '0'.repeat(44), '11111111111111111111111111111111', `${recipient.toBase58()}extra`]) {
+    const invalid = await h.request(base, report.token, { address });
+    assert.equal(invalid.status, 400); assert.equal(invalid.data.code, 'INVALID_WALLET_ADDRESS');
+  }
+  assert.equal((await h.request(base, report.token, { address: owner.wallet.publicKey.toBase58() })).status, 403);
+  const sends = h.rpc.sends;
+  const saved = await h.request(base, report.token, { address: ` \n${recipient.toBase58()} ` });
+  assert.equal(saved.status, 200); assert.equal(saved.data.recipient, recipient.toBase58());
+  assert.equal(h.rpc.sends, sends, 'saving an address cannot broadcast a payment');
+  assert.equal((await h.state(owner, tag)).data.reward.status, 'reserved');
+  assert.equal((await h.request(base, report.token, { address: recipient.toBase58() })).status, 200);
+  assert.equal((await h.request(base, report.token, { address: Keypair.generate().publicKey.toBase58() })).status, 409);
+  for (const [path, token] of [[`/reports/${report.report.id}/reward`, owner.token], [`/finder/reports/${report.report.id}/reward`, report.token]]) {
+    const state = (await h.request(path, token)).data;
+    assert.equal(state.recipient, recipient.toBase58()); assert.equal(state.recipientMethod, 'address');
+  }
+  assert.equal(h.app.locals.db.prepare('SELECT COUNT(*) AS n FROM finder_wallet_challenges').get().n, 0);
+  const release = await h.prepare(owner, tag, { kind: 'release', reportId: report.report.id });
+  assert.equal(release.status, 201, JSON.stringify(release)); assert.equal(release.data.operation.spec.recipient, recipient.toBase58());
+  assert.equal(Transaction.from(Buffer.from(release.data.operation.transaction, 'base64')).signatures.some(s => s.publicKey.equals(recipient)), false);
+  assert.equal((await h.request(base, report.token, { address: Keypair.generate().publicKey.toBase58() })).status, 409);
+  await h.submit(owner, release.data.operation);
+  assert.equal((await h.state(owner, tag)).data.reward.status, 'released');
+  const netAmount = currency === 'SOL' ? 19_000_000n : 11_637_500n;
+  if (currency === 'SOL') assert.equal(h.rpc.svm.getBalance(recipient.toBase58()), netAmount);
+  else assert.equal(Buffer.from(h.rpc.svm.getAccount(tokenAddress(recipient, new PublicKey(MAINNET_MINTS[currency])).toBase58()).data).readBigUInt64LE(64), netAmount);
+  assert.equal((await h.request(`/reports/${report.report.id}`, owner.token)).data.report.status, 'resolved');
+  assert.equal((await h.request(base, report.token, { address: recipient.toBase58() })).status, 409);
 });
 
 test('new object reward setup is authenticated and timed reservations preserve exact hours through renewal', async t => {

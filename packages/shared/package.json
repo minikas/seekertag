@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./reward": "./reward.ts",
-    "./escrow-wire": "./escrow-wire.ts"
+    "./escrow-wire": "./escrow-wire.ts",
+    "./wallet-address": "./wallet-address.ts"
   },
   "dependencies": {
     "@solana/web3.js": "1.99.0",

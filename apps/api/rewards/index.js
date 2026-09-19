@@ -4,6 +4,7 @@ import { verifySignIn } from '@solana/wallet-standard-util';
 import bs58 from 'bs58';
 import { amountToUnits, unitsToAmount, rewardDuration, MAX_REWARD_SECONDS } from '@seekertag/shared/reward';
 import { escrowAddress } from '@seekertag/shared/escrow-wire';
+import { receivingWalletAddress } from '@seekertag/shared/wallet-address';
 import { RewardChainError } from './chain.js';
 import { createPriceFeed } from './prices.js';
 
@@ -31,7 +32,8 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     ) STRICT;
     CREATE UNIQUE INDEX IF NOT EXISTS one_reward_operation ON reward_operations(reward_id) WHERE status IN ('prepared','submitted');
     CREATE TABLE IF NOT EXISTS finder_reward_wallets (
-      report_id TEXT PRIMARY KEY REFERENCES reports(id), address TEXT NOT NULL, verified_at TEXT NOT NULL
+      report_id TEXT PRIMARY KEY REFERENCES reports(id), address TEXT NOT NULL, verified_at TEXT NOT NULL,
+      confirmation_method TEXT NOT NULL DEFAULT 'signature' CHECK(confirmation_method IN ('signature','address'))
     ) STRICT;
     CREATE TABLE IF NOT EXISTS finder_wallet_challenges (
       id TEXT PRIMARY KEY, report_id TEXT NOT NULL REFERENCES reports(id), payload TEXT NOT NULL, expires_at INTEGER NOT NULL
@@ -40,6 +42,9 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
   const rewardColumns = new Set(all('PRAGMA table_info(rewards)').map(column => column.name));
   if (!rewardColumns.has('treasury')) run('ALTER TABLE rewards ADD COLUMN treasury TEXT');
   if (!rewardColumns.has('fee_bps')) run('ALTER TABLE rewards ADD COLUMN fee_bps INTEGER');
+  if (!all('PRAGMA table_info(finder_reward_wallets)').some(column => column.name === 'confirmation_method')) {
+    run("ALTER TABLE finder_reward_wallets ADD COLUMN confirmation_method TEXT NOT NULL DEFAULT 'signature' CHECK(confirmation_method IN ('signature','address'))");
+  }
   const current = tag => get("SELECT * FROM rewards WHERE tag_id=? AND owner_id=? AND status!='abandoned' ORDER BY created_at DESC,rowid DESC LIMIT 1", tag.id, tag.owner_id);
   const inflight = reward => get("SELECT * FROM reward_operations WHERE reward_id=? AND status IN ('prepared','submitted')", reward.id);
   const broadcasts = new Map();
@@ -88,7 +93,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
   function releasedReport(reward, state) {
     // The mutable release fields may have been overwritten by an older server
     // after confirming a receipt against a stale account read. Recover only
-    // from the prepared operation and its report-bound wallet proof.
+    // from the prepared operation and its report-bound receiving address.
     const authorized = all("SELECT spec FROM reward_operations WHERE reward_id=? AND kind='release'", reward.id).some(operation => {
       const spec = JSON.parse(operation.spec);
       return spec.kind === 'release' && spec.payer === reward.payer && spec.verifier === reward.verifier
@@ -208,6 +213,16 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     }
   }
   const prices = createPriceFeed();
+  function saveFinderWallet(report, address, method) {
+    if (report.status !== 'open') fail(409, 'Esta conversa já foi encerrada.');
+    if (get("SELECT subject FROM auth_identities WHERE user_id=? AND provider='solana'", report.owner_id)?.subject === address || get('SELECT id FROM rewards WHERE tag_id=? AND owner_id=? AND payer=?', report.tag_id, report.owner_id, address)) fail(403, 'A carteira de quem encontrou deve ser diferente da carteira do dono.');
+    const existing = get('SELECT address FROM finder_reward_wallets WHERE report_id=?', report.id);
+    if (existing && existing.address !== address) fail(409, 'Esta conversa já tem uma carteira de recebimento confirmada.');
+    // Keep the legacy timestamp column for backwards compatibility; only
+    // confirmation_method='signature' represents proof of wallet ownership.
+    if (!existing) run('INSERT INTO finder_reward_wallets(report_id,address,verified_at,confirmation_method) VALUES(?,?,?,?)', report.id, address, now(), method);
+    else if (method === 'signature') run("UPDATE finder_reward_wallets SET confirmation_method='signature',verified_at=? WHERE report_id=?", now(), report.id);
+  }
   function install(app) {
     app.get('/api/rewards/prices', requireOwner, async (_req, res) => {
       try { res.json(await prices()); }
@@ -321,11 +336,18 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       app.get(path, finder ? requireFinder : requireOwner, route(async (req, res) => {
         const report = finder ? req.finderReport : ownerReport(req);
         const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', report.tag_id, report.owner_id);
-        const wallet = get('SELECT address FROM finder_reward_wallets WHERE report_id=?', report.id)?.address || null;
+        const wallet = get('SELECT address,confirmation_method FROM finder_reward_wallets WHERE report_id=?', report.id);
         const paid = get("SELECT * FROM rewards WHERE release_report_id=? AND status='released'", report.id);
-        res.json({ reward: paid ? view(paid) : tag && report.status === 'open' ? await getState(tag) : null, recipient: wallet, tagId: report.tag_id, config: chain?.config || null });
+        res.json({ reward: paid ? view(paid) : tag && report.status === 'open' ? await getState(tag) : null, recipient: wallet?.address || null, recipientMethod: wallet?.confirmation_method || null, tagId: report.tag_id, config: chain?.config || null });
       }));
     }
+    app.post('/api/finder/reports/:id/reward/wallet', requireFinder, route(async (req, res) => {
+      configured();
+      const address = receivingWalletAddress(req.body.address);
+      if (!address) fail(400, 'Informe um endereço de carteira Solana válido.', 'INVALID_WALLET_ADDRESS');
+      transaction(() => saveFinderWallet(req.finderReport, address, 'address'));
+      res.json({ recipient: address });
+    }));
     app.post('/api/finder/reports/:id/reward/wallet/challenge', requireFinder, route(async (req, res) => {
       configured(); const report = req.finderReport;
       if (report.status !== 'open') fail(409, 'Esta conversa já foi encerrada.');
@@ -350,12 +372,9 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
         address = bs58.encode(publicKey);
         if (!verifySignIn({ ...JSON.parse(challenge.payload), address }, { account: { address, publicKey, chains: [], features: [] }, signedMessage, signature, signatureType: 'ed25519' })) throw new Error();
       } catch { fail(401, 'A carteira não confirmou este pedido de acesso. Tente novamente.'); }
-      if (get("SELECT subject FROM auth_identities WHERE user_id=? AND provider='solana'", report.owner_id)?.subject === address || get('SELECT id FROM rewards WHERE tag_id=? AND owner_id=? AND payer=?', report.tag_id, report.owner_id, address)) fail(403, 'A carteira de quem encontrou deve ser diferente da carteira do dono.');
-      const existing = get('SELECT address FROM finder_reward_wallets WHERE report_id=?', report.id);
-      if (existing && existing.address !== address) fail(409, 'Esta conversa já tem uma carteira de recebimento confirmada.');
       transaction(() => {
+        saveFinderWallet(report, address, 'signature');
         if (!run('DELETE FROM finder_wallet_challenges WHERE id=?', challenge.id).changes) fail(401, 'Confirmação já usada.');
-        if (!existing) run('INSERT INTO finder_reward_wallets(report_id,address,verified_at) VALUES(?,?,?)', report.id, address, now());
       });
       res.json({ recipient: address });
     }));

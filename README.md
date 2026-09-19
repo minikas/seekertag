@@ -63,6 +63,7 @@ Docker builds still run from the repository root.
 2. The owner registers an item, generates its QR code, and shares/prints the PDF or writes an NFC tag.
 3. The finder scans the tag using the installed SeekerTag app. **No account is required**, but the app must be installed.
 4. The finder sends a report and chats with the owner. Conversation access is saved in the device's secure storage.
+   To receive a reserved reward, the finder opens **View item → Set receiving wallet** and pastes a Solana wallet address. No Seeker phone, wallet connection, signature, or SeekerTag account is required for this step. Connecting a compatible wallet remains optional. The address is fixed to that conversation after confirmation.
 5. The owner confirms the return. Conversations for that item close and its history is updated.
 
 The app also supports search, filters, editing, archiving/restoring items, marking items as lost, and transferring them to another account with identity confirmation. Archived items leave the main lists and appear under the Archived filter; their QR and NFC tags cannot receive new reports until restored. Wallet authentication uses Sign In With Solana through Mobile Wallet Adapter on Android.

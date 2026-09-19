@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { receivingWalletAddress } from '@seekertag/shared/wallet-address';
 
 const nameCharacters = /^[\p{L}\p{N}]+(?:[ '\-][\p{L}\p{N}]+)*$/u;
 const normalizedText = (max: number) => z.string()
@@ -29,8 +30,12 @@ export const finderFormSchema = z.object({
   message: normalizedText(2000).min(1, 'Escreva uma mensagem para o dono.'),
 });
 export const messageFormSchema = z.object({ body: normalizedText(2000).min(1, 'Escreva uma mensagem.') });
+export const receivingWalletFormSchema = z.object({
+  address: z.string().trim().refine(value => receivingWalletAddress(value) !== null, 'Informe um endereço de carteira Solana válido.'),
+});
 
 export type TagFormValues = z.output<typeof tagFormSchema>;
 export type CategoryFormValues = z.output<typeof categoryFormSchema>;
 export type FinderFormValues = z.output<typeof finderFormSchema>;
 export type MessageFormValues = z.output<typeof messageFormSchema>;
+export type ReceivingWalletFormValues = z.output<typeof receivingWalletFormSchema>;

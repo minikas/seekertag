@@ -97,7 +97,7 @@ name: Android account, label, sharing, PDF picker, visitor and app links
 - takeScreenshot: native-finder-chat
 - tapOn: "Ver objeto"
 - extendedWaitUntil:
-    visible: "Detalhes do objeto"
+    visible: ${QA_PUBLIC_OBJECT_NAME}
     timeout: 10000
 - assertVisible: ${QA_PUBLIC_OBJECT_NAME}
 - takeScreenshot: native-finder-details
