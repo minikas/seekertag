@@ -62,3 +62,12 @@ contracts/**/target/
 
 # Vercel project metadata is specific to each developer machine.
 .vercel
+
+# Generated video output and HyperFrames preview caches
+/presentation/video/renders/
+/presentation/video/qa/
+/presentation/video/.venv/
+/presentation/video/**/__pycache__/
+/presentation/video/**/.hyperframes/
+/presentation/video/**/.thumbnails/
+/presentation/video/**/.proxies/

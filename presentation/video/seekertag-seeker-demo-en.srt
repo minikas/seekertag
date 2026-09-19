@@ -1,0 +1,88 @@
+1
+00:00:00,333 --> 00:00:07,539
+Losing a bag should not mean losing the way to get it back. This is SeekerTag, running on a real Solana Seeker.
+
+2
+00:00:07,817 --> 00:00:14,051
+I choose Continue with Seeker, select my wallet, and approve Sign In With Solana in Seed Vault.
+
+3
+00:00:14,329 --> 00:00:18,098
+The app opens my items. My wallet is my identity.
+
+4
+00:00:20,333 --> 00:00:25,216
+I add a new item, Seeker Backpack, choose its category, and add a private note.
+
+5
+00:00:25,494 --> 00:00:31,088
+The public message tells whoever finds it how to contact me, without exposing my phone number.
+
+6
+00:00:31,366 --> 00:00:36,889
+I add a reward of zero point zero one SOL and set a one hour reservation.
+
+7
+00:00:37,167 --> 00:00:43,661
+Before signing, the app shows the devnet network, wallet, transaction fee, and account creation cost.
+
+8
+00:00:43,939 --> 00:00:50,789
+I approve the deposit in Seed Vault. After network confirmation, the reward is reserved on chain.
+
+9
+00:00:55,333 --> 00:00:58,249
+Here is the unique QR code for this backpack.
+
+10
+00:00:58,527 --> 00:01:05,899
+I download the PDF and open its preview: six printable formats, with actual sizes and a scale check.
+
+11
+00:01:06,176 --> 00:01:13,003
+The same item link can also be written to an NFC tag. This screen is ready for a physical tag.
+
+12
+00:01:18,333 --> 00:01:25,373
+On a separate Android session, Alex opens that same tag as the finder. The reserved reward is visible.
+
+13
+00:01:25,651 --> 00:01:31,601
+No account is required to notify the owner. Alex enters a name and sends a message.
+
+14
+00:01:31,879 --> 00:01:39,132
+Now both sides are on screen. I reply from the Seeker, and Alex receives it and answers from the second session.
+
+15
+00:01:39,410 --> 00:01:44,649
+We arrange the return inside the app, keeping personal contact details private.
+
+16
+00:01:49,333 --> 00:01:55,045
+To receive the reward, Alex opens item details and confirms a receiving wallet.
+
+17
+00:01:55,323 --> 00:02:02,457
+With Seed Vault, I sign a message proving ownership of the receiving address. It does not authorize a transfer.
+
+18
+00:02:02,736 --> 00:02:08,022
+Back on the Seeker, I open the item from our conversation and choose Finish return.
+
+19
+00:02:08,300 --> 00:02:15,861
+The review shows the finder receiving zero point zero zero nine five SOL, and the five percent service fee.
+
+20
+00:02:16,139 --> 00:02:21,022
+After confirming the simulated handover, I sign the payout with the owner wallet.
+
+21
+00:02:23,333 --> 00:02:31,653
+The transaction is confirmed on Solana devnet. The reward is released, and both conversations show the completed return.
+
+22
+00:02:31,931 --> 00:02:37,335
+One tag, private coordination, and a verifiable reward. That is SeekerTag.
+

@@ -1,0 +1,220 @@
+[
+  {
+    "id": "welcome",
+    "scene": "login",
+    "start": 0,
+    "duration": 3,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "sign-options",
+    "scene": "login",
+    "start": 3,
+    "duration": 5,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "seed-vault-login",
+    "scene": "login",
+    "start": 8,
+    "duration": 6,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "my-items",
+    "scene": "login",
+    "start": 14,
+    "duration": 6,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "item-name",
+    "scene": "create",
+    "start": 0,
+    "duration": 3,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "private-note",
+    "scene": "create",
+    "start": 3,
+    "duration": 3,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "public-message",
+    "scene": "create",
+    "start": 6,
+    "duration": 5,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "reward-period",
+    "scene": "create",
+    "start": 11,
+    "duration": 6,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "deposit-review",
+    "scene": "create",
+    "start": 17,
+    "duration": 7,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "deposit-sign",
+    "scene": "create",
+    "start": 24,
+    "duration": 3,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "deposit-confirm",
+    "scene": "create",
+    "start": 27,
+    "duration": 2,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "reward-reserved",
+    "scene": "create",
+    "start": 29,
+    "duration": 6,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "unique-qr",
+    "scene": "tag",
+    "start": 0,
+    "duration": 3.5,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "download-pdf",
+    "scene": "tag",
+    "start": 3.5,
+    "duration": 2.5,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "pdf-preview",
+    "scene": "tag",
+    "start": 6,
+    "duration": 6,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "nfc-ready",
+    "scene": "tag",
+    "start": 12,
+    "duration": 11,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "finder-tag",
+    "scene": "conversation",
+    "start": 0,
+    "duration": 7.5,
+    "label": "Finder · separate Android emulator"
+  },
+  {
+    "id": "finder-notify",
+    "scene": "conversation",
+    "start": 7.5,
+    "duration": 6,
+    "label": "Finder · separate Android emulator"
+  },
+  {
+    "id": "chat-owner-send",
+    "scene": "conversation",
+    "start": 13.5,
+    "duration": 8,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "chat-finder-receive",
+    "scene": "conversation",
+    "start": 13.5,
+    "duration": 8,
+    "label": "Finder · separate Android emulator"
+  },
+  {
+    "id": "chat-owner-receive",
+    "scene": "conversation",
+    "start": 21.5,
+    "duration": 9.5,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "chat-finder-send",
+    "scene": "conversation",
+    "start": 21.5,
+    "duration": 9.5,
+    "label": "Finder · separate Android emulator"
+  },
+  {
+    "id": "finder-connect",
+    "scene": "release",
+    "start": 0,
+    "duration": 6,
+    "label": "Finder · receiving wallet confirmation"
+  },
+  {
+    "id": "finder-wallet-sign",
+    "scene": "release",
+    "start": 6,
+    "duration": 5,
+    "label": "Verification retake · Seeker / Testuser",
+    "provenance": "Physical Seeker; Testuser selected in Seed Vault. User confirmed biometrics; receiving wallet verified via API. Separate retake from the preserved original payout."
+  },
+  {
+    "id": "recipient-verified",
+    "scene": "release",
+    "start": 11,
+    "duration": 3,
+    "label": "Original return · confirmed receiving wallet"
+  },
+  {
+    "id": "finish-return",
+    "scene": "release",
+    "start": 14,
+    "duration": 5,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "payout-review",
+    "scene": "release",
+    "start": 19,
+    "duration": 8,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "payout-sign",
+    "scene": "release",
+    "start": 27,
+    "duration": 7,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "reward-paid",
+    "scene": "result",
+    "start": 0,
+    "duration": 6,
+    "label": "Owner · physical Solana Seeker"
+  },
+  {
+    "id": "result-chat-owner",
+    "scene": "result",
+    "start": 6,
+    "duration": 11,
+    "label": "Owner · return confirmed"
+  },
+  {
+    "id": "result-chat-finder",
+    "scene": "result",
+    "start": 6,
+    "duration": 11,
+    "label": "Finder · return confirmed"
+  }
+]

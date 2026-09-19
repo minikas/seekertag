@@ -1,0 +1,56 @@
+{
+  "network": "devnet",
+  "commitment": "finalized",
+  "signature": "4QhzSZSrsbSixw1D7X3957DF943guXGCksf7CvbHXTK7e1dUYK4ZEsWWvyVfrywR7JsZxDSmExNEXgdkorYCUHB4",
+  "slot": 500526100,
+  "blockTime": 1789765913,
+  "feeLamports": 30000,
+  "balances": [
+    {
+      "address": "4KKA5DRfjDTLgkrqVMw1wZsRSwqDFo3hPJ5tXBvvGe9i",
+      "signer": true,
+      "changeLamports": -30000
+    },
+    {
+      "address": "F3fhCb37iXT74TyNzGJYzGwsqM2p1bpukLxqacERrqWL",
+      "signer": true,
+      "changeLamports": 0
+    },
+    {
+      "address": "C2LWNDXdnh3X8fSgJ8iCe8YueMrHie8vpo4n3d7xA9SJ",
+      "signer": false,
+      "changeLamports": 500000
+    },
+    {
+      "address": "EaFD92Df7Rx6xFW4SE3kYtmHbUTxUuxy8uhtNjty6B3B",
+      "signer": false,
+      "changeLamports": 9500000
+    },
+    {
+      "address": "Gs2B5aPu9gXCVcARzMN8MnY8ehpKUK91tsMWskzqiaAP",
+      "signer": false,
+      "changeLamports": -10000000
+    },
+    {
+      "address": "4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB",
+      "signer": false,
+      "changeLamports": 0
+    },
+    {
+      "address": "ComputeBudget111111111111111111111111111111",
+      "signer": false,
+      "changeLamports": 0
+    }
+  ],
+  "logs": [
+    "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+    "Program ComputeBudget111111111111111111111111111111 success",
+    "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+    "Program ComputeBudget111111111111111111111111111111 success",
+    "Program 4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB invoke [1]",
+    "Program log: Instruction: ReleaseSol",
+    "Program 4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB consumed 6050 of 199700 compute units",
+    "Program 4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB success"
+  ],
+  "explorer": "https://explorer.solana.com/tx/4QhzSZSrsbSixw1D7X3957DF943guXGCksf7CvbHXTK7e1dUYK4ZEsWWvyVfrywR7JsZxDSmExNEXgdkorYCUHB4?cluster=devnet"
+}

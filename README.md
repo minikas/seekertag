@@ -6,6 +6,14 @@ Lost & found for Solana Seeker: QR/NFC tags, private owner–finder conversation
 
 [Website](https://seekertag.vercel.app) · [App demo (2:40, English)](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4) · [Pitch deck (PDF)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-pitch.pdf) · [Download Android APK](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/SeekerTag-preview.apk) · [CLOCK IN release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in)
 
+## Watch the app demo
+
+[![Watch SeekerTag in action — owner and finder chatting on two Android sessions](presentation/video/preview.jpg)](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4)
+
+**[▶ Watch the 2:40 demo](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4)** · [Download MP4](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4) · [English subtitles](presentation/video/seekertag-seeker-demo-en.srt) · [Editable video project](presentation/video/README.md)
+
+Recorded app flows with English narration and captions: sign in with Seeker and Seed Vault, create a tag, reserve a 0.01 SOL reward, view the QR and printable PDF, open the NFC writing screen, chat between owner and finder, verify the receiving wallet, and confirm the return and reward payout on Solana devnet. The Seed Vault receiving-wallet shot is a labeled Testuser verification retake; the original payout is documented separately in the [recording evidence](presentation/video/README.md#recording-evidence).
+
 The preview APK is a standalone Android ARM64 build for Seeker, configured to use the public SeekerTag API; Metro and a local backend are not required. The reward implementation supports devnet, testnet, and mainnet, with one network configured per server. The documented demo uses devnet test tokens.
 
 An **Android-only app focused on Solana Seeker**, built with Expo SDK 57 and React Native 0.86. QR/NFC tags help return lost items through private conversations without exposing the owner's contact details.
