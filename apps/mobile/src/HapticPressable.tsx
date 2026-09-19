@@ -2,6 +2,7 @@ import React, { forwardRef, useCallback, useRef } from 'react';
 import { findNodeHandle, Pressable, PressableProps, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useRememberNavigationFocus } from './Navigation';
+import { useDismissFieldHelp } from './FieldHelpInteractions';
 
 export function tapFeedback() {
   // Native Android touch feedback respects the device's haptic settings.
@@ -11,12 +12,14 @@ export function tapFeedback() {
 export default forwardRef<View, PressableProps>(function HapticPressable({ onPress, disabled, ...props }, ref) {
   const element = useRef<View>(null);
   const rememberFocus = useRememberNavigationFocus();
+  const dismissHelp = useDismissFieldHelp();
   const setRef = useCallback((node: View | null) => {
     element.current = node;
     if (typeof ref === 'function') ref(node); else if (ref) ref.current = node;
   }, [ref]);
   return <Pressable {...props} ref={setRef} disabled={disabled} onPress={event => {
     if (disabled || !onPress) return;
+    dismissHelp();
     rememberFocus(findNodeHandle(element.current));
     tapFeedback();
     onPress(event);

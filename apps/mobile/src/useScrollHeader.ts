@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
-import { Easing, useAnimatedProps, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useAnimatedProps, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { motion } from './motion';
 
 // A short, interruptible transition makes a direction change visible without moving the page layout.
-const transition = { duration: 180, easing: Easing.bezier(0.23, 1, 0.32, 1) };
+const transition = { duration: 180, easing: motion.easeOut };
 
 export function useScrollHeader(height: number) {
   const reduceMotion = useReducedMotion();

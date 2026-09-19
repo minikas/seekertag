@@ -4,8 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { PortalHost } from '@gorhom/portal';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ConversationDraftProvider, NavigationProvider, PageLayer, useNavigationState } from './src/Navigation';
+import { FieldHelpInteractionProvider } from './src/FieldHelpInteractions';
 import Auth from './src/Auth';
 import { PreferencesProvider, usePreferences } from './src/PreferencesProvider';
 import Dashboard from './src/Dashboard';
@@ -85,12 +87,12 @@ function Content() {
     {help && <HelpSheet onClose={() => setHelp(false)} onDismissForever={() => void dismissHelpForever()} />}
     {recovery && <Sheet title={t("Guarde sua chave de recuperação.")} subtitle={t("Ela permite recuperar a conta se você esquecer a senha.")} dismissible={false} onClose={() => {}}><Text style={s.body}>{t("Salve este código em um gerenciador de senhas ou anote em um lugar seguro. Ele aparece apenas agora.")}</Text><Text selectable style={{ fontSize: 19, color: C.ink, backgroundColor: C.surface, padding: 19, borderRadius: 12, lineHeight: 30 }}>{recovery}</Text><Button icon="check" onPress={() => setRecovery(undefined)}>{t("Já guardei meu código")}</Button></Sheet>}
     </View>
-  </SafeAreaView></BottomSheetModalProvider></ConversationDraftProvider></NotificationsProvider>;
+  </SafeAreaView><PortalHost name="field-help" /></BottomSheetModalProvider></ConversationDraftProvider></NotificationsProvider>;
 }
 function AppFrame() {
   const { C } = useUI();
   return <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>
-    <SafeAreaProvider><KeyboardProvider statusBarTranslucent navigationBarTranslucent><NavigationProvider><Content /></NavigationProvider></KeyboardProvider></SafeAreaProvider>
+    <SafeAreaProvider><KeyboardProvider statusBarTranslucent navigationBarTranslucent><FieldHelpInteractionProvider><NavigationProvider><Content /></NavigationProvider></FieldHelpInteractionProvider></KeyboardProvider></SafeAreaProvider>
   </GestureHandlerRootView>;
 }
 

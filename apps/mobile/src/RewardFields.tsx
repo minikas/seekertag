@@ -8,6 +8,7 @@ import type { RewardController } from './useReward';
 import Pressable from './HapticPressable';
 import AccountActionSheet, { AccountActionSheetHandle } from './AccountActionSheet';
 import { ProviderMark } from './ProviderButton';
+import SkrTokenMark from './SkrTokenMark';
 import { Field, Icon, Notice, useUI } from './ui';
 
 export const periodLabels: Record<ReservationUnit, string> = { hours: 'Horas', days: 'Dias', months: 'Meses', years: 'Anos' };
@@ -42,8 +43,9 @@ export function RewardPeriod({ quantity, unit, onQuantity, onUnit, disabled, ref
 
 function TokenMark({ currency }: { currency: RewardCurrency }) {
   const { C } = useUI();
+  if (currency === 'SKR') return <SkrTokenMark />;
   return <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === 'USDC' ? '#2775CA' : C.soft }}>
-    {currency === 'SOL' ? <ProviderMark provider="solana" color={C.accent} /> : <Text style={{ color: currency === 'USDC' ? 'white' : C.accent, fontSize: 17, fontWeight: '700' }}>{currency === 'USDC' ? '$' : 'S'}</Text>}
+    {currency === 'SOL' ? <ProviderMark provider="solana" color={C.accent} /> : <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>$</Text>}
   </View>;
 }
 

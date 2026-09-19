@@ -1,6 +1,7 @@
 import React, { forwardRef, PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Text, View } from 'react-native';
-import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFooter, BottomSheetFooterProps, BottomSheetHandle, BottomSheetHandleProps, BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetBackdropProps, BottomSheetFooter, BottomSheetFooterProps, BottomSheetHandle, BottomSheetHandleProps, BottomSheetModal } from '@gorhom/bottom-sheet';
+import SheetBackdrop from './SheetBackdrop';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import KeyboardAwareSheetScrollView from './KeyboardAwareSheetScrollView';
 import { NavigationScope, useNavigationLayer } from './Navigation';
@@ -13,14 +14,14 @@ export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ 
   const sheet = useRef<BottomSheetModal>(null);
   const alive = useRef(false);
   const snapPoints = useMemo(() => ['70%', '94%'], []);
-  const close = () => { if (!busy) { Keyboard.dismiss(); sheet.current?.dismiss(); } };
+  const close = useCallback(() => { if (!busy) { Keyboard.dismiss(); sheet.current?.dismiss(); } }, [busy]);
   const layer = useNavigationLayer(() => { if (!busy) { if (onBack) onBack(); else close(); } }, true);
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
   useEffect(() => {
     alive.current = true; sheet.current?.present();
     return () => { alive.current = false; sheet.current?.dismiss(); };
   }, []);
-  const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.35} pressBehavior={busy ? 'none' : 'close'} accessibilityLabel={t('Fechar')} onPress={Keyboard.dismiss} />, [busy, t]);
+  const backdrop = useCallback((props: BottomSheetBackdropProps) => <SheetBackdrop {...props} onPress={close} disabled={busy} label={t('Fechar')} />, [busy, close, t]);
   const renderFooter = useCallback((props: BottomSheetFooterProps) => <BottomSheetFooter {...props}>
     <View accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? 'auto' : 'no-hide-descendants'} onLayout={event => setFooterHeight(event.nativeEvent.layout.height)} style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: insets.bottom + 16, gap: 12, backgroundColor: C.popover }}>{footer}</View>
   </BottomSheetFooter>, [footer, insets.bottom, C.popover, layer.active]);
@@ -32,7 +33,7 @@ export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ 
         <Text accessibilityRole="header" style={s.h2}>{title}</Text>{titleAccessory}
       </View>
     </View>
-  </View>, [C.muted, title, titleAccessory, onBack, busy, s, t, layer.active]);
+  </View>, [C.muted, title, titleAccessory, onBack, close, busy, s, t, layer.active]);
   return <NavigationScope path={layer.path}><BottomSheetModal ref={value => { sheet.current = value; if (typeof forwardedRef === 'function') forwardedRef(value); else if (forwardedRef) forwardedRef.current = value; }}
     name="object-reward" stackBehavior="push" snapPoints={snapPoints} index={0} enableDynamicSizing={false}
     enablePanDownToClose={!busy} enableHandlePanningGesture={!busy} enableContentPanningGesture={!busy}

@@ -6,10 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ActivityIndicator, Alert, Keyboard, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import Pressable from './HapticPressable';
 import {
-  BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFooter, BottomSheetFooterProps,
+  BottomSheetBackdropProps, BottomSheetFooter, BottomSheetFooterProps,
   BottomSheetHandle, BottomSheetHandleProps, BottomSheetModal,
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SheetBackdrop from './SheetBackdrop';
 import { api, Category, Tag, User } from './api';
 import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
 import Categories from './Categories';
@@ -191,7 +192,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     } finally { if (mounted.current) setConnectingWallet(false); }
   }
 
-  const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.35} pressBehavior="none" onPress={close} accessible={!busy} accessibilityLabel={t('Fechar formulário')} />, [busy, close, t]);
+  const backdrop = useCallback((props: BottomSheetBackdropProps) => <SheetBackdrop {...props} onPress={close} disabled={busy} label={t('Fechar formulário')} />, [busy, close, t]);
   // Keep the footer mounted while typing; the action always reads current fields.
   const saveDisabled = waiting || categoriesLoading || !category || !name.trim() || !!errors.name || wallet.loading || (!lockedReward && !!reward && (!amountValid || wantsReward && !canReserve)) || renewing && !durationValid;
   const footerError = error || wallet.error;
@@ -263,8 +264,8 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         {!categoriesLoading && !categoriesError && !categories.length && <Text style={s.small}>{t('Crie sua primeira categoria.')}</Text>}
         <Button variant="ghost" icon="edit-2" onPress={() => { Keyboard.dismiss(); setManagingCategories(true); }} disabled={categoriesDisabled}>{t("Gerenciar categorias")}</Button>
       </View>
-      <Controller control={control} name="description" render={({ field }) => <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.description?.message} maxLength={500} help={t("Só você vê esta anotação.")} editable={!editingDisabled} />} />
-      <Controller control={control} name="publicMessage" render={({ field }) => <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.publicMessage?.message} maxLength={500} help={t("Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço.")} editable={!editingDisabled} />} />
+      <Controller control={control} name="description" render={({ field }) => <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.description?.message} maxLength={500} tooltip={t("Só você vê esta anotação.")} editable={!editingDisabled} />} />
+      <Controller control={control} name="publicMessage" render={({ field }) => <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.publicMessage?.message} maxLength={500} help={t("Quem escanear o QR verá esta mensagem.")} tooltip={t("Recomendação: evite colocar telefone ou endereço.")} editable={!editingDisabled} />} />
       <Pressable accessibilityRole="button" accessibilityLabel={t(needsWallet ? 'Conecte sua carteira para adicionar uma recompensa' : 'Recompensa (Opcional)')} accessibilityState={{ disabled: busy || wallet.loading || connectingWallet }} disabled={busy || wallet.loading || connectingWallet}
         onPress={() => { Keyboard.dismiss(); if (needsWallet) void connectWallet(); else setRewardOpen(true); }} style={({ pressed }) => [s.card, s.between, { opacity: pressed ? 0.65 : 1 }]}>
         {activeReward ? <RewardSummary reward={activeReward} /> : <View style={[s.row, { flex: 1 }]}>
