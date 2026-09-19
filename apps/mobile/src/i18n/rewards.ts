@@ -3,7 +3,7 @@ export const rewards: Record<string, readonly [string, string]> = {
   'Não foi possível verificar o saldo mínimo da rede. Tente novamente.': ['Could not verify the network minimum balance. Try again.', 'No se pudo verificar el saldo mínimo de la red. Inténtalo de nuevo.'],
   'A reserva mudou. Revise a renovação novamente.': ['The reservation changed. Review the renewal again.', 'La reserva cambió. Revisa la renovación de nuevo.'],
   "Confirmar ação": ["Confirm action", "Confirmar acción"],
-  "Marcar esta etiqueta como perdida?": ["Mark this tag as lost?", "¿Marcar esta etiqueta como perdida?"],
+  "Marcar este objeto como perdido?": ["Mark this item as lost?", "¿Marcar este objeto como perdido?"],
   "Pausar esta etiqueta?": ["Pause this tag?", "¿Pausar esta etiqueta?"],
   "Reativar esta etiqueta?": ["Reactivate this tag?", "¿Reactivar esta etiqueta?"],
   "Arquivar este objeto?": ["Archive this item?", "¿Archivar este objeto?"],

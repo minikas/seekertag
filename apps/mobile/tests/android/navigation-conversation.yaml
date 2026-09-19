@@ -13,7 +13,7 @@ name: Chat draft survives object lookup and conversation reopening
 - back
 - takeScreenshot: conversation-composer-bottom
 - tapOn: "View item"
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - takeScreenshot: object-over-conversation
 - back
 - assertVisible: "Navigation chat draft"
@@ -25,5 +25,6 @@ name: Chat draft survives object lookup and conversation reopening
 - eraseText
 - back
 - back
-- tapOn: "My items"
+- tapOn:
+    id: "tab-items"
 - assertVisible: "Add item"

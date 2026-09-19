@@ -3,7 +3,8 @@ name: Home shortcuts and account navigation stay in their intended screens
 ---
 # Signed-in Portuguese dashboard with no conversations and a protected item.
 # This flow only reads data and navigates; it never changes preferences or signs out.
-- tapOn: "Meus objetos"
+- tapOn:
+    id: "tab-items"
 - tapOn: "Como funciona"
 - assertVisible: "1. Adicione seu objeto"
 - tapOn: "Entendi"
@@ -53,6 +54,7 @@ name: Home shortcuts and account navigation stay in their intended screens
 - takeScreenshot: receive-labels-sheet
 - back
 - back
-- tapOn: "Meus objetos"
+- tapOn:
+    id: "tab-items"
 - assertVisible: "Adicionar objeto"
 - takeScreenshot: home-shortcuts

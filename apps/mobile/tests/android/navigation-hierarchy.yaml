@@ -57,21 +57,21 @@ name: Nested tasks preserve their origin and unsaved fields
 - back
 - assertVisible: "Discard changes?"
 - tapOn: "Discard"
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - assertVisible: "${QA_OBJECT_NAME}"
 - tapOn: "Item options"
 - tapOn: "View as finder"
-- assertVisible: "Tag preview"
+- assertVisible: "Item preview"
 - assertVisible: "${QA_OBJECT_NAME}"
 - assertNotVisible: "This is your tag"
 - assertNotVisible: "This is how your item appears to its finder."
 - back
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - tapOn: "Item options"
 - tapOn: "Archive item"
 - assertVisible: "Archive this item?"
 - back
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - assertNotVisible: "Archive this item?"
 - takeScreenshot: confirmation-return-to-object
 - back

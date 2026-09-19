@@ -2,7 +2,8 @@ appId: app.seekertag.mobile
 name: Form focus stays visible and dismissing the keyboard preserves the section
 ---
 # Start on the signed-in dashboard. This flow only edits and discards a draft.
-- tapOn: "Meus objetos"
+- tapOn:
+    id: "tab-items"
 - tapOn: "Adicionar objeto"
 - tapOn:
     id: "object-name"

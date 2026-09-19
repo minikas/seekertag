@@ -3,7 +3,8 @@ name: Home browsing preserves search through details and the object editor
 ---
 # Start on a signed-in Portuguese dashboard with an existing protected item.
 # Pass its name as QA_OBJECT_NAME. This flow never saves or changes account data.
-- tapOn: "Meus objetos"
+- tapOn:
+    id: "tab-items"
 - assertNotVisible: "Buscar objetos"
 - assertVisible: "Ver todos"
 - takeScreenshot: home-overview
@@ -44,6 +45,7 @@ name: Home browsing preserves search through details and the object editor
 - tapOn: "Filtrar objetos"
 - back
 - assertVisible: "Buscar objetos"
-- tapOn: "Meus objetos"
+- tapOn:
+    id: "tab-items"
 - assertVisible: "Adicionar objeto"
 - assertNotVisible: "Buscar objetos"

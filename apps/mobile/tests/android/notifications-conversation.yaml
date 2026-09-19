@@ -23,7 +23,7 @@ name: Notifications and conversation load without push registration flooding
 - assertNotVisible: ".*Could not connect.*"
 - takeScreenshot: notification-conversation-loaded
 - tapOn: "View item"
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - back
 - assertVisible: "Message"
 - back

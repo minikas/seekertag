@@ -1,5 +1,5 @@
 appId: app.seekertag.mobile
-name: Expired reward opens directly from its tag
+name: Expired reward opens directly from its item
 ---
 # Signed-in English dashboard; QA_OBJECT_NAME has an expired reservation.
 # No review is submitted, wallet is opened, or item is saved.
@@ -10,7 +10,7 @@ name: Expired reward opens directly from its tag
 - tapOn:
     text: "Open ${QA_OBJECT_NAME}"
     index: 0
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - assertVisible: "Reservation expired"
 - tapOn: "Reward"
 - extendedWaitUntil:
@@ -33,30 +33,30 @@ name: Expired reward opens directly from its tag
 - back
 - assertVisible: "Reservation expired"
 - back
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - tapOn: "Item options"
 - tapOn: "Mark as lost"
-- assertVisible: "Mark this tag as lost?"
+- assertVisible: "Mark this item as lost?"
 - assertVisible: "Your item will be marked as lost. Anyone who scans the tag can contact you through the app."
 - takeScreenshot: mark-as-lost-confirmation
 - tapOn: "Cancel"
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - tapOn: "Item options"
 - tapOn: "View as finder"
-- assertVisible: "Tag preview"
+- assertVisible: "Item preview"
 - assertVisible: "${QA_OBJECT_NAME}"
 - assertNotVisible: "This is your tag"
 - assertNotVisible: "This is how your item appears to its finder."
 - takeScreenshot: finder-preview-hierarchy
 - back
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - assertNotVisible: "Edit item"
 - tapOn: "Reward"
 - assertVisible: "Renew reservation"
 - tapOn:
     id: "sheet-backdrop"
     point: "50%,5%"
-- assertVisible: "Your tag"
+- assertVisible: "Your item"
 - assertNotVisible: "Edit item"
 - tapOn: "Item options"
 - tapOn: "Edit item"
@@ -74,4 +74,4 @@ name: Expired reward opens directly from its tag
 - back
 - assertVisible: "Edit item"
 - back
-- assertVisible: "Your tag"
+- assertVisible: "Your item"

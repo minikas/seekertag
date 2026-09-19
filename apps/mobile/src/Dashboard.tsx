@@ -7,7 +7,7 @@ import ObjectsScreen from './ObjectsScreen';
 import NotificationsScreen from './NotificationsScreen';
 import { useNotifications } from './NotificationsProvider';
 import type { NotificationTarget } from './notifications.model';
-import { matchesTagFilter, TagFilter } from './tag-search.model';
+import { homePreviewTags, matchesTagFilter, TagFilter } from './tag-search.model';
 import { conversationCount } from './i18n';
 import { AppState, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
@@ -25,9 +25,9 @@ import { useScrollHeader } from './useScrollHeader';
 
 type Tab = 'items' | 'messages' | 'tags';
 const tabs: { key: Tab; label: string; icon: IconName }[] = [
-  { key: 'items', label: 'Meus objetos', icon: 'home' },
+  { key: 'items', label: 'Página inicial', icon: 'home' },
   { key: 'messages', label: 'Conversas', icon: 'message-circle' },
-  { key: 'tags', label: 'Tags', icon: 'tag' },
+  { key: 'tags', label: 'Objetos', icon: 'box' },
 ];
 
 export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan, onHelp, helpDismissed = false, onExpired, notification, onNotificationOpened }: { notification?: NotificationTarget; onNotificationOpened: () => void; token: string; user: User; onUserUpdated: (user: User) => void; onLogout: () => Promise<void>; onScan: () => void; onHelp: () => void; helpDismissed?: boolean; onExpired: () => void }) {
@@ -51,8 +51,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(true); }, 6000);
     return () => clearInterval(timer);
   }, [refresh, form, selected, account, chat, notificationsOpen]);
-  const visibleTags = tags.filter(tag => tag.status !== 'paused');
-  const homeTags = visibleTags.slice(0, 3);
+  const homeTags = homePreviewTags(tags);
   const openReports = reports.filter(r => r.status === 'open');
   const activeConversation = reports.find(report => report.id === chat);
   const switchTab = (key: Tab) => { setAccount(false); setNotificationsOpen(false); setTab(key); setChat(undefined); setFinderChat(false); };
@@ -102,14 +101,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
         {tags.length > 0 ? <View>
           <View style={[s.between, { marginBottom: 10 }]}><Text style={s.h2}>{t("Objetos")}</Text><Pressable accessibilityRole="button" accessibilityLabel={t("Ver todos")} onPress={() => browseTags('all')} style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}><Text style={s.body}>{t("Ver todos")}</Text><Icon name="chevron-right" size={20} color={C.muted} /></Pressable></View>
           {homeTags.length > 0 ? homeTags.map((tag, index) => <TagRow key={tag.id} tag={tag} last={index === homeTags.length - 1} onPress={() => setSelected(tag)} />) : <View style={s.empty}>
-            <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="archive" size={32} /></View>
-            <Text style={[s.h2, styles.center]}>{t("Todos os objetos estão arquivados")}</Text>
-            <Text style={[s.body, styles.center]}>{t("Abra a lista de objetos e use o filtro Arquivados para restaurá-los.")}</Text>
-            <Button variant="secondary" icon="archive" onPress={() => browseTags('paused')}>{t("Ver arquivados")}</Button>
+            <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="box" size={32} /></View>
+            <Text style={[s.h2, styles.center]}>{t("Nenhum objeto protegido ou perdido")}</Text>
+            <Text style={[s.body, styles.center]}>{t("Os objetos reencontrados e arquivados continuam na aba Objetos. Use os filtros para vê-los.")}</Text>
           </View>}
         </View> : <View style={s.empty}>
           <View style={[s.circle, { width: 72, height: 72, borderRadius: 26 }]}><Icon name="tag" size={32} /></View>
-          <Text style={[s.h2, styles.center]}>{t("Sua primeira etiqueta")}</Text>
+          <Text style={[s.h2, styles.center]}>{t("Seu primeiro objeto")}</Text>
           <Text style={[s.body, styles.center]}>{t("Adicione um objeto e crie um QR para ajudar quem o encontrar a falar com você.")}</Text>
         </View>}
 

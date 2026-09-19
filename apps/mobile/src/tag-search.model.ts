@@ -7,6 +7,11 @@ export type TagFilter = 'all' | TagStatus;
 export const matchesTagFilter = (tag: Tag, filter: TagFilter) => filter === 'all'
   ? tag.status !== 'paused'
   : displayTagStatus(tag) === filter;
+
+export function homePreviewTags(tags: readonly Tag[]): Tag[] {
+  return tags.filter(tag => matchesTagFilter(tag, 'active') || matchesTagFilter(tag, 'lost')).slice(0, 3);
+}
+
 const normalize = (value: string, locale: string) => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
 
 export function searchTags(tags: Tag[], query: string, filter: TagFilter, t: Translate, locale: string): Tag[] {

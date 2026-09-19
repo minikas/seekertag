@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchesTagFilter, searchTags } from '../../src/tag-search.model.ts';
+import { homePreviewTags, matchesTagFilter, searchTags } from '../../src/tag-search.model.ts';
 import { displayTagStatus } from '../../src/tag-status.model.ts';
 import { createTranslator } from '../../src/i18n/index.ts';
 
@@ -74,4 +74,29 @@ test('a recovered item becomes lost when lost again and archived when archived',
   }
   assert.equal(displayTagStatus({ ...item, recoveryCount: 2 }), 'recovered');
   assert.equal(displayTagStatus({ ...item, recoveryCount: 0 }), 'active');
+});
+
+test('home shows only protected and lost items, filtering before its three-item limit', () => {
+  const items = Object.freeze([
+    { ...tags[0], id: 'recovered', recoveryCount: 1 },
+    { ...tags[2], id: 'archived', recoveryCount: 1 },
+    { ...tags[0], id: 'protected', recoveryCount: 0 },
+    { ...tags[1], id: 'lost-again', recoveryCount: 2 },
+    { ...tags[1], id: 'lost', recoveryCount: 0 },
+    { ...tags[0], id: 'fourth', recoveryCount: 0 },
+  ].map(Object.freeze));
+  assert.deepEqual(ids(homePreviewTags(items)), ['protected', 'lost-again', 'lost']);
+  assert.equal(homePreviewTags(items)[0], items[2]);
+  // Recovered items remain available in the complete collection and their filter.
+  assert.deepEqual(ids(searchTags(items, '', 'all', pt, 'pt-BR')), ['recovered', 'protected', 'lost-again', 'lost', 'fourth']);
+  assert.deepEqual(ids(searchTags(items, '', 'recovered', pt, 'pt-BR')), ['recovered']);
+});
+
+test('home has no preview rows when there are only recovered or archived items', () => {
+  const recovered = { ...tags[0], recoveryCount: 1 };
+  const archived = { ...tags[2], recoveryCount: 0 };
+  for (const items of [[], [recovered], [archived], [recovered, archived]]) {
+    assert.deepEqual(homePreviewTags(items), []);
+  }
+  assert.deepEqual(ids(homePreviewTags([recovered, { ...recovered, status: 'lost' }])), ['a']);
 });

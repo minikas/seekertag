@@ -3,13 +3,14 @@ name: Tag actions and NFC cancellation preserve the current item
 ---
 # Start on a signed-in Portuguese dashboard, with NFC enabled.
 # Pass QA_OBJECT_NAME for an existing tag. This flow never changes or submits data.
-- tapOn: "Meus objetos"
+- tapOn:
+    id: "tab-items"
 - scrollUntilVisible:
     element: "Abrir ${QA_OBJECT_NAME}"
     direction: DOWN
 - tapOn: "Abrir ${QA_OBJECT_NAME}"
 - assertVisible: "Compartilhar link"
-- assertNotVisible: "Transferir etiqueta"
+- assertNotVisible: "Transferir objeto"
 - tapOn: "Opções do objeto"
 - tapOn: "Detalhes do objeto"
 - assertVisible: "Editar objeto"

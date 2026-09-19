@@ -219,7 +219,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
   function transfer() {
     if (waiting) return;
     if (!recipient.trim() || recipient.includes('@')) { setError('Use o ID da conta ou a carteira de quem vai receber.'); return; }
-    if (user.hasPassword && password.length < 10) { setError('Confirme sua senha atual para transferir a etiqueta.'); return; }
+    if (user.hasPassword && password.length < 10) { setError('Confirme sua senha atual para transferir o objeto.'); return; }
     void run('transfer', async () => {
       let proof: string | undefined;
       if (!user.hasPassword) {
@@ -250,7 +250,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
       <ActionRow icon="share-2" title={t("Compartilhar PDF")} onPress={() => choose(sharePdf)} />
       <ActionRow disabled={waiting || (tag.status === 'lost' && hasOpenReports && returnLocked)} tone={tag.status === 'active' ? 'warning' : 'success'} icon={tag.status === 'active' ? 'alert-circle' : 'check-circle'} title={tag.status === 'active' ? t("Marcar como perdido") : tag.status === 'lost' ? t("Já está comigo") : t("Restaurar objeto")} onPress={() => choose(() => setPendingStatus(tag.status === 'active' ? 'lost' : 'active'))} />
       {tag.status !== 'paused' && <ActionRow disabled={waiting} tone="warning" icon="archive" title={t("Arquivar objeto")} onPress={() => choose(() => setPendingStatus('paused'))} />}
-      <ActionRow disabled={waiting} tone="danger" icon="arrow-right-circle" title={t("Transferir etiqueta")} onPress={() => choose(() => setPage('transfer'))} />
+      <ActionRow disabled={waiting} tone="danger" icon="arrow-right-circle" title={t("Transferir objeto")} onPress={() => choose(() => setPage('transfer'))} />
     </View>
   </ScreenBottomSheet>;
   const nfc = <ScreenBottomSheet title={t("Gravar NFC")} onClose={closeOverlay}>
@@ -271,7 +271,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
   };
   const Frame = conversation ? ContextualDetails : Sheet;
   const InfoFrame = conversation ? AccountActionSheet : Sheet;
-  return <Frame title={t('Sua etiqueta')} onClose={close}
+  return <Frame title={t('Seu objeto')} onClose={close}
     headerRight={<Button variant="ghost" icon="more-horizontal" label={t('Opções do objeto')} busy={busy === 'status' || busy === 'sharePdf'} disabled={!!busy} onPress={() => setOverlay('actions')} />}
     overlay={<>
       {overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : null}
@@ -285,17 +285,17 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
       {tag.rewardAmount > 0 ? <InfoBlock label={t("Valor da recompensa")} value={tag.reward ? `${tag.reward.amount} ${tag.reward.currency}` : `${tag.rewardAmount.toLocaleString(locale)} ${tag.rewardCurrency}`} /> : null}
       {tag.recoveryCount > 0 && <Text style={s.body}>{tag.recoveryCount} {tag.recoveryCount === 1 ? t("devolução") : t("devoluções")}</Text>}
       </InfoFrame>}
-      {page === 'transfer' && <AccountActionSheet title={t('Transferir etiqueta')} busy={busy === 'transfer'} guardClose={closeTransfer} onClose={() => { setPage('overview'); setRecipient(''); setPassword(''); setError(''); }}>
+      {page === 'transfer' && <AccountActionSheet title={t('Transferir objeto')} busy={busy === 'transfer'} guardClose={closeTransfer} onClose={() => { setPage('overview'); setRecipient(''); setPassword(''); setError(''); }}>
       <Text style={s.h2}>{tag.name}</Text>
-      <Text style={s.body}>{t("A etiqueta sairá da sua conta e o mesmo QR passará para a pessoa abaixo. Ela precisa ter uma conta SeekerTag.")}</Text>
-      <Text style={s.small}>{t("Suas conversas antigas continuam privadas. Anotação, mensagem pública e recompensa serão apagadas da etiqueta. Para recebê-la de volta, a nova pessoa precisa transferi-la para você.")}</Text>
-      {tag.openReportCount > 0 && <Notice error text={t("Conclua as conversas abertas deste objeto antes de transferir a etiqueta.")} />}
+      <Text style={s.body}>{t("O objeto sairá da sua conta e o mesmo QR passará para a pessoa abaixo. Ela precisa ter uma conta SeekerTag.")}</Text>
+      <Text style={s.small}>{t("Suas conversas antigas continuam privadas. Anotação, mensagem pública e recompensa serão apagadas do objeto. Para recebê-lo de volta, a nova pessoa precisa transferi-lo para você.")}</Text>
+      {tag.openReportCount > 0 && <Notice error text={t("Conclua as conversas abertas deste objeto antes de transferi-lo.")} />}
       <Field inSheet label={t("ID da conta ou carteira de quem vai receber")} value={recipient} onChangeText={setRecipient} autoCapitalize="none" autoCorrect={false} keyboardType="default" maxLength={64} editable={!busy && !waiting} placeholder={t("ID da conta ou endereço Solana")} />
       {user.hasPassword ? <Field inSheet label={t("Sua senha atual")} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" maxLength={128} editable={!busy && !waiting} onSubmitEditing={transfer} /> : <Text style={s.small}>{t("Você confirmará sua identidade com {provider} antes da transferência.", { provider: providerNames[user.providers[0]] || t("seu acesso vinculado") })}</Text>}
       <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || waiting || tag.openReportCount > 0 || !recipient.trim() || (user.hasPassword && password.length < 10)}>{t("Confirmar transferência")}</Button>
         {!!error && <Notice text={error} error />}
       </AccountActionSheet>}
-      {preview && <AccountActionSheet title={t('Prévia da etiqueta')} titleStyle={styles.previewHeader} onClose={() => setPreview(false)}>
+      {preview && <AccountActionSheet title={t('Prévia do objeto')} titleStyle={styles.previewHeader} onClose={() => setPreview(false)}>
         <View style={{ gap: 8 }}>
           <Text accessibilityRole="header" style={styles.previewTitle}>{tag.name}</Text>
           <View style={s.row}><Icon name={info.icon} size={16} color={C.muted} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text></View>
@@ -310,7 +310,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
             <Icon name={pendingStatus === 'lost' ? 'alert-circle' : pendingStatus === 'paused' ? 'archive' : 'check-circle'} size={28} color={pendingStatus === 'active' ? C.green : C.amber} />
           </View>
           <View style={{ gap: 12 }}>
-            <Text accessibilityRole="header" style={[s.h2, styles.center]}>{t(pendingStatus === 'lost' ? 'Marcar esta etiqueta como perdida?' : pendingStatus === 'paused' ? 'Arquivar este objeto?' : hasOpenReports && tag.status !== 'paused' ? 'Confirmar devolução?' : 'Restaurar este objeto?')}</Text>
+            <Text accessibilityRole="header" style={[s.h2, styles.center]}>{t(pendingStatus === 'lost' ? 'Marcar este objeto como perdido?' : pendingStatus === 'paused' ? 'Arquivar este objeto?' : hasOpenReports && tag.status !== 'paused' ? 'Confirmar devolução?' : 'Restaurar este objeto?')}</Text>
             {pendingStatus === 'lost' && <Text style={[s.body, styles.center]}>{t('Seu objeto aparecerá como perdido. Quem escanear a etiqueta poderá entrar em contato com você pelo app.')}</Text>}
             {pendingStatus === 'active' && hasOpenReports && tag.status !== 'paused' && <Text style={[s.body, styles.center]}>{t('Confirme somente se o objeto já estiver com você. Isso encerra as conversas deste objeto.')}</Text>}
             {pendingStatus === 'paused' && <Text style={[s.body, styles.center]}>{t('Ele sairá das listas principais. O QR e o NFC deixarão de receber novos avisos e mensagens, mas você poderá restaurá-lo depois.')}</Text>}

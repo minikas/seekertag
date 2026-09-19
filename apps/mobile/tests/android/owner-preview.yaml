@@ -2,7 +2,8 @@ appId: app.seekertag.mobile
 name: Owner preview shows public information without a self-report form
 ---
 # Signed-in Portuguese dashboard. No messages or account changes are submitted.
-- tapOn: "Meus objetos"
+- tapOn:
+    id: "tab-items"
 - scrollUntilVisible:
     element: "Abrir ${QA_OBJECT_NAME}"
     direction: DOWN
