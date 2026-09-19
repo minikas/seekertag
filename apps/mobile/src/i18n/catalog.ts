@@ -6,6 +6,8 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Continuar editando': ['Keep editing', 'Seguir editando'],
   'Descartar': ['Discard', 'Descartar'],
   'Voltar ao objeto': ['Back to item', 'Volver al objeto'],
+  'Prévia da etiqueta': ['Tag preview', 'Vista previa de la etiqueta'],
+  'Seu objeto aparecerá como perdido. Quem escanear a etiqueta poderá entrar em contato com você pelo app.': ['Your item will be marked as lost. Anyone who scans the tag can contact you through the app.', 'Tu objeto aparecerá como perdido. Quien escanee la etiqueta podrá contactarte por la app.'],
   "As notificações ainda não estão disponíveis neste servidor.": ["Notifications are not available on this server yet.", "Las notificaciones aún no están disponibles en este servidor."],
   "Tags": ["Tags", "Tags"],
   "Notificações": ["Notifications", "Notificaciones"],

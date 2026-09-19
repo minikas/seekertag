@@ -117,7 +117,7 @@ test('a return without escrow requires confirmation, resolves once and refreshes
     const h = harness({ reward, reports: 2 });
     button(h.render(), 'Finalizar devolução').onPress();
     assert.equal(h.requests.length, 0, 'Opening the confirmation does not resolve reports');
-    const confirm = button(h.render(), 'Confirmar');
+    const confirm = button(h.render(), 'Confirmar devolução');
     confirm.onPress(); confirm.onPress(); await tick();
     assert.deepEqual(h.requests.map(({ path }) => path), ['/reports', '/reports/report/resolve', '/tags/tag']);
     assert.equal(h.requests[1].method, 'POST');
@@ -130,7 +130,7 @@ test('a return without escrow requires confirmation, resolves once and refreshes
 test('a rejected resolution shows the error without reporting a successful return', async () => {
   const h = harness({ reports: 1, resolveError: 'Reserva ainda bloqueada' });
   button(h.render(), 'Finalizar devolução').onPress();
-  button(h.render(), 'Confirmar').onPress(); await tick();
+  button(h.render(), 'Confirmar devolução').onPress(); await tick();
   assert.equal(h.resolved, 0);
   assert.equal(h.updates.length, 0);
   assert.deepEqual(h.requests.map(({ path }) => path), ['/reports', '/reports/report/resolve']);

@@ -1,0 +1,77 @@
+appId: app.seekertag.mobile
+name: Expired reward opens directly from its tag
+---
+# Signed-in English dashboard; QA_OBJECT_NAME has an expired reservation.
+# No review is submitted, wallet is opened, or item is saved.
+- launchApp
+- extendedWaitUntil:
+    visible: "Add item"
+    timeout: 30000
+- tapOn:
+    text: "Open ${QA_OBJECT_NAME}"
+    index: 0
+- assertVisible: "Your tag"
+- assertVisible: "Reservation expired"
+- tapOn: "Reward"
+- extendedWaitUntil:
+    visible: "Renew reservation"
+    timeout: 30000
+- assertNotVisible: "Edit item"
+- assertNotVisible: "Done"
+- assertVisible: "Close"
+- assertNotVisible: "Back to item"
+- assertNotVisible: "Back to reward"
+- assertVisible: "Cancel and refund"
+- takeScreenshot: expired-reward-direct
+- tapOn: "Renew reservation"
+- assertVisible: "Review renewal"
+- tapOn: "Back to reward"
+- assertVisible: "Reservation expired"
+- assertNotVisible: "Done"
+- tapOn: "Cancel and refund"
+- assertVisible: "Cancel and recover?"
+- back
+- assertVisible: "Reservation expired"
+- back
+- assertVisible: "Your tag"
+- tapOn: "Item options"
+- tapOn: "Mark as lost"
+- assertVisible: "Mark this tag as lost?"
+- assertVisible: "Your item will be marked as lost. Anyone who scans the tag can contact you through the app."
+- takeScreenshot: mark-as-lost-confirmation
+- tapOn: "Cancel"
+- assertVisible: "Your tag"
+- tapOn: "Item options"
+- tapOn: "View as finder"
+- assertVisible: "Tag preview"
+- assertVisible: "${QA_OBJECT_NAME}"
+- assertNotVisible: "This is your tag"
+- assertNotVisible: "This is how your item appears to its finder."
+- takeScreenshot: finder-preview-hierarchy
+- back
+- assertVisible: "Your tag"
+- assertNotVisible: "Edit item"
+- tapOn: "Reward"
+- assertVisible: "Renew reservation"
+- tapOn:
+    id: "sheet-backdrop"
+    point: "50%,5%"
+- assertVisible: "Your tag"
+- assertNotVisible: "Edit item"
+- tapOn: "Item options"
+- tapOn: "Edit item"
+- extendedWaitUntil:
+    visible:
+      id: "object-name"
+      enabled: true
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Reward (Optional)"
+    direction: DOWN
+- tapOn: "Reward (Optional)"
+- assertVisible: "Renew reservation"
+- assertNotVisible: "Done"
+- back
+- assertVisible: "Edit item"
+- back
+- assertVisible: "Your tag"

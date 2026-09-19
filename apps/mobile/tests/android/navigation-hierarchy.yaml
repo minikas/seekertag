@@ -61,7 +61,10 @@ name: Nested tasks preserve their origin and unsaved fields
 - assertVisible: "${QA_OBJECT_NAME}"
 - tapOn: "Item options"
 - tapOn: "View as finder"
-- assertVisible: "This is your tag"
+- assertVisible: "Tag preview"
+- assertVisible: "${QA_OBJECT_NAME}"
+- assertNotVisible: "This is your tag"
+- assertNotVisible: "This is how your item appears to its finder."
 - back
 - assertVisible: "Your tag"
 - tapOn: "Item options"

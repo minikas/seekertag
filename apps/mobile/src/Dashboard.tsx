@@ -39,7 +39,7 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const [finderChat, setFinderChat] = useState(false);
   const [browseRevision, setBrowseRevision] = useState(0);
   const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [initialLoading, setInitialLoading] = useState(true); const [browsing, setBrowsing] = useState<TagFilter>('all'); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [conversationTag, setConversationTag] = useState<Report>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
-  const [focusReward, setFocusReward] = useState(false);
+  const [rewardOnly, setRewardOnly] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(72);
   const itemHeader = useScrollHeader(headerHeight);
   const messageHeader = useScrollHeader(headerHeight);
@@ -143,8 +143,8 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     {chat && <Sheet title={t('Conversa')} scrollable={false} onClose={() => setChat(undefined)} headerRight={!finderChat && activeConversation ? <Button variant="ghost" icon="external-link" label={t('Ver objeto')} onPress={() => { const tag = tags.find(item => item.id === activeConversation.tagId); if (!tag) return; setConversationTag(activeConversation); setSelected(tag); }} style={{ minHeight: 44, paddingHorizontal: 10 }}>{t('Ver objeto')}</Button> : undefined}>
       <Conversation key={chat} id={chat} token={token} finder={finderChat} covered={!!selected} />
     </Sheet>}
-    {selected && <TagDetails tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { setSelected(undefined); setConversationTag(undefined); }} onUpdated={saveTag} onResolved={() => finishReturn(selected.id)} onEdit={(tag, reward = false) => { setFocusReward(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); setConversationTag(undefined); void refresh(); }} />}
-    {form && <TagForm focusReward={focusReward} onCategoriesChanged={() => void refresh(true)} token={token} user={user} onUserUpdated={onUserUpdated} tag={form === 'new' ? undefined : form} onClose={() => { setForm(null); setFocusReward(false); }} onSaved={tag => { saveTag(tag); setForm(null); setFocusReward(false); }} />}
+    {selected && <TagDetails tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { setSelected(undefined); setConversationTag(undefined); }} onUpdated={saveTag} onResolved={() => finishReturn(selected.id)} onEdit={(tag, reward = false) => { setRewardOnly(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); setConversationTag(undefined); void refresh(); }} />}
+    {form && <TagForm rewardOnly={rewardOnly} onCategoriesChanged={() => void refresh(true)} token={token} user={user} onUserUpdated={onUserUpdated} tag={form === 'new' ? undefined : form} onClose={() => { setForm(null); setRewardOnly(false); }} onSaved={tag => { saveTag(tag); setForm(null); setRewardOnly(false); }} />}
   </View>;
 }
 

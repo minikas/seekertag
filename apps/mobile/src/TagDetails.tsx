@@ -25,7 +25,7 @@ type Props = {
   onUserUpdated: (user: User) => void;
   onClose: () => void;
   onUpdated: (tag: Tag) => void;
-  onEdit: (tag: Tag, focusReward?: boolean) => void;
+  onEdit: (tag: Tag, rewardOnly?: boolean) => void;
   onTransferred: () => void;
   onResolved: () => void;
   conversation?: { id: string; status: 'open' | 'resolved' };
@@ -295,19 +295,31 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
       <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || waiting || tag.openReportCount > 0 || !recipient.trim() || (user.hasPassword && password.length < 10)}>{t("Confirmar transferência")}</Button>
         {!!error && <Notice text={error} error />}
       </AccountActionSheet>}
-      {preview && <AccountActionSheet title={t('Ver como visitante')} onClose={() => setPreview(false)}>
-        <Text style={s.h2}>{tag.name}</Text><Text style={s.body}>{tagCategoryLabel(tag, t)}</Text>
+      {preview && <AccountActionSheet title={t('Prévia da etiqueta')} titleStyle={styles.previewHeader} onClose={() => setPreview(false)}>
+        <View style={{ gap: 8 }}>
+          <Text accessibilityRole="header" style={styles.previewTitle}>{tag.name}</Text>
+          <View style={s.row}><Icon name={info.icon} size={16} color={C.muted} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text></View>
+        </View>
         {!!tag.publicMessage && <View style={[s.card, { gap: 8 }]}><Text style={s.label}>{t('Mensagem do dono')}</Text><Text style={s.body}>{tag.publicMessage}</Text></View>}
         {(tag.reward || tag.rewardAmount > 0) && <RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} />}
-        <Notice text={t('Esta etiqueta é sua')} /><Text style={s.body}>{t('Você está vendo como seu objeto aparece para quem o encontrar.')}</Text>
       </AccountActionSheet>}
     {pendingStatus && <ScreenBottomSheet title="" onClose={() => setPendingStatus(null)}>
-      <View style={{ gap: 16 }}>
-        <Text style={s.h3}>{t(pendingStatus === 'lost' ? 'Marcar esta etiqueta como perdida?' : pendingStatus === 'paused' ? 'Arquivar este objeto?' : hasOpenReports && tag.status !== 'paused' ? 'Confirmar devolução?' : 'Restaurar este objeto?')}</Text>
-        {pendingStatus === 'active' && hasOpenReports && tag.status !== 'paused' && <Text style={s.body}>{t('Confirme somente se o objeto já estiver com você. Isso encerra as conversas deste objeto.')}</Text>}
-        {pendingStatus === 'paused' && <Text style={s.body}>{t('Ele sairá das listas principais. O QR e o NFC deixarão de receber novos avisos e mensagens, mas você poderá restaurá-lo depois.')}</Text>}
-        <Button variant={pendingStatus === 'lost' || pendingStatus === 'paused' ? 'warning' : 'success'} busy={busy === 'status'} disabled={!!busy} onPress={() => { const next = pendingStatus; setPendingStatus(null); changeStatus(next); }}>{t('Confirmar')}</Button>
-        <Button variant="ghost" disabled={!!busy} onPress={() => setPendingStatus(null)}>{t('Cancelar')}</Button>
+      <View style={{ gap: 28 }}>
+        <View style={{ alignItems: 'center', gap: 20 }}>
+          <View style={[s.circle, { backgroundColor: pendingStatus === 'active' ? C.greenSoft : C.amberSoft }]}>
+            <Icon name={pendingStatus === 'lost' ? 'alert-circle' : pendingStatus === 'paused' ? 'archive' : 'check-circle'} size={28} color={pendingStatus === 'active' ? C.green : C.amber} />
+          </View>
+          <View style={{ gap: 12 }}>
+            <Text accessibilityRole="header" style={[s.h2, styles.center]}>{t(pendingStatus === 'lost' ? 'Marcar esta etiqueta como perdida?' : pendingStatus === 'paused' ? 'Arquivar este objeto?' : hasOpenReports && tag.status !== 'paused' ? 'Confirmar devolução?' : 'Restaurar este objeto?')}</Text>
+            {pendingStatus === 'lost' && <Text style={[s.body, styles.center]}>{t('Seu objeto aparecerá como perdido. Quem escanear a etiqueta poderá entrar em contato com você pelo app.')}</Text>}
+            {pendingStatus === 'active' && hasOpenReports && tag.status !== 'paused' && <Text style={[s.body, styles.center]}>{t('Confirme somente se o objeto já estiver com você. Isso encerra as conversas deste objeto.')}</Text>}
+            {pendingStatus === 'paused' && <Text style={[s.body, styles.center]}>{t('Ele sairá das listas principais. O QR e o NFC deixarão de receber novos avisos e mensagens, mas você poderá restaurá-lo depois.')}</Text>}
+          </View>
+        </View>
+        <View style={{ gap: 12 }}>
+          <Button variant={pendingStatus === 'active' ? 'success' : 'warning'} icon={pendingStatus === 'lost' ? 'alert-circle' : pendingStatus === 'paused' ? 'archive' : 'check'} busy={busy === 'status'} disabled={!!busy} onPress={() => { const next = pendingStatus; setPendingStatus(null); changeStatus(next); }}>{t(pendingStatus === 'lost' ? 'Marcar como perdido' : pendingStatus === 'paused' ? 'Arquivar objeto' : hasOpenReports && tag.status !== 'paused' ? 'Confirmar devolução' : 'Restaurar objeto')}</Button>
+          <Button variant="ghost" disabled={!!busy} onPress={() => setPendingStatus(null)}>{t('Cancelar')}</Button>
+        </View>
       </View>
     </ScreenBottomSheet>}
     </>}>
@@ -374,6 +386,8 @@ function ActionRow({ icon, title, onPress, tone, disabled = false }: { icon: Ico
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({
+  previewHeader: { color: C.muted, fontSize: 18, fontWeight: '500', lineHeight: 24, letterSpacing: 0 },
+  previewTitle: { color: C.ink, fontSize: 28, fontWeight: '600', lineHeight: 34, letterSpacing: -0.4 },
   center: { textAlign: 'center' },
   metadata: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 },
   qrCard: { paddingTop: 12, alignItems: 'center', gap: 20 },

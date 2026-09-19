@@ -30,14 +30,13 @@ import { tagFormSchema, type TagFormValues } from './form.model';
 import { NavigationScope, useNavigationLayer } from './Navigation';
 import { authenticate } from './platform/auth';
 
-export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSaved, onCategoriesChanged, focusReward = false }: { token: string; user: User; onUserUpdated: (user: User) => void; tag?: Tag; focusReward?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
+export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSaved, onCategoriesChanged, rewardOnly = false }: { token: string; user: User; onUserUpdated: (user: User) => void; tag?: Tag; rewardOnly?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const sheet = useRef<BottomSheetModal>(null);
   const formScroll = useRef<KeyboardAwareSheetScrollViewRef>(null);
-  const focusedReward = useRef(false);
   const rewardSheet = useRef<BottomSheetModal>(null);
-  const [rewardOpen, setRewardOpen] = useState(false);
+  const [rewardOpen, setRewardOpen] = useState(rewardOnly);
   const insets = useSafeAreaInsets();
   const snapPoints = useMemo(() => ['78%', '96%'], []);
   const saving = useRef(false);
@@ -51,14 +50,13 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const name = watch('name');
   const [categories, setCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState(tag?.categoryId || '');
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(!rewardOnly);
   const [categoriesError, setCategoriesError] = useState('');
   const [categoriesRevision, setCategoriesRevision] = useState(0);
   const [managingCategories, setManagingCategories] = useState(false);
   const initialCategory = useRef(tag?.categoryId);
   const guard = useRef({ dirty: false, t });
   const lastSheetIndex = useRef(0);
-  const [sheetIndex, setSheetIndex] = useState(-1);
   const [currentTag, setCurrentTag] = useState(tag);
   const currentTagRef = useRef(currentTag); currentTagRef.current = currentTag;
   const supported = !tag?.rewardCurrency || ['SOL', 'USDC', 'SKR'].includes(tag.rewardCurrency);
@@ -103,10 +101,6 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     else if (!wallet.loading) setReviewing(false);
   }, [operationId, wallet.loading]);
   useEffect(() => {
-    if (!focusReward || focusedReward.current || sheetIndex < 0) return;
-    focusedReward.current = true; setRewardOpen(true);
-  }, [focusReward, sheetIndex]);
-  useEffect(() => {
     if (rewardOpen && needsWallet) ToastAndroid.show(t('Conecte sua carteira para adicionar uma recompensa'), ToastAndroid.LONG);
   }, [rewardOpen, needsWallet, t]);
   const [error, setError] = useState('');
@@ -118,24 +112,25 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     setCategory(current => next.some(c => c.id === current) ? current : next[0]?.id || '');
   }, []);
   useEffect(() => {
+    if (rewardOnly) return;
     let live = true;
     setCategoriesLoading(true); setCategoriesError('');
     void api<{ categories: Category[] }>('/categories', token).then(result => { if (live) applyCategories(result.categories); })
       .catch(cause => { if (live) setCategoriesError(cause.message); }).finally(() => { if (live) setCategoriesLoading(false); });
     return () => { live = false; };
-  }, [token, applyCategories, categoriesRevision]);
+  }, [token, applyCategories, categoriesRevision, rewardOnly]);
 
   const dirty = isDirty || (initialCategory.current !== undefined && category !== initialCategory.current) || reward !== initialReward.current.reward || currency !== initialReward.current.currency || quantity !== initialReward.current.quantity || unit !== initialReward.current.unit;
   guard.current = { dirty, t };
   const close = useCallback(() => {
     if (saving.current || busyRef.current || closing.current) return;
-    const dismiss = () => { closing.current = true; Keyboard.dismiss(); sheet.current?.dismiss(); };
+    const dismiss = () => { closing.current = true; Keyboard.dismiss(); (rewardOnly ? rewardSheet : sheet).current?.dismiss(); };
     if (guard.current.dirty) Alert.alert(guard.current.t('Descartar alterações?'), guard.current.t('As alterações não salvas serão perdidas.'), [
       { text: guard.current.t('Continuar editando'), style: 'cancel' },
       { text: guard.current.t('Descartar'), style: 'destructive', onPress: dismiss },
     ]); else dismiss();
-  }, []);
-  const layer = useNavigationLayer(close, true);
+  }, [rewardOnly]);
+  const layer = useNavigationLayer(close, true, !rewardOnly);
   useEffect(() => {
     mounted.current = true;
     const modal = sheet.current;
@@ -179,7 +174,25 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     }
   }
 
-  function save(action?: RewardAction) { void handleSubmit(values => submit(values, action))(); }
+  async function reviewReward(action?: RewardAction) {
+    if (saving.current || busyRef.current || closing.current || waiting || wallet.loading || !currentTag) return;
+    const kind = action || (renewing ? 'renew' : 'fund');
+    if (kind === 'fund' && (!wantsReward || !canReserve) || kind === 'renew' && !durationValid) return;
+    saving.current = true;
+    try {
+      // This entry edits only the reward; item fields and categories stay untouched.
+      const ready = await wallet.review(kind, { amount: canonicalRewardAmount(reward), currency, durationSeconds: period || undefined });
+      if (ready && mounted.current) {
+        initialReward.current = { reward, currency, quantity, unit };
+        setRefundConfirm(false); setReviewing(true);
+      }
+    } finally { saving.current = false; }
+  }
+
+  function save(action?: RewardAction) {
+    if (rewardOnly) void reviewReward(action);
+    else void handleSubmit(values => submit(values, action))();
+  }
 
   async function connectWallet() {
     if (connectingWallet) return;
@@ -194,7 +207,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
 
   const backdrop = useCallback((props: BottomSheetBackdropProps) => <SheetBackdrop {...props} onPress={close} disabled={busy} label={t('Fechar formulário')} />, [busy, close, t]);
   // Keep the footer mounted while typing; the action always reads current fields.
-  const saveDisabled = waiting || categoriesLoading || !category || !name.trim() || !!errors.name || wallet.loading || (!lockedReward && !!reward && (!amountValid || wantsReward && !canReserve)) || renewing && !durationValid;
+  const saveDisabled = waiting || (!rewardOnly && (categoriesLoading || !category || !name.trim() || !!errors.name)) || wallet.loading || (!lockedReward && !!reward && (!amountValid || wantsReward && !canReserve)) || renewing && !durationValid;
   const footerError = error || wallet.error;
   const actionLabel = renewing ? t('Salvar e revisar renovação') : !lockedReward && wantsReward ? t('Salvar e revisar depósito') : currentTag ? t('Salvar alterações') : t('Criar etiqueta');
   const walletAction = useRef(wallet); walletAction.current = wallet;
@@ -218,11 +231,11 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     </View>
   </View>, [!!currentTag, s, styles, t, reviewing, operationId, busy, waiting, close, layer.active]);
 
-  return <NavigationScope path={layer.path}><BottomSheetModal stackBehavior="push"
+  return <NavigationScope path={layer.path}>{!rewardOnly && <BottomSheetModal stackBehavior="push"
     ref={sheet}
     name="object-form"
     index={lastSheetIndex.current}
-    onChange={index => { setSheetIndex(index); if (index >= 0) lastSheetIndex.current = index; }}
+    onChange={index => { if (index >= 0) lastSheetIndex.current = index; }}
     snapPoints={snapPoints}
     enableDynamicSizing={false}
     enablePanDownToClose={!busy && !dirty}
@@ -276,12 +289,14 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         {connectingWallet ? <Icon name="loader" size={20} color={C.muted} /> : <Icon name={waiting ? 'clock' : 'chevron-right'} size={20} color={C.muted} />}
       </Pressable>
     </KeyboardAwareSheetScrollView></NavigationScope>
-  </BottomSheetModal>
-    {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
+  </BottomSheetModal>}
+    {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy} standalone={rewardOnly}
+      onRequestClose={rewardOnly ? close : undefined} preventDismiss={rewardOnly && dirty}
       titleAccessory={reviewing && wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
       title={renewing && !reviewing ? t('Renovar reserva') : waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => {
+        if (rewardOnly) { finishDismiss(); return; }
         setRewardOpen(false);
         // A dismissed invalid draft should not surprise the user on the next open.
         // Keep valid drafts so closing the sheet remains reversible.
@@ -294,8 +309,9 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
       footer={<>
         {!!footerError && <Notice error text={footerError} />}
         {reviewing && operationId ? <Button variant={reviewPrepared ? reviewKind === 'refund' ? 'warning' : 'success' : 'secondary'} icon={reviewPrepared ? 'check' : 'refresh-cw'} busy={busy} disabled={reviewPrepared && reviewKind === 'release'} onPress={() => { if (reviewPrepared) void walletAction.current.approve(); else void walletAction.current.retry(); }}>{reviewPrepared ? t('Assinar na carteira') : t('Verificar transação')}</Button>
-          : renewing ? <Button onPress={() => void save('renew')} busy={busy} disabled={saveDisabled}>{t('Salvar e revisar renovação')}</Button>
-          : ((lockedReward && activeReward?.status !== 'expired') || legacyReward || wantsReward) && <Button icon="check" disabled={busy || !lockedReward && wantsReward && !canReserve} onPress={() => { Keyboard.dismiss(); rewardSheet.current?.dismiss(); }}>{t('Concluir')}</Button>}
+          : renewing ? <Button onPress={() => void save('renew')} busy={busy} disabled={saveDisabled}>{t(rewardOnly ? 'Revisar renovação' : 'Salvar e revisar renovação')}</Button>
+          : rewardOnly && !lockedReward && !legacyReward && wantsReward ? <Button onPress={() => save('fund')} busy={busy} disabled={saveDisabled}>{t('Revisar depósito')}</Button>
+          : !rewardOnly && (lockedReward ? activeReward?.status !== 'expired' : legacyReward || wantsReward) && <Button icon="check" disabled={busy || !lockedReward && wantsReward && !canReserve} onPress={() => { Keyboard.dismiss(); rewardSheet.current?.dismiss(); }}>{t('Concluir')}</Button>}
       </>}> 
       {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : <>
         {renewing ? <RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} refundAfter={activeReward?.refundAfter} /> : lockedReward ? <>
