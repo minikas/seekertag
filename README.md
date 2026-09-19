@@ -4,194 +4,194 @@
 
 Lost & found for Solana Seeker: QR/NFC tags, private owner–finder conversations, and on-chain return rewards.
 
-[Website](https://seekertag.vercel.app) · [Pitch deck (PDF)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-pitch.pdf) · [Download Android APK](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/SeekerTag-preview.apk) · [CLOCK IN release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in)
+[Website](https://seekertag.vercel.app) · [App demo (2:40, English)](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4) · [Pitch deck (PDF)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-pitch.pdf) · [Download Android APK](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/SeekerTag-preview.apk) · [CLOCK IN release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in)
 
 The preview APK is a standalone Android ARM64 build for Seeker, configured to use the public SeekerTag API; Metro and a local backend are not required. The reward implementation supports devnet, testnet, and mainnet, with one network configured per server. The documented demo uses devnet test tokens.
 
-Aplicativo **exclusivamente Android, com foco no Solana Seeker**, feito com Expo SDK 57 e React Native 0.86. Etiquetas QR/NFC ajudam a devolver objetos por conversa privada, sem expor os contatos do dono.
+An **Android-only app focused on Solana Seeker**, built with Expo SDK 57 and React Native 0.86. QR/NFC tags help return lost items through private conversations without exposing the owner's contact details.
 
-O projeto tem um app Android, uma API Node.js com SQLite e uma landing page institucional independente. Não há projeto iOS nem versão web do aplicativo. A API continua necessária para que dois aparelhos compartilhem objetos, avisos e mensagens.
+The project includes an Android app, a Node.js API with SQLite, and a separate marketing landing page. There is no iOS project or web version of the app. The API is required for two devices to share items, reports, and messages.
 
 ## Landing page
 
-`npm run dev:landing` abre o servidor em http://localhost:4320. A landing em português fica em `apps/landing/public`, sem dependências de runtime, fontes externas ou integração com a API. `LANDING_PORT` permite alterar a porta.
+`npm run dev:landing` starts the server at http://localhost:4320. The landing page lives in `apps/landing/public`, supports Portuguese, English, and Spanish, and uses a locally bundled i18next library without external fonts or API integration. Set `LANDING_PORT` to change the port.
 
-`npm run build:landing` gera `apps/landing/dist`, pronto para hospedagem estática. Para conferir esse resultado, execute `npm run preview --workspace=@seekertag/landing`. O servidor local fica restrito a loopback e não é um servidor de produção.
+`npm run build:landing` generates `apps/landing/dist`, ready for static hosting. To preview the output, run `npm run preview --workspace=@seekertag/landing`. The local server listens on loopback only and is not a production server.
 
-Os botões apresentam o status de desenvolvimento e permitem abrir `seekertag:///` em um Android com o app instalado. Não há link público de loja configurado. O celular apresenta uma captura real do app Android (`app-screen.png`). A etiqueta segue a apresentação do PDF do app, com um QR demonstrativo que abre `seekertag:///`, sem vincular um objeto real. A landing não altera o fluxo `/found` da API.
+The buttons show the app's development status. No public store link is configured. The phone displays a real Android app screenshot for the selected language (`app-screen-pt.png`, `app-screen-en.png`, or `app-screen-es.png`). The tag follows the app's PDF design, with a demo QR code that opens `seekertag:///` without linking to a real item. The landing page does not change the API's `/found` flow.
 
 ## Monorepo (Turborepo + npm workspaces)
 
-Requer Node.js 24+ e npm 11.8.0. Execute `npm ci` uma única vez na raiz.
+Requires Node.js 24+ and npm 11.8.0. Run `npm ci` once at the repository root.
 
-- `apps/mobile`: app Expo 57, assets, plugins, configuração EAS e testes mobile.
-- `apps/api`: API Node/SQLite, testes e `.env` local; o banco fica em `apps/api/data/`.
-- `apps/landing`: site institucional estático, responsivo e independente do app.
-- `packages/shared`: pacote `@seekertag/shared`, usado pelo app e pela API.
-- `contracts`, `scripts` e `artifacts`: contratos Solana, ferramentas e resultados de build na raiz.
+- `apps/mobile`: Expo 57 app, assets, plugins, EAS configuration, and mobile tests.
+- `apps/api`: Node/SQLite API, tests, and local `.env`; the database lives in `apps/api/data/`.
+- `apps/landing`: responsive, static marketing website, independent of the app.
+- `packages/shared`: the `@seekertag/shared` package used by the app and API.
+- `contracts`, `scripts`, and `artifacts`: Solana contracts, tooling, and build output at the repository root.
 
-Os comandos existentes continuam disponíveis na raiz: `npm run dev`, `npm run start`,
-`npm run android`, `npm run api`, `npm run test:all`, `npm run build:android` e os testes de escrow/devnet.
-`npm run dev` inicia API e Metro pelo Turbo; `npm run build` exporta o bundle Android para
-`artifacts/android-bundle`. Testes sempre executam; typecheck e bundle usam cache do Turbo.
-`EXPO_PUBLIC_*` e arquivos `.env` do app entram na chave do cache do bundle.
-O desenvolvimento repassa as variáveis do terminal aos dois processos.
+Existing commands remain available at the root: `npm run dev`, `npm run start`,
+`npm run android`, `npm run api`, `npm run test:all`, `npm run build:android`, and the escrow/devnet tests.
+`npm run dev` starts the API and Metro through Turbo; `npm run build` exports the Android bundle to
+`artifacts/android-bundle`. Tests always run; type checking and bundling use Turbo's cache.
+`EXPO_PUBLIC_*` variables and the app's `.env` files are included in the bundle cache key.
+Development commands pass the terminal's environment variables to both processes.
 
-Para executar comandos diretamente no app, use `cd apps/mobile` antes de `npx expo …`
-ou `eas …`; `app.json` e `eas.json` ficam nessa pasta. Os comandos da raiz encaminham
-opções, por exemplo `npm run start -- --clear` e `npm run android -- --device Seeker`.
-Após a migração, inicie o Metro uma vez com `--clear`. Antes de reutilizar builds nativos
-incrementais, execute `npm run build:android` sem `--incremental` para atualizar os caminhos
-nativos. Os diretórios nativos e artefatos locais existentes foram preservados.
+To run commands directly in the app, use `cd apps/mobile` before `npx expo …`
+or `eas …`; `app.json` and `eas.json` live in that directory. Root commands forward
+options, for example `npm run start -- --clear` and `npm run android -- --device Seeker`.
+After migration, start Metro once with `--clear`. Before reusing incremental native builds,
+run `npm run build:android` without `--incremental` to refresh native paths.
+Existing native directories and local artifacts were preserved.
 
-Dependências são declaradas no workspace que as utiliza. Adicione pacotes com
-`npm install <pacote> --workspace=@seekertag/mobile` ou `--workspace=seekertag-api`.
-O lockfile único é `package-lock.json` na raiz; não instale a API com `--prefix`.
-O Docker continua sendo construído a partir da raiz do repositório.
+Declare dependencies in the workspace that uses them. Add packages with
+`npm install <package> --workspace=@seekertag/mobile` or `--workspace=seekertag-api`.
+The single lockfile is `package-lock.json` at the root; do not install the API with `--prefix`.
+Docker builds still run from the repository root.
 
-## Como funciona
+## How it works
 
-1. O dono entra com sua carteira Seeker/Solana, Google ou Apple; a conta é criada no primeiro acesso. Google/Apple exigem ativação dos provedores. A tela inicial mostra a ilustração e a ação Começar; os três provedores ficam em um sheet Gorhom.
-2. Cadastra um objeto, gera seu QR e compartilha/imprime o PDF ou grava uma etiqueta NFC.
-3. Quem encontra usa o SeekerTag instalado para ler a etiqueta. **Não precisa criar conta**, mas precisa do aplicativo.
-4. Envia um aviso e conversa com o dono. O acesso à conversa fica salvo no armazenamento seguro do aparelho.
-5. O dono confirma a devolução. As conversas daquele objeto são encerradas e o histórico é atualizado.
+1. The owner signs in with a Seeker/Solana wallet, Google, or Apple; an account is created on first sign-in. Google/Apple require provider activation. The welcome screen shows an illustration and a Get started action; all three providers appear in a Gorhom bottom sheet.
+2. The owner registers an item, generates its QR code, and shares/prints the PDF or writes an NFC tag.
+3. The finder scans the tag using the installed SeekerTag app. **No account is required**, but the app must be installed.
+4. The finder sends a report and chats with the owner. Conversation access is saved in the device's secure storage.
+5. The owner confirms the return. Conversations for that item close and its history is updated.
 
-Também existem busca, filtros, edição, arquivamento/restauração de objetos, marcação de perdido e transferência para outra conta com confirmação de identidade. Objetos arquivados saem das listas principais e ficam no filtro Arquivados; seus QRs e NFCs não recebem novos avisos até a restauração. A carteira usa Sign In With Solana via Mobile Wallet Adapter no Android.
+The app also supports search, filters, editing, archiving/restoring items, marking items as lost, and transferring them to another account with identity confirmation. Archived items leave the main lists and appear under the Archived filter; their QR and NFC tags cannot receive new reports until restored. Wallet authentication uses Sign In With Solana through Mobile Wallet Adapter on Android.
 
-## Categorias, idioma e aparência
+## Categories, language, and appearance
 
-Em **Minha conta → Categorias**, crie, renomeie e exclua categorias, escolhendo ícone e cor. O formulário de objeto também dá acesso ao gerenciamento sem perder o rascunho. Cada conta começa com Mochila, Mala, Chaves, Pet, Eletrônico e Outro. As categorias são próprias da conta e persistem na API; uma opção inicial excluída não reaparece. Se houver objetos nela, escolha a categoria de destino antes de excluir. Objetos, QRs e conversas são preservados. Até 50 categorias por conta.
+In **My account → Categories**, create, rename, and delete categories, choosing an icon and color. The item form also provides access to category management without losing the draft. Each account starts with Backpack, Suitcase, Keys, Pet, Electronics, and Other. Categories belong to the account and persist in the API; deleting a default category does not make it reappear. If a category contains items, choose a destination category before deleting it. Items, QR codes, and conversations are preserved. Each account supports up to 50 categories.
 
-Em **Minha conta → Idioma**, escolha Português, English, Español ou **Igual ao dispositivo** (padrão). Em **Aparência**, escolha Claro, Escuro ou **Igual ao dispositivo**. As escolhas são aplicadas imediatamente e salvas no aparelho, inclusive após fechar o app. Um idioma não suportado usa inglês. Os textos do app e das etiquetas PDF seguem o idioma escolhido; nomes, categorias personalizadas e mensagens escritos pelas pessoas mantêm seu conteúdo original.
+In **My account → Language**, choose Portuguese, English, Spanish, or **Same as device** (default). Under **Appearance**, choose Light, Dark, or **Same as device**. Changes apply immediately and are saved on the device, including after closing the app. Unsupported device languages fall back to English. App text and PDF tags follow the selected language; user-written names, custom categories, and messages retain their original content.
 
-A atualização migra os objetos existentes para categorias com IDs estáveis, mantendo seus códigos QR e cores. Categorias padrão usam chaves independentes do idioma; ao renomear uma delas, ela passa a ser um nome personalizado.
+The update migrates existing items to categories with stable IDs, preserving their QR codes and colors. Default categories use language-independent keys; renaming one turns it into a custom name.
 
-## Funcionalidades da antiga web no Android
+## Former web features on Android
 
-| Funcionalidade | Implementação no aplicativo |
+| Feature | App implementation |
 |---|---|
-| Cadastro, login, logout e recuperação | Mesmas telas e API; sessão no SecureStore |
-| Criar e editar objetos, categoria, nota privada, mensagem pública e recompensa | Formulário completo de objeto |
-| Busca, filtros e indicadores | Indicadores da home abrem a lista filtrada; busca em Ver todos |
-| Marcar perdido, arquivar e restaurar | Detalhes da etiqueta |
-| QR, leitura por câmera e entrada manual | QR nativo e leitor Expo |
-| Compartilhar link | Compartilhador Android |
-| Baixar PDF A4 com seis etiquetas | Seletor de pasta Android e arquivo persistente |
-| Compartilhar/imprimir PDF | Compartilhar PDF com o aplicativo de arquivos/impressão escolhido |
-| Ver etiqueta como visitante | Abre no SeekerTag; o dono vê uma prévia sem formulário de aviso |
-| Gravar/cancelar NFC | NDEF nativo; exige hardware e etiqueta compatíveis |
-| Entrar com Seeker/Solana e vincular acessos | Assinatura SIWS verificada pela API; Google/Apple após configuração |
-| Aviso anônimo e conversa nos dois sentidos | Mesmas telas e API; credencial do visitante no SecureStore |
-| Voltar à conversa após fechar | Releitura da etiqueta ou link no mesmo aplicativo |
-| Confirmar devolução e atualizar histórico/contadores | Conversas do dono e API |
-| Transferir objeto com confirmação de identidade | Senha existente ou novo login por carteira/provedor; destino por carteira vinculada ou ID da conta |
-| Falha de rede e reenvio | Erro visível e rascunho preservado enquanto a tela está aberta |
-| Etiqueta inválida/pausada e conversa sem credencial | Estados de erro e retorno ao início |
+| Registration, sign-in, sign-out, and recovery | Same screens and API; session stored in SecureStore |
+| Create and edit items, category, private note, public message, and reward | Complete item form |
+| Search, filters, and counters | Home counters open filtered lists; search available under View all |
+| Mark as lost, archive, and restore | Tag details |
+| QR codes, camera scanning, and manual entry | Native QR rendering and Expo scanner |
+| Share link | Android share sheet |
+| Download an A4 PDF with six tags | Android folder picker and persistent file |
+| Share/print PDF | Share the PDF with the selected file/printing app |
+| View tag as a visitor | Opens in SeekerTag; the owner sees a preview without a report form |
+| Write/cancel NFC | Native NDEF; requires compatible hardware and tags |
+| Sign in with Seeker/Solana and link sign-in methods | API-verified SIWS signature; Google/Apple after configuration |
+| Anonymous report and two-way conversation | Same screens and API; visitor credential stored in SecureStore |
+| Return to a conversation after closing | Scan the tag again or open its link in the same app |
+| Confirm return and update history/counters | Owner conversations and API |
+| Transfer an item with identity confirmation | Existing password or fresh wallet/provider sign-in; recipient identified by linked wallet or account ID |
+| Network failure and retry | Visible error and draft preserved while the screen remains open |
+| Invalid/paused tag and conversation without credentials | Error states and navigation back to the home screen |
 
-A visita sem conta foi preservada dentro do Android. A abertura sem instalar aplicativo deixou de existir com a remoção da web. Recompensas com depósito, renovação e pagamento foram acrescentadas no Android; notificações push continuam fora do escopo.
+Account-free visitor access is preserved in Android. Access without installing the app ended with the removal of the web frontend. Reward deposits, renewals, and payouts were added on Android; push notifications remain out of scope.
 
-## Recompensas com reserva
+## Escrow rewards
 
-Em **Adicionar/Editar objeto**, a seção **Recompensa** reúne saldo, SOL/USDC/SKR, valor com máscara e botões −/+ e prazo em horas, dias, meses ou anos. O limite é de 1 hora a 5 anos; mês = 30 dias e ano = 365 dias. **Salvar e revisar depósito** abre a revisão no mesmo Gorhom, com valor, vencimento, taxa de rede e custo das contas antes da assinatura na carteira. Um valor preenchido no formulário continua sendo apenas anunciado até o depósito ser confirmado com compromisso `finalized`.
+In **Add/Edit item**, the **Reward** section combines balance, SOL/USDC/SKR selection, a formatted amount input with −/+ buttons, and a duration in hours, days, months, or years. The range is 1 hour to 5 years; a month equals 30 days and a year equals 365 days. **Save and review deposit** opens a review in the same Gorhom sheet, showing the amount, expiration, network fee, and account costs before wallet signing. An amount entered in the form remains an advertised reward until the deposit is confirmed at `finalized` commitment.
 
-**Renovar reserva** acrescenta o período escolhido ao prazo atual (ou a partir de hoje se já venceu), sem retirar nem depositar o valor novamente. O prazo total não pode ultrapassar 5 anos a partir de hoje. **Cancelar e recuperar** só funciona depois do vencimento e devolve o saldo à carteira original; o vencimento não movimenta fundos automaticamente.
+**Renew escrow** adds the selected period to the current expiration (or from today if it has already expired), without withdrawing or depositing the amount again. The total duration cannot exceed 5 years from today. **Cancel and reclaim** is available only after expiration and returns the balance to the original wallet; expiration does not move funds automatically.
 
-Na conversa, quem encontrou confirma uma carteira com assinatura de mensagem. Após receber o objeto, o dono escolhe **Devolução e recompensa → Confirmar devolução e pagar** e assina a transação. A API também assina a carteira destinatária verificada e só encerra a devolução após confirmar o pagamento na rede. Antes do vencimento, não existe cancelamento antecipado pelo dono ou pelo servidor.
+In the conversation, the finder confirms a wallet by signing a message. After receiving the item, the owner chooses **Return and reward → Confirm return and pay** and signs the transaction. The API also signs off on the verified recipient wallet and closes the return only after confirming payment on the network. Before expiration, neither the owner nor the server can cancel early.
 
-A integração é inicialmente **devnet**. USDC e SKR usados pelos scripts são tokens de teste próprios, com 6 casas decimais; não são os ativos reais nem representam saldo mainnet. Detalhes de contrato, recuperação de transações, configuração e testes estão em [apps/api/REWARDS.md](apps/api/REWARDS.md).
+The initial integration uses **devnet**. USDC and SKR used by the scripts are custom test tokens with 6 decimal places; they are not the real assets and do not represent mainnet balances. Contract details, transaction recovery, configuration, and tests are documented in [apps/api/REWARDS.md](apps/api/REWARDS.md).
 
-## Executar no celular
+## Run on a phone
 
-Requer Node.js 24, npm e uma compilação de desenvolvimento instalada no aparelho ou emulador.
+Requires Node.js 24, npm, and a development build installed on the device or emulator.
 
 ```sh
 npm ci
 npm run dev:lan
 ```
 
-Esse comando detecta o IP local, inicia a API na porta 4318 e o Metro para o app nativo. Os aparelhos precisam alcançar o computador pela rede. `SEEKERTAG_LAN_HOST` permite escolher o IP. `PORT`, `PUBLIC_URL` e `EXPO_PUBLIC_API_URL` podem sobrescrever a configuração.
+This command detects the local IP address, starts the API on port 4318, and starts Metro for the native app. Devices must be able to reach the computer over the network. Set `SEEKERTAG_LAN_HOST` to choose an IP address. `PORT`, `PUBLIC_URL`, and `EXPO_PUBLIC_API_URL` can override the configuration.
 
-Para instalar o app pela primeira vez, use outro terminal e o endereço mostrado pelo comando anterior:
+To install the app for the first time, use another terminal and the address printed by the previous command:
 
 ```sh
-EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run android
+EXPO_PUBLIC_API_URL=http://COMPUTER-IP:4318/api npm run android
 ```
 
-`npm run start` inicia somente o Metro; `npm run api` inicia somente a API; `npm run api:lan` inicia a API com o IP local configurado para as etiquetas. `npm run dev` inicia API e Metro usando o ambiente atual. Não execute dois servidores na mesma porta.
+`npm run start` starts Metro only; `npm run api` starts the API only; `npm run api:lan` starts the API with the local IP address configured for tags. `npm run dev` starts the API and Metro using the current environment. Do not run two servers on the same port.
 
-`npm ci` também aplica uma correção de compatibilidade do Keyboard Controller 1.21.9 com a barra de status do React Native 0.86: a cor dos ícones acompanha o tema mesmo dentro de telas modais. A correção está em `scripts/patch-android-statusbar.cjs` e deve ser revisada ao atualizar a biblioteca.
+`npm ci` also applies a compatibility fix for Keyboard Controller 1.21.9 and the React Native 0.86 status bar: icon colors follow the theme even inside modal screens. The patch lives in `scripts/patch-android-statusbar.cjs` and should be reviewed when upgrading the library.
 
-NFC e carteira precisam de uma compilação nativa compatível. Expo Go não substitui essa compilação. Não há conta padrão nem dados simulados no produto.
+NFC and wallet support require a compatible native build. Expo Go is not a replacement for that build. The product has no default account or mock data.
 
-## Configuração do ambiente
+## Environment configuration
 
-Copie `apps/api/.env.example` para `apps/api/.env`. Esse arquivo é local, ignorado pelo Git e carregado por `npm run api`. O aplicativo recebe somente variáveis `EXPO_PUBLIC_*`; qualquer valor com chave privada ou `SECRET` deve existir apenas no servidor.
+Copy `apps/api/.env.example` to `apps/api/.env`. This file is local, ignored by Git, and loaded by `npm run api`. The app receives only `EXPO_PUBLIC_*` variables; any private key or `SECRET` value must exist only on the server.
 
-| Variável | Obrigatória | Como definir ou obter |
+| Variable | Required | How to set or obtain it |
 |---|---:|---|
-| `PORT` | Não | Porta local da API; padrão `4318`. |
-| `HOST` | Não | Interface de escuta. Use `0.0.0.0` em contêiner/LAN ou `127.0.0.1` para acesso apenas local. |
-| `PUBLIC_URL` | Produção | Origem pública estável da API, sem `/api`, por exemplo `https://api.exemplo.com`. É usada nos QRs, callbacks e links. |
-| `DATABASE_PATH` | Não | Caminho persistente do SQLite. Monte esse arquivo/volume e faça backup em produção. |
-| `CORS_ORIGINS` | Só para clientes web extras | Lista de origens HTTPS separadas por vírgula. O app Android nativo não precisa dela. |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Só para Google | Crie um cliente OAuth **Web application** no Google Cloud e registre o callback indicado abaixo. |
-| `APPLE_CLIENT_ID` | Só para Apple | Services ID criado no Apple Developer e associado a um App ID com Sign in with Apple. |
-| `APPLE_TEAM_ID` | Só para Apple | Team ID exibido na conta Apple Developer. |
-| `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | Só para Apple | ID e conteúdo da chave `.p8` criada para Sign in with Apple. Use `\n` literais no `.env`. |
-| `REWARD_NETWORK` | Para recompensas on-chain | `devnet`, `testnet`, `mainnet` ou `localnet`. Comece por `devnet`. |
-| `REWARD_RPC_URL` | Para recompensas on-chain | Endpoint HTTPS de um provedor RPC da rede escolhida. Os endpoints públicos servem para testes; produção deve usar um RPC privado com SLA. |
-| `REWARD_VERIFIER_KEYPAIR` | Para recompensas on-chain | Caminho absoluto para a hot key do verificador. Gere fora do repositório com `solana-keygen new --outfile /caminho/seguro/verifier.json`. |
-| `REWARD_TREASURY` | Para recompensas on-chain | Apenas o endereço público de uma carteira Solana separada, preferencialmente hardware wallet ou multisig. A chave privada não deve ficar na API. |
-| `REWARD_FEE_BPS` | Não | Comissão das novas reservas em basis points: `500` = 5%. Intervalo permitido: 1–1000. |
-| `REWARD_LEGACY_VERIFIER_KEYPAIRS` | Só durante rotação | Caminhos das chaves antigas separados por vírgula. Deixe vazio na primeira instalação. |
-| `REWARD_TEST_USDC_MINT` / `REWARD_TEST_SKR_MINT` | Só para tokens de teste | Endereços públicos dos mints criados na rede de teste. `node scripts/devnet-rewards.mjs init` cria/configura os fixtures de devnet. |
-| `REWARDS_ALLOW_MAINNET` | Só em mainnet | Precisa ser exatamente `true` depois da publicação e revisão do contrato em mainnet. |
-| `EXPO_PUBLIC_API_URL` | No build do aplicativo | URL pública da API com `/api`, por exemplo `https://api.exemplo.com/api`. É embutida no APK e nunca deve conter segredo. |
+| `PORT` | No | Local API port; defaults to `4318`. |
+| `HOST` | No | Listening interface. Use `0.0.0.0` for containers/LAN or `127.0.0.1` for local-only access. |
+| `PUBLIC_URL` | Production | Stable public API origin without `/api`, for example `https://api.example.com`. Used in QR codes, callbacks, and links. |
+| `DATABASE_PATH` | No | Persistent SQLite path. Mount this file/volume and back it up in production. |
+| `CORS_ORIGINS` | Additional web clients only | Comma-separated list of HTTPS origins. The native Android app does not need it. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google only | Create a **Web application** OAuth client in Google Cloud and register the callback below. |
+| `APPLE_CLIENT_ID` | Apple only | Services ID created in Apple Developer and associated with an App ID with Sign in with Apple. |
+| `APPLE_TEAM_ID` | Apple only | Team ID shown in the Apple Developer account. |
+| `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | Apple only | ID and contents of the `.p8` key created for Sign in with Apple. Use literal `\n` sequences in `.env`. |
+| `REWARD_NETWORK` | On-chain rewards | `devnet`, `testnet`, `mainnet`, or `localnet`. Start with `devnet`. |
+| `REWARD_RPC_URL` | On-chain rewards | HTTPS endpoint from an RPC provider for the selected network. Public endpoints work for testing; production should use a private RPC with an SLA. |
+| `REWARD_VERIFIER_KEYPAIR` | On-chain rewards | Absolute path to the verifier's hot key. Generate it outside the repository with `solana-keygen new --outfile /secure/path/verifier.json`. |
+| `REWARD_TREASURY` | On-chain rewards | Public address only of a separate Solana wallet, preferably a hardware wallet or multisig. Its private key must not be stored in the API. |
+| `REWARD_FEE_BPS` | No | Commission on new escrows in basis points: `500` = 5%. Allowed range: 1–1000. |
+| `REWARD_LEGACY_VERIFIER_KEYPAIRS` | During rotation only | Comma-separated paths to old keys. Leave empty on the first installation. |
+| `REWARD_TEST_USDC_MINT` / `REWARD_TEST_SKR_MINT` | Test tokens only | Public mint addresses created on the test network. `node scripts/devnet-rewards.mjs init` creates/configures devnet fixtures. |
+| `REWARDS_ALLOW_MAINNET` | Mainnet only | Must be exactly `true` after deploying and reviewing the contract on mainnet. |
+| `EXPO_PUBLIC_API_URL` | App build | Public API URL including `/api`, for example `https://api.example.com/api`. Embedded in the APK; must never contain secrets. |
 
-Para desabilitar depósitos on-chain, deixe `REWARD_VERIFIER_KEYPAIR` vazio. Google e Apple também são opcionais: cada botão só é habilitado quando todas as variáveis daquele provedor estão presentes. A referência detalhada da API está em [apps/api/API.md](apps/api/API.md#configuração), e contrato, RPC, mints, publicação e rotação estão em [apps/api/REWARDS.md](apps/api/REWARDS.md#configuração).
+To disable on-chain deposits, leave `REWARD_VERIFIER_KEYPAIR` empty. Google and Apple are also optional: each button is enabled only when all variables for that provider are present. The detailed API reference is in [apps/api/API.md](apps/api/API.md#configuração); contract, RPC, mint, deployment, and rotation details are in [apps/api/REWARDS.md](apps/api/REWARDS.md#configuração).
 
-## Acesso por carteira, Google e Apple
+## Wallet, Google, and Apple sign-in
 
-A tela inicial unifica cadastro e entrada. **Continuar com Seeker / Solana** pede uma assinatura de login, sem transação ou taxa. A API gera o domínio, nonce e prazo de cinco minutos e verifica a assinatura Ed25519; o mesmo pedido não cria duas sessões. A carteira precisa suportar Sign In With Solana. Isso autentica a carteira, sem atestar que o aparelho é um Seeker ou verificar um Seeker Genesis Token.
+The welcome screen combines registration and sign-in. **Continue with Seeker / Solana** requests a login signature without a transaction or fee. The API generates the domain, nonce, and five-minute expiration and verifies the Ed25519 signature; the same request cannot create two sessions. The wallet must support Sign In With Solana. This authenticates the wallet without attesting that the device is a Seeker or checking a Seeker Genesis Token.
 
-Em **Minha conta → Formas de entrar**, vincule uma carteira ou provedor à conta atual para preservar seus objetos. Contas com o mesmo e-mail nunca são unidas automaticamente. Para receber etiquetas, informe o ID da conta ou o endereço Solana vinculado. E-mails não são aceitos como destino de transferência porque o cadastro por senha não verifica a titularidade da caixa postal. Transferências de contas sem senha exigem nova confirmação, válida por cinco minutos e para uma única transferência.
+In **My account → Sign-in methods**, link a wallet or provider to the current account to preserve your items. Accounts with the same email are never merged automatically. Recipients supply their account ID or linked Solana address to receive tags. Email addresses are not accepted as transfer destinations because password registration does not verify mailbox ownership. Transfers from accounts without passwords require fresh confirmation, valid for five minutes and a single transfer.
 
-Google e Apple usam a autenticação oficial em uma aba do navegador Android e retornam ao aplicativo. Só são habilitados quando a API tem as credenciais completas e `PUBLIC_URL` HTTPS. Sem essa configuração, aparecem como **Em breve**. Nenhum projeto web ou iOS é necessário no repositório; os callbacks pertencem à API.
+Google and Apple use their official authentication flows in an Android browser tab and return to the app. They are enabled only when the API has complete credentials and an HTTPS `PUBLIC_URL`. Without this configuration, they appear as **Coming soon**. No web or iOS project is required in the repository; callbacks belong to the API.
 
-Para ativar, configure o ambiente da API (ou `apps/api/.env`, carregado por `npm run api`); os nomes estão em [apps/api/.env.example](apps/api/.env.example). Não coloque segredos em `EXPO_PUBLIC_*` ou no aplicativo:
+To enable them, configure the API environment (or `apps/api/.env`, loaded by `npm run api`); variable names are listed in [apps/api/.env.example](apps/api/.env.example). Do not put secrets in `EXPO_PUBLIC_*` or in the app:
 
-1. **Google:** configure a tela de consentimento e um cliente OAuth do tipo **Web application**, pois a troca de código acontece na API. Registre `https://SEU-DOMINIO/api/auth/oauth/google/callback` e configure `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Enquanto o projeto estiver em teste, adicione suas contas de teste no Google Cloud.
-2. **Apple:** configure um Services ID associado a um App ID elegível com Sign in with Apple, seu domínio e `https://SEU-DOMINIO/api/auth/oauth/apple/callback`. Configure `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` e `APPLE_PRIVATE_KEY` com a chave `.p8`. A elegibilidade e associação a um aplicativo Apple são requisitos da conta Apple Developer; remover o projeto iOS deste repositório não elimina esses requisitos.
-3. Use a mesma origem HTTPS em `PUBLIC_URL` e `EXPO_PUBLIC_API_URL` (com `/api` no aplicativo), reinicie a API e recarregue o app. Teste consentimento, cancelamento e retorno em cada provedor antes de publicar.
+1. **Google:** configure the consent screen and a **Web application** OAuth client, since the code exchange happens in the API. Register `https://YOUR-DOMAIN/api/auth/oauth/google/callback` and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. While the project is in testing, add your test accounts in Google Cloud.
+2. **Apple:** configure a Services ID associated with an eligible App ID with Sign in with Apple, your domain, and `https://YOUR-DOMAIN/api/auth/oauth/apple/callback`. Set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY` using the `.p8` key. Eligibility and association with an Apple app are Apple Developer account requirements; removing the iOS project from this repository does not remove those requirements.
+3. Use the same HTTPS origin in `PUBLIC_URL` and `EXPO_PUBLIC_API_URL` (including `/api` for the app), restart the API, and reload the app. Test consent, cancellation, and the return flow for each provider before publishing.
 
-Os callbacks validam estado, nonce, assinatura, emissor, destinatário e validade do token. O retorno `seekertag://auth/callback` contém apenas um código temporário, vinculado ao segredo de prova mantido no aplicativo; os tokens dos provedores e a sessão SeekerTag não trafegam nesse link. Cancelar não cria conta. A interface não oferece login por e-mail. Erros de entrada aparecem em toasts temporários.
+Callbacks validate state, nonce, signature, issuer, audience, and token validity. The `seekertag://auth/callback` return link contains only a temporary code bound to the proof secret held by the app; provider tokens and the SeekerTag session are not passed through this link. Cancellation does not create an account. The interface does not offer email sign-in. Sign-in errors appear in temporary toasts.
 
-Referências: [Sign In With Solana](https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly#sign-in-with-solana), [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect), [Apple em outras plataformas](https://developer.apple.com/documentation/signinwithapple/incorporating-sign-in-with-apple-into-other-platforms), [configuração Apple](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web), [Expo WebBrowser SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/webbrowser/).
+References: [Sign In With Solana](https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly#sign-in-with-solana), [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect), [Apple on other platforms](https://developer.apple.com/documentation/signinwithapple/incorporating-sign-in-with-apple-into-other-platforms), [Apple configuration](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web), [Expo WebBrowser SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/webbrowser/).
 
-## Seeker conectado por USB no macOS
+## Seeker connected over USB on macOS
 
-Com a depuração USB autorizada e o Seeker aparecendo como `device` em `adb devices`, encaminhe as portas pelo cabo:
+With USB debugging authorized and Seeker listed as `device` in `adb devices`, forward the ports over the cable:
 
 ```sh
 adb reverse tcp:4318 tcp:4318
 adb reverse tcp:8081 tcp:8081
 ```
 
-Em um terminal, inicie a API:
+In one terminal, start the API:
 
 ```sh
 HOST=127.0.0.1 PUBLIC_URL=http://127.0.0.1:4318 npm run api
 ```
 
-Em outro, inicie o servidor de desenvolvimento. A opção de DNS mantém o Metro em IPv4 para o encaminhamento USB:
+In another, start the development server. The DNS option keeps Metro on IPv4 for USB forwarding:
 
 ```sh
 NODE_OPTIONS=--dns-result-order=ipv4first \
 EXPO_PUBLIC_API_URL=http://127.0.0.1:4318/api npm run start -- --localhost
 ```
 
-Para compilar e instalar no Seeker, use um terceiro terminal:
+To build and install on Seeker, use a third terminal:
 
 ```sh
 JAVA_HOME=$(/usr/libexec/java_home -v 17) \
@@ -199,7 +199,7 @@ EXPO_PUBLIC_API_URL=http://127.0.0.1:4318/api \
 npm run android -- --device Seeker --no-bundler
 ```
 
-Para abrir o projeto instalado pelo USB:
+To open the installed project over USB:
 
 ```sh
 adb shell am start -a android.intent.action.VIEW \
@@ -207,115 +207,115 @@ adb shell am start -a android.intent.action.VIEW \
   app.seekertag.mobile
 ```
 
-Mantenha API, Metro e cabo conectados durante o teste. Repita os dois comandos `adb reverse` após reconectar o aparelho. Se houver mais de um Android conectado, acrescente `-s SERIAL` depois de `adb`. As etiquetas com endereço `127.0.0.1` funcionam somente nos aparelhos com esse encaminhamento; use a configuração de rede local para testar entre celulares.
+Keep the API, Metro, and cable connected while testing. Repeat both `adb reverse` commands after reconnecting the device. If more than one Android device is connected, add `-s SERIAL` after `adb`. Tags using `127.0.0.1` work only on devices with this forwarding; use the LAN configuration to test between phones.
 
-## Links das etiquetas
+## Tag links
 
-Os QRs e as etiquetas NFC mantêm o formato `PUBLIC_URL/found/CODIGO`. O leitor dentro do app abre esses links diretamente. Ao acessar esse endereço externamente, a API responde com um redirecionamento para `seekertag:///found/CODIGO?origin=ORIGEM`; não entrega HTML. A opção **Ver como visitante**, no menu **⋯** do objeto, abre o fluxo no próprio app.
+QR codes and NFC tags retain the `PUBLIC_URL/found/CODE` format. The in-app scanner opens these links directly. When accessed externally, the API redirects to `seekertag:///found/CODE?origin=ORIGIN`; it does not serve HTML. **View as visitor**, in the item's **⋯** menu, opens the flow inside the app.
 
-O app valida a origem do link contra `EXPO_PUBLIC_API_URL`. Configure `PUBLIC_URL` como a origem dessa API, sem `/api`, e use o mesmo endereço nos builds. Links não podem mudar o servidor ao qual o aplicativo se conecta. Conversas exigem a credencial salva no aparelho, mesmo quando abertas por link.
+The app validates the link's origin against `EXPO_PUBLIC_API_URL`. Set `PUBLIC_URL` to the API origin without `/api`, and use the same address in builds. Links cannot change the server the app connects to. Conversations require the credential saved on the device, even when opened through a link.
 
-Abrir o redirecionamento depende do suporte do leitor/navegador a esquemas de aplicativo e do SeekerTag instalado. Sem o app não há página alternativa. A leitura dentro do app é o caminho suportado para testar as etiquetas. Android App Links verificados e encaminhamento para lojas não estão configurados.
+Opening the redirect depends on the scanner/browser supporting app schemes and SeekerTag being installed. Without the app, there is no fallback page. In-app scanning is the supported path for testing tags. Verified Android App Links and store redirects are not configured.
 
-Use um domínio HTTPS estável antes de imprimir etiquetas definitivas. Links antigos continuam dependendo do endereço original: se foram emitidos com a porta 8081 da versão web, reemita as etiquetas para a origem da API ou mantenha esse endereço encaminhado e configure o app para a mesma origem. Os códigos dos objetos e o banco não precisam mudar.
+Use a stable HTTPS domain before printing permanent tags. Old links still depend on their original address: if issued using port 8081 from the web version, regenerate tags with the API origin or keep that address forwarded and configure the app for the same origin. Item codes and the database do not need to change.
 
-## API e hospedagem
+## API and hosting
 
 ```sh
-PUBLIC_URL=https://seu-dominio.example npm run api
+PUBLIC_URL=https://your-domain.example npm run api
 ```
 
-Nos builds, use `EXPO_PUBLIC_API_URL=https://seu-dominio.example/api`. Substitua o domínio de exemplo por um domínio real. O banco padrão fica em `apps/api/data/seekertag.sqlite`, acompanhado dos arquivos WAL/SHM.
+For builds, use `EXPO_PUBLIC_API_URL=https://your-domain.example/api`. Replace the example domain with a real one. The default database lives at `apps/api/data/seekertag.sqlite`, alongside its WAL/SHM files.
 
-O Docker empacota somente o backend:
+Docker packages only the backend:
 
 ```sh
 docker build -t seekertag-api .
 docker run --rm -p 4318:4318 -v seekertag-data:/data \
-  -e PUBLIC_URL=https://seu-dominio.example seekertag-api
+  -e PUBLIC_URL=https://your-domain.example seekertag-api
 ```
 
-Use HTTPS no proxy e armazenamento persistente com backup. Nenhum serviço é publicado automaticamente. Rotas e contratos estão em [apps/api/API.md](apps/api/API.md).
+Use HTTPS at the proxy and persistent storage with backups. No service is published automatically. Routes and contracts are documented in [apps/api/API.md](apps/api/API.md).
 
-## Build Android
+## Android build
 
-Android exige JDK 17 e Android SDK/NDK:
+Android requires JDK 17 and the Android SDK/NDK:
 
 ```sh
-EXPO_PUBLIC_API_URL=https://seu-dominio.example/api npm run build:android
+EXPO_PUBLIC_API_URL=https://your-domain.example/api npm run build:android
 ```
 
-O script gera `artifacts/SeekerTag-preview.apk`, arm64, com assinatura de desenvolvimento e JavaScript embutido. Sem URL explícita, tenta detectar a rede local. `-- --incremental` pode ser usado após mudanças somente em JavaScript/TypeScript. O plugin Android permite HTTP para desenvolvimento; ajuste `allowCleartext: false` em `apps/mobile/app.json` para distribuição com API HTTPS.
+The script generates `artifacts/SeekerTag-preview.apk`, an ARM64 build with development signing and bundled JavaScript. Without an explicit URL, it tries to detect the local network. Use `-- --incremental` after JavaScript/TypeScript-only changes. The Android plugin allows HTTP for development; set `allowCleartext: false` in `apps/mobile/app.json` for distribution with an HTTPS API.
 
-`eas.json` mantém os perfis Android development, preview APK e production AAB. APKs produzidos antes desta mudança precisam ser recompilados. Não há alvo, configuração ou script de build iOS.
+`eas.json` retains Android development, preview APK, and production AAB profiles. APKs produced before this change must be rebuilt. There is no iOS build target, configuration, or script.
 
-Referências: [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/), [plataformas e esquema do app](https://docs.expo.dev/versions/v57.0.0/config/app/), [abertura por links](https://docs.expo.dev/linking/into-your-app/).
+References: [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/), [app platforms and scheme](https://docs.expo.dev/versions/v57.0.0/config/app/), [opening links in the app](https://docs.expo.dev/linking/into-your-app/).
 
-## Testes
+## Tests
 
 ```sh
-# TypeScript, unidades e integração HTTP com SQLite isolado:
+# TypeScript, unit tests, and HTTP integration with isolated SQLite:
 npm run test:all
 
-# Individualmente:
+# Individually:
 npm run typecheck
 npm run test:unit
 npm run test:api
-# Compila o contrato SBF e executa a VM e a integração HTTP/RPC:
+# Build the SBF contract and run VM and HTTP/RPC integration tests:
 npm run test:escrow
 ```
 
-Os testes verificam autenticação, privacidade, devolução, transferência, recuperação, persistência, PNG/PDF, limites de requisições e abertura de links Android. Os testes unitários do adaptador de PDF executam sua lógica real com as interfaces nativas de arquivos e compartilhamento substituídas por implementações em memória; não equivalem a testes em aparelho. A suíte de navegador foi removida junto com o frontend web.
+Tests cover authentication, privacy, returns, transfers, recovery, persistence, PNG/PDF, rate limits, and Android link handling. PDF adapter unit tests execute its real logic with native file and sharing interfaces replaced by in-memory implementations; they are not equivalent to device tests. The browser test suite was removed along with the web frontend.
 
-Para testar a interface, instale o build atual em um emulador ou aparelho Android iniciado e execute Maestro contra uma API de teste:
+To test the interface, install the current build on a running Android emulator or device and run Maestro against a test API:
 
 ```sh
 NATIVE_DEVICE_ID=emulator-5554 \
-EXPO_PUBLIC_API_URL=http://IP-DO-COMPUTADOR:4318/api npm run test:android
+EXPO_PUBLIC_API_URL=http://COMPUTER-IP:4318/api npm run test:android
 ```
 
-Antes de executar, entre no app com uma conta exclusiva de QA via um provedor suportado e disponibilize sua sessão na variável privada `NATIVE_QA_OWNER_TOKEN`. O fluxo não efetua login nem aprova a carteira. Esse comando usa essa sessão e cria uma conta de fixture e objetos na API indicada; não inicia um servidor isolado. A URL deve coincidir com a embutida no app. Use um aparelho de teste em português ou selecione Português no app antes desse fluxo. Ele verifica a sessão existente, criação de objeto, compartilhamento nativo do link, prévia do dono sem envio de aviso, cancelamento do seletor de pasta do PDF, QR manual, aviso, persistência e links com o app aberto/fechado. Os objetos e avisos são conferidos também na API. Evidências ficam em `artifacts/native-android/`. Os fluxos estão em `apps/mobile/tests/android/`. Câmera óptica, gravação NFC e autorização da carteira devem ser conferidas em aparelho compatível.
+Before running, sign in to the app with a dedicated QA account through a supported provider and supply its session in the private `NATIVE_QA_OWNER_TOKEN` variable. The flow does not sign in or approve wallet requests. This command uses that session and creates a fixture account and items in the specified API; it does not start an isolated server. The URL must match the one embedded in the app. Use a test device in Portuguese or select Portuguese in the app before running this flow. It checks the existing session, item creation, native link sharing, owner preview without submitting a report, PDF folder picker cancellation, manual QR entry, reports, persistence, and links with the app open/closed. Items and reports are also checked through the API. Evidence is saved in `artifacts/native-android/`. Flows live in `apps/mobile/tests/android/`. Optical camera scanning, NFC writing, and wallet authorization must be checked on a compatible device.
 
-Para conferir o teclado sem criar dados, selecione Português em Idioma, comece no painel com a conta conectada e execute `maestro test apps/mobile/tests/android/form-keyboard.yaml`. O fluxo abre um rascunho, alterna entre recompensa e mensagem, verifica que dispensar o teclado mantém a seção visível e fecha sem salvar. Para avaliar fluidez, use o APK de `build:android`, que inclui o JavaScript otimizado; o cliente de desenvolvimento com Metro tem custo adicional de depuração.
+To check the keyboard without creating data, select Portuguese under Language, start on the dashboard while signed in, and run `maestro test apps/mobile/tests/android/form-keyboard.yaml`. The flow opens a draft, switches between reward and message, verifies that dismissing the keyboard keeps the section visible, and closes without saving. To evaluate responsiveness, use the APK from `build:android`, which includes optimized JavaScript; the development client with Metro adds debugging overhead.
 
-Para conferir o menu do objeto e cancelar NFC sem alterar dados, mantenha NFC ativado e execute `maestro test -e QA_OBJECT_NAME="Nome do objeto" apps/mobile/tests/android/tag-details.yaml`. O fluxo usa uma etiqueta existente e verifica nova tentativa e fechamento pelo Voltar do Android.
+To check the item menu and cancel NFC without changing data, keep NFC enabled and run `maestro test -e QA_OBJECT_NAME="Item name" apps/mobile/tests/android/tag-details.yaml`. The flow uses an existing tag and verifies retrying and closing with Android's Back button.
 
-O fluxo `apps/mobile/tests/android/owner-preview.yaml`, com o mesmo `QA_OBJECT_NAME`, abre a prévia pelo menu do objeto e verifica que o dono não recebe formulário nem botão para avisar a si mesmo. A API também rejeita a criação de aviso pela sessão do dono.
+The `apps/mobile/tests/android/owner-preview.yaml` flow, with the same `QA_OBJECT_NAME`, opens the preview from the item menu and verifies that the owner does not see a form or button to notify themselves. The API also rejects report creation by the owner's session.
 
-`apps/mobile/tests/android/home-browse.yaml` confere busca, filtros e retorno do editor; `apps/mobile/tests/android/home-account.yaml` confere os indicadores, a ajuda e a navegação de Minha conta. Use `QA_OBJECT_NAME` de um objeto protegido e uma conta sem conversas para esses fluxos, que não salvam dados nem saem da conta.
+`apps/mobile/tests/android/home-browse.yaml` checks search, filters, and returning from the editor; `apps/mobile/tests/android/home-account.yaml` checks counters, help, and My account navigation. Use the `QA_OBJECT_NAME` of a protected item and an account without conversations for these flows, which neither save data nor sign out.
 
-Minha conta é uma tela normal, sem navegação inferior. Aparência, Idioma e Receber etiquetas abrem sheets Gorhom ajustados ao conteúdo, mantendo a posição da tela ao fundo. Selecionar idioma/tema salva a preferência e fecha o sheet; arrastar para baixo, tocar fora ou usar Voltar apenas fecha. Formas de entrar e o gerenciamento de categorias continuam em telas próprias.
+My account is a regular screen without bottom navigation. Appearance, Language, and Receive tags open Gorhom sheets sized to their content, preserving the screen's scroll position behind them. Selecting a language/theme saves the preference and closes the sheet; dragging down, tapping outside, or using Back only closes it. Sign-in methods and category management remain separate screens.
 
-O fluxo `apps/mobile/tests/android/preferences-categories.yaml` começa com a conta conectada e verifica os três idiomas, troca de tema, persistência após reabrir e criação/edição/exclusão de uma categoria temporária. Execute com `maestro test -e QA_CATEGORY=QA-NOME-UNICO apps/mobile/tests/android/preferences-categories.yaml`; ele não cria nem altera objetos. Termina com Português/Escuro para permitir o teste de teclado. Depois, restaure suas preferências em Minha conta.
+The `apps/mobile/tests/android/preferences-categories.yaml` flow starts with a signed-in account and checks all three languages, theme changes, persistence after reopening, and creation/editing/deletion of a temporary category. Run it with `maestro test -e QA_CATEGORY=QA-UNIQUE-NAME apps/mobile/tests/android/preferences-categories.yaml`; it does not create or change items. It finishes with Portuguese/Dark selected so the keyboard test can run. Afterwards, restore your preferences in My account.
 
-`npm run build:bundle` confirma que o JavaScript empacota para Android; não substitui testes no aparelho, compilação do binário ou testes físicos de câmera/NFC/carteira.
+`npm run build:bundle` verifies that JavaScript bundles for Android; it does not replace device tests, binary builds, or physical camera/NFC/wallet tests.
 
-## Verificador, treasury e comissão
+## Verifier, treasury, and commission
 
-O verificador é uma hot key do serviço que coassina pagamentos confirmados pelo dono; a treasury é uma carteira independente que recebe a comissão e pode permanecer fria. Configure `REWARD_VERIFIER_KEYPAIR` com o caminho privado do verificador, `REWARD_TREASURY` apenas com o endereço público da treasury e `REWARD_FEE_BPS=500` para 5%. O depósito grava verificador, treasury e percentual no recibo on-chain, portanto alterações posteriores valem somente para reservas novas.
+The verifier is a service hot key that co-signs owner-confirmed payouts; the treasury is an independent wallet that receives commission and can remain cold. Set `REWARD_VERIFIER_KEYPAIR` to the verifier's private file path, `REWARD_TREASURY` to the treasury's public address only, and `REWARD_FEE_BPS=500` for 5%. The deposit records the verifier, treasury, and percentage in the on-chain receipt, so later changes apply only to new escrows.
 
-A rede também é configuração do servidor, não uma preferência do usuário: use `REWARD_NETWORK=devnet`, `testnet`, `mainnet` ou `localnet` junto de `REWARD_RPC_URL`. Cada instância atende uma única rede e precisa encontrar nela o programa publicado. “Minha conta → Rede” mostra qual rede está ativa; treasury, verificador e programa permanecem detalhes internos da infraestrutura. Para oferecer várias redes, publique instâncias separadas da API (com bancos, RPCs, chaves e URLs próprias) e distribua builds apontando para a instância desejada; não misture reservas de redes diferentes no mesmo serviço.
+The network is also a server setting, not a user preference: use `REWARD_NETWORK=devnet`, `testnet`, `mainnet`, or `localnet` together with `REWARD_RPC_URL`. Each instance serves a single network and must find the deployed program there. **My account → Network** shows the active network; the treasury, verifier, and program remain internal infrastructure details. To offer multiple networks, deploy separate API instances (with their own databases, RPCs, keys, and URLs) and distribute builds pointing to the desired instance; do not mix escrows from different networks in the same service.
 
-Para trocar a treasury, altere `REWARD_TREASURY` e reinicie a API. Para rotacionar o verificador sem interromper reservas abertas, mova o caminho antigo para `REWARD_LEGACY_VERIFIER_KEYPAIRS` (lista separada por vírgulas), coloque a chave nova em `REWARD_VERIFIER_KEYPAIR` e reinicie. Remova uma chave antiga somente quando todas as reservas vinculadas a ela estiverem encerradas. A configuração completa e os cuidados operacionais estão em [`apps/api/REWARDS.md`](apps/api/REWARDS.md#rotação-segura).
+To change the treasury, update `REWARD_TREASURY` and restart the API. To rotate the verifier without interrupting open escrows, move the old path to `REWARD_LEGACY_VERIFIER_KEYPAIRS` (a comma-separated list), set the new key in `REWARD_VERIFIER_KEYPAIR`, and restart. Remove an old key only when all escrows tied to it have closed. Full configuration and operational guidance are in [apps/api/REWARDS.md](apps/api/REWARDS.md#rotação-segura).
 
-## Limites atuais
+## Current limitations
 
-- Depósitos SOL/USDC/SKR estão preparados para devnet. Mainnet exige publicação e ativação próprias; tokens de teste não têm valor real. Alias `.skr` verificado e verificação SGT não estão implementados.
-- Não há push ou envio de e-mail. Conversas são atualizadas periodicamente enquanto o app está aberto.
-- Etiquetas são passivas e não rastreiam localização.
-- Mensagens são privadas por autorização da API, sem criptografia ponta a ponta. O operador do servidor controla o banco.
-- Sessões e credenciais do visitante usam SecureStore. Apagar os dados pode remover o acesso à conversa.
-- NFC físico, autorização de carteira, publicação nas lojas e hospedagem pública exigem validação própria.
+- SOL/USDC/SKR deposits are prepared for devnet. Mainnet requires separate deployment and activation; test tokens have no real value. Verified `.skr` aliases and SGT verification are not implemented.
+- No push notifications or email delivery. Conversations refresh periodically while the app is open.
+- Tags are passive and do not track location.
+- Messages are private through API authorization, without end-to-end encryption. The server operator controls the database.
+- Sessions and visitor credentials use SecureStore. Clearing app data may remove conversation access.
+- Physical NFC, wallet authorization, store publishing, and public hosting require separate validation.
 
-## Estrutura
+## Structure
 
-| Caminho | Responsabilidade |
+| Path | Responsibility |
 |---|---|
-| `apps/mobile/App.tsx`, `apps/mobile/src/` | Interface mobile, conta, objetos e conversas |
-| `apps/mobile/src/links.ts` | Validação de links e abertura no app |
-| `apps/mobile/src/platform/` | Câmera, SecureStore, PDF, NFC e carteira nativos |
-| `apps/api/` | API, SQLite, QR/PDF e redirecionamentos para o app |
-| `packages/shared/` | Tipos, validações e instruções de escrow compartilhados |
-| `turbo.json`, `package.json` | Tarefas Turbo e workspaces npm |
-| `scripts/` | Desenvolvimento na rede, builds e testes nativos |
-| `apps/mobile/tests/unit/`, `apps/api/test/`, `apps/mobile/tests/android/` | Testes unitários, de API e de interface mobile |
+| `apps/mobile/App.tsx`, `apps/mobile/src/` | Mobile interface, account, items, and conversations |
+| `apps/mobile/src/links.ts` | Link validation and in-app navigation |
+| `apps/mobile/src/platform/` | Native camera, SecureStore, PDF, NFC, and wallet |
+| `apps/api/` | API, SQLite, QR/PDF, and redirects to the app |
+| `packages/shared/` | Shared types, validation, and escrow instructions |
+| `turbo.json`, `package.json` | Turbo tasks and npm workspaces |
+| `scripts/` | LAN development, builds, and native tests |
+| `apps/mobile/tests/unit/`, `apps/api/test/`, `apps/mobile/tests/android/` | Unit, API, and mobile UI tests |

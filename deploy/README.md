@@ -59,3 +59,29 @@ EXPO_PUBLIC_API_URL=https://api-seeker.viralizai.co/api npm run build:android
 
 Instale e valide essa compilação antes de emitir etiquetas definitivas. QRs e
 NFCs criados por ela apontarão para o domínio HTTPS estável acima.
+
+## Verificação do domínio na carteira Android
+
+A carteira de referência do Solana Mobile verifica a associação entre o domínio,
+o pacote Android e o certificado que assinou o APK. O Caddy publica essa
+associação em `/.well-known/assetlinks.json`.
+
+Após iniciar os containers, copie o arquivo público para o volume persistente:
+
+```sh
+docker compose -f compose.production.yml exec -T caddy mkdir -p /data/seekertag-public/.well-known
+docker compose -f compose.production.yml cp deploy/public/.well-known/assetlinks.json caddy:/data/seekertag-public/.well-known/assetlinks.json
+curl --fail https://api-seeker.viralizai.co/.well-known/assetlinks.json
+```
+
+O arquivo versionado contém o SHA-256 do certificado do APK de **preview**.
+Ao publicar um APK com outra assinatura, atualize o fingerprint para o
+certificado correspondente. Não use essa associação de debug como configuração
+final de assinatura de produção. A troca do arquivo público não exige reinstalar
+um APK que já possua o certificado associado.
+
+## Vídeo público da demonstração
+
+O Caddy serve `/demo/*` a partir de `/data/seekertag-demo` no mesmo volume
+persistente. Coloque somente os arquivos públicos da demonstração nesse
+diretório. As demais rotas continuam encaminhadas à API.

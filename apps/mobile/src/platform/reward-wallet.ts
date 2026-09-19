@@ -4,6 +4,7 @@ import type { SignInPayload } from '@solana-mobile/mobile-wallet-adapter-protoco
 import { verifyRewardTransaction } from '@seekertag/shared/escrow-wire';
 import type { RewardOperation, RewardNetwork } from '@seekertag/shared/reward';
 import { api } from '../api';
+import { waitForWalletReturn } from './wallet-return';
 
 const authorizations = new Map<RewardNetwork, string>();
 export function forgetRewardAuthorization() { authorizations.clear(); }
@@ -18,7 +19,7 @@ export async function signReward(operation: RewardOperation): Promise<string | n
   if (operation.network === 'localnet') throw new Error('Use a rede devnet para assinar no Seeker.');
   const { transact } = await import('@solana-mobile/mobile-wallet-adapter-protocol');
   try {
-    return await transact(async wallet => {
+    const signedPayload = await transact(async wallet => {
       const authorization = await wallet.authorize({ chain: `solana:${operation.network}`, identity: { name: 'SeekerTag' }, auth_token: authorizations.get(operation.network) });
       const payer = authorization.accounts.find(account => new PublicKey(Buffer.from(account.address, 'base64')).toBase58() === operation.spec.payer);
       if (!payer) throw new Error('Use a carteira que fez o depósito.');
@@ -29,6 +30,8 @@ export async function signReward(operation: RewardOperation): Promise<string | n
       if (!signed.serializeMessage().equals(original.serializeMessage()) || !signed.verifySignatures()) throw new Error('A assinatura não corresponde à transação solicitada.');
       return result.signed_payloads[0];
     });
+    await waitForWalletReturn();
+    return signedPayload;
   } catch (error) {
     if (cancelled(error)) return null;
     if (/timed?\s*out|timeout/i.test(error instanceof Error ? error.message : String(error))) {
@@ -50,6 +53,7 @@ export async function confirmFinderWallet(reportId: string, token: string, langu
       return auth.sign_in_result;
     });
   } catch (error) { if (cancelled(error)) return null; throw error; }
+  await waitForWalletReturn();
   const verified = await api<{ recipient: string }>(`${base}/verify`, token, { challengeId, address: result.address, signedMessage: result.signed_message, signature: result.signature });
   return verified.recipient;
 }

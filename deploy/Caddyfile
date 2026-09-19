@@ -1,4 +1,14 @@
 api-seeker.viralizai.co {
   encode zstd gzip
-  reverse_proxy api:4318
+  handle /.well-known/assetlinks.json {
+    root * /data/seekertag-public
+    file_server
+  }
+  handle_path /demo/* {
+    root * /data/seekertag-demo
+    file_server
+  }
+  handle {
+    reverse_proxy api:4318
+  }
 }

@@ -3,7 +3,7 @@ import { ActivityIndicator, Keyboard, Modal, StyleSheet, Text, TextInput, TextIn
 import Pressable from './HapticPressable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { BottomSheetModalProvider, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Feather from '@expo/vector-icons/Feather';
 import { usePreferences } from './PreferencesProvider';
@@ -66,7 +66,7 @@ export function Pill({ status }: { status: 'active' | 'lost' | 'paused' }) {
 export function Sheet({ title, subtitle, onClose, children, footer, headerRight, overlay, contentKey, dismissible = true }: PropsWithChildren<{ title: string; subtitle?: string; onClose: () => void; footer?: React.ReactNode; headerRight?: React.ReactNode; overlay?: React.ReactNode; contentKey?: string; dismissible?: boolean }>) {
   const { C, s, t, locale } = useUI();
   return <Modal visible animationType="slide" onRequestClose={() => { if (Keyboard.isVisible()) Keyboard.dismiss(); else if (dismissible) onClose(); }}>
-    <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+    <GestureHandlerRootView style={{ flex: 1 }}><BottomSheetModalProvider><SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={{ flex: 1 }} accessibilityElementsHidden={!!overlay} importantForAccessibility={overlay ? "no-hide-descendants" : "auto"}>
       <View style={s.screenHeader}>
         {dismissible ? <Button variant="ghost" onPress={onClose} icon="arrow-left" label={t("Fechar")} /> : <View style={{ width: 48 }} />}
@@ -78,7 +78,7 @@ export function Sheet({ title, subtitle, onClose, children, footer, headerRight,
       {!!footer && <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, width: '100%', maxWidth: 600, alignSelf: 'center' }}>{footer}</View>}
       </View>
       {overlay}
-    </SafeAreaView></GestureHandlerRootView>
+    </SafeAreaView></BottomSheetModalProvider></GestureHandlerRootView>
   </Modal>;
 }
 

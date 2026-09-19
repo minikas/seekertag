@@ -14,6 +14,7 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
   const { C, s, t, locale } = useUI();
   const [data, setData] = useState<State>();
   const [error, setError] = useState('');
+  const [walletError, setWalletError] = useState('');
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(false);
   const alive = useRef(true); const fetching = useRef(false); const acting = useRef(false);
@@ -43,11 +44,11 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
   }, [load, show]);
   async function connect() {
     if (acting.current) return;
-    acting.current = true; setBusy(true); setError('');
+    acting.current = true; setBusy(true); setWalletError('');
     try {
       const recipient = await confirmFinderWallet(id, token, locale.slice(0, 2));
       if (alive.current && recipient) setData(prev => prev ? { ...prev, recipient } : prev);
-    } catch (cause) { if (alive.current) setError((cause as Error).message); }
+    } catch (cause) { if (alive.current) setWalletError((cause as Error).message); }
     finally { acting.current = false; if (alive.current) setBusy(false); }
   }
   if (!data && !error) return <View style={{ gap: 16 }} accessibilityLabel={t('Carregando recompensa')}>
@@ -61,6 +62,7 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
   return <View style={{ gap: 12 }}>
     {showSummary && (data?.reward || amount > 0) && <View style={[s.between, s.card, { padding: 16 }]}><RewardSummary reward={data?.reward} amount={amount} currency={currency} /></View>}
     {!!error && <><Notice error text={error} /><Button variant="ghost" onPress={() => void load()}>{t('Tentar novamente')}</Button></>}
+    {!!walletError && <Notice error text={walletError} />}
     {open && data && rewardLocked(data.reward) && (finder ? <>
       {data.recipient ? <Address label={t('Sua carteira de recebimento')} address={data.recipient} /> : <>
         <Button variant="accent" icon="link" onPress={() => void connect()} busy={busy}>{t('Confirmar carteira de recebimento')}</Button>

@@ -4,6 +4,7 @@ import { api } from '../api';
 import type { AuthMode, AuthResult } from './auth';
 import type { SignInPayload } from '@solana-mobile/mobile-wallet-adapter-protocol';
 import { forgetRewardAuthorization } from './reward-wallet';
+import { waitForWalletReturn } from './wallet-return';
 
 let authToken: string | null = null;
 
@@ -26,6 +27,7 @@ export async function signInWithWallet(mode: AuthMode, token?: string, language 
     if (error instanceof Error && error.message === 'SIWS_UNSUPPORTED') throw new Error('Sua carteira precisa oferecer Sign In With Solana. Atualize a carteira ou use a Seed Vault Wallet do Seeker.');
     throw new Error('Não foi possível abrir a carteira. Verifique se há uma carteira Solana compatível instalada e tente novamente.');
   }
+  await waitForWalletReturn();
   return api<AuthResult>('/auth/wallet/verify', token, { challengeId, address: result.address, signedMessage: result.signed_message, signature: result.signature });
 }
 

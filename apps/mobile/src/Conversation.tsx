@@ -6,10 +6,13 @@ import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { api, Message, Report } from './api';
 import { Button, Icon, Notice, useUI } from './ui';
 import { messageFormSchema, type MessageFormValues } from './form.model';
+import AccountActionSheet from './AccountActionSheet';
+import ConversationReward from './ConversationReward';
 
 export default function Conversation({ id, token, finder = false, presentation = 'page' }: { id: string; token: string; finder?: boolean; presentation?: 'page' | 'sheet' }) {
   const { C, s, t, locale } = useUI();
   const [report, setReport] = useState<Report>(); const [messages, setMessages] = useState<Message[]>([]); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const [details, setDetails] = useState(false);
   const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<MessageFormValues>({ resolver: zodResolver(messageFormSchema), mode: 'onChange', defaultValues: { body: '' } });
   const body = watch('body');
   const scroll = useRef<ScrollView>(null); const generation = useRef(0);
@@ -20,7 +23,9 @@ export default function Conversation({ id, token, finder = false, presentation =
   const ComposerInput = sheet ? BottomSheetTextInput : TextInput;
   return <View style={{ flex: 1, gap: 14, minHeight: sheet ? 0 : 440 }}>
     {!sheet && <View style={{ gap: 5 }}>
-      <Text style={s.h3}>{report?.tagName || t("Conversa privada")}</Text>
+      <View style={s.between}><Text style={[s.h3, { flex: 1 }]}>{report?.tagName || t("Conversa privada")}</Text>
+        {finder && report && <Button variant="ghost" icon="tag" label={t('Ver objeto')} onPress={() => setDetails(true)} />}
+      </View>
       <View style={s.row}>
         <Text style={s.small}>{finder ? t("Você está falando com o dono.") : t("Com {name}", { name: report?.finderName || t("quem encontrou") })}</Text>
         <View style={[s.row, { gap: 5 }]}><Icon name="shield" size={14} color={C.accent} /><Text style={{ color: C.accent, fontSize: 12, fontWeight: '600' }}>{t("Contatos protegidos")}</Text></View>
@@ -41,5 +46,10 @@ export default function Conversation({ id, token, finder = false, presentation =
         <Button onPress={() => void handleSubmit(send)()} icon="send" label={t('Enviar')} busy={busy} disabled={!body.trim() || !!errors.body} style={{ minWidth: 58, paddingHorizontal: 14, alignSelf: 'center' }} />
       </View>
     </> : null}
+    {finder && details && report && <AccountActionSheet title={t('Detalhes do objeto')} onClose={() => setDetails(false)}>
+      <Text style={s.h2}>{report.tagName}</Text>
+      <ConversationReward key={id} id={id} token={token} finder open={report.status === 'open'} onLocked={() => {}}
+        onReleased={() => setReport(previous => previous ? { ...previous, status: 'resolved' } : previous)} />
+    </AccountActionSheet>}
   </View>;
 }
