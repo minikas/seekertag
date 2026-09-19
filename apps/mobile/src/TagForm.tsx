@@ -60,7 +60,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const currentTagRef = useRef(currentTag); currentTagRef.current = currentTag;
   const supported = !tag?.rewardCurrency || ['SOL', 'USDC', 'SKR'].includes(tag.rewardCurrency);
   const [reward, setReward] = useState(supported && tag?.rewardAmount ? rewardInput(String(tag.rewardAmount), locale) : '');
-  const [currency, setCurrency] = useState<RewardCurrency>(supported ? (tag?.rewardCurrency as RewardCurrency || 'SOL') : 'SOL');
+  const [currency, setCurrency] = useState<RewardCurrency>(supported ? (tag?.rewardCurrency as RewardCurrency || 'SKR') : 'SKR');
   const [legacyReward, setLegacyReward] = useState(!supported && !!tag?.rewardAmount);
   const [quantity, setQuantity] = useState('30');
   const [unit, setUnit] = useState<ReservationUnit>('days');
