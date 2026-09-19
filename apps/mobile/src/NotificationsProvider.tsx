@@ -72,13 +72,13 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
   useEffect(() => {
     let live = true;
     setPushReady(false);
-    async function configure(request: boolean) {
+    async function configure(request: boolean, deviceToken?: Notifications.DevicePushToken) {
       try {
         const result = await prepareNotifications(request);
         if (!live) return;
         setPermission(result.granted);
         if (token && userId && result.granted) {
-          const registered = await registerPush(token, language);
+          const registered = await registerPush(token, language, deviceToken);
           if (live) setPushReady(registered);
         }
       } catch { if (live) setPushReady(false); }
@@ -91,7 +91,7 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
       }).catch(() => {});
     }
     const sub = AppState.addEventListener('change', state => { if (state === 'active') void configure(false); });
-    const pushSub = Notifications.addPushTokenListener(() => { void configure(false); });
+    const pushSub = Notifications.addPushTokenListener(deviceToken => { void configure(false, deviceToken); });
     return () => { live = false; sub.remove(); pushSub.remove(); };
   }, [token, userId, language]);
 

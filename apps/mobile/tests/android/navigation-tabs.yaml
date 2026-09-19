@@ -1,0 +1,23 @@
+appId: app.seekertag.mobile
+name: Tabs preserve the item search
+---
+# Signed-in English dashboard. Does not modify an item.
+- tapOn:
+    id: "tab-tags"
+- tapOn:
+    id: "object-search"
+- inputText: "Backpack"
+- back
+- tapOn:
+    id: "tab-messages"
+- assertVisible: "Conversations"
+- tapOn:
+    id: "tab-tags"
+- assertVisible:
+    id: "object-search"
+    text: "Backpack"
+- takeScreenshot: tabs-preserve-search
+- tapOn: "Clear search"
+- tapOn:
+    id: "tab-items"
+- assertVisible: "Add item"

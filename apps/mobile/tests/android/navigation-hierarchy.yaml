@@ -1,0 +1,75 @@
+appId: app.seekertag.mobile
+name: Nested tasks preserve their origin and unsaved fields
+---
+# Signed-in English dashboard; QA_OBJECT_NAME is an existing item.
+# This flow never saves, transfers, sends messages, or changes a tag status.
+- launchApp
+- extendedWaitUntil:
+    visible: "Add item"
+    timeout: 30000
+- tapOn:
+    text: "Open ${QA_OBJECT_NAME}"
+    index: 0
+- assertVisible: "Share link"
+- tapOn: "Item options"
+- tapOn: "Edit item"
+- extendedWaitUntil:
+    visible:
+      id: "object-name"
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: "object-name"
+- eraseText
+- inputText: "Navigation draft"
+- assertVisible: "Navigation draft"
+- back
+- assertVisible: "Edit item"
+- assertNotVisible: "Discard changes?"
+- scrollUntilVisible:
+    element: "Manage categories"
+    direction: DOWN
+- assertVisible: "Backpack"
+- tapOn: "Manage categories"
+- assertVisible: "Create category"
+- takeScreenshot: categories-over-form
+- tapOn: "Create category"
+- tapOn:
+    id: "category-name"
+- inputText: "Unsaved category"
+- back
+- assertVisible: "New category"
+- back
+- assertVisible: "Discard changes?"
+- tapOn: "Keep editing"
+- assertVisible: "Unsaved category"
+- back
+- tapOn: "Discard"
+- assertVisible: "Create category"
+- back
+- assertVisible: "Edit item"
+- scrollUntilVisible:
+    element:
+      id: "object-name"
+    direction: UP
+- assertVisible: "Navigation draft"
+- takeScreenshot: categories-return-to-draft
+- back
+- assertVisible: "Discard changes?"
+- tapOn: "Discard"
+- assertVisible: "Your tag"
+- assertVisible: "${QA_OBJECT_NAME}"
+- tapOn: "Item options"
+- tapOn: "View as finder"
+- assertVisible: "This is your tag"
+- back
+- assertVisible: "Your tag"
+- tapOn: "Item options"
+- tapOn: "Archive item"
+- assertVisible: "Archive this item?"
+- back
+- assertVisible: "Your tag"
+- assertNotVisible: "Archive this item?"
+- takeScreenshot: confirmation-return-to-object
+- back
+- assertVisible: "Add item"

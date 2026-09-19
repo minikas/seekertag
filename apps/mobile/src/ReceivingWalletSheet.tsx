@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Keyboard, Text, View } from 'react-native';
@@ -8,8 +8,19 @@ import { Button, Field, Notice, useUI } from './ui';
 import { confirmFinderWallet } from './platform/reward-wallet';
 import { receivingWalletFormSchema, type ReceivingWalletFormValues } from './form.model';
 
-export default function ReceivingWalletSheet({ id, token, onSaved, onClose }: {
+type Props = {
   id: string; token: string; onSaved: (address: string) => void; onClose: () => void;
+};
+export default function ReceivingWalletSheet(props: Props) {
+  const { t } = useUI();
+  const [state, setState] = useState({ busy: false, dirty: false });
+  return <AccountActionSheet title={t('Sua carteira de recebimento')} busy={state.busy} onClose={props.onClose}>
+    <ReceivingWalletForm {...props} onStateChange={setState} />
+  </AccountActionSheet>;
+}
+
+export function ReceivingWalletForm({ id, token, onSaved, onStateChange }: Omit<Props, 'onClose'> & {
+  onStateChange: (state: { busy: boolean; dirty: boolean }) => void;
 }) {
   const { s, t, locale } = useUI();
   const { control, handleSubmit, watch, setError, clearErrors, formState: { errors } } = useForm<ReceivingWalletFormValues>({
@@ -17,6 +28,7 @@ export default function ReceivingWalletSheet({ id, token, onSaved, onClose }: {
   });
   const address = watch('address');
   const [busy, setBusy] = useState<'address' | 'wallet' | null>(null);
+  useEffect(() => { onStateChange({ busy: !!busy, dirty: !!address.trim() }); }, [busy, address, onStateChange]);
   const acting = useRef(false);
   async function save(method: 'address' | 'wallet', recipient?: string) {
     if (acting.current) return;
@@ -31,7 +43,7 @@ export default function ReceivingWalletSheet({ id, token, onSaved, onClose }: {
     }
     finally { acting.current = false; setBusy(null); }
   }
-  return <AccountActionSheet title={t('Sua carteira de recebimento')} busy={!!busy} onClose={onClose}>
+  return <View style={{ gap: 20 }}>
     <Text style={s.body}>{t('Informe o endereço da sua carteira Solana. Não é necessário conectar uma carteira nem ter um Seeker.')}</Text>
     <Controller control={control} name="address" render={({ field }) => <Field inSheet label={t('Endereço da carteira Solana')}
       value={field.value} onChangeText={value => { field.onChange(value); clearErrors('root'); }} onBlur={field.onBlur}
@@ -44,5 +56,5 @@ export default function ReceivingWalletSheet({ id, token, onSaved, onClose }: {
       <Button variant="accent" icon="check" onPress={() => void handleSubmit(values => save('address', values.address))()} busy={busy === 'address'} disabled={!address.trim() || !!errors.address || busy === 'wallet'}>{t('Confirmar endereço')}</Button>
       <Button variant="ghost" icon="link" onPress={() => void save('wallet')} busy={busy === 'wallet'} disabled={busy === 'address'}>{t('Conectar carteira (opcional)')}</Button>
     </View>
-  </AccountActionSheet>;
+  </View>;
 }

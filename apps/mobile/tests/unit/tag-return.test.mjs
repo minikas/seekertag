@@ -51,7 +51,7 @@ function harness({ reward = null, reports = 0, resolveError } = {}) {
     './category.model': { tagCategoryLabel: () => 'Keys' }, './platform/auth': { providerNames: {} },
     './links': {}, './platform/labels': {}, './platform/nfc': {}, './platform/storage': {},
   };
-  for (const name of ['react-native-qrcode-svg', './HapticPressable', './ScreenBottomSheet', './RewardSummary', './ConversationReward']) {
+  for (const name of ['react-native-qrcode-svg', './HapticPressable', './ScreenBottomSheet', './AccountActionSheet', './RewardSummary', './ConversationReward']) {
     dependencies[name] = { __esModule: true, default: name, RewardPendingNotice: 'RewardPendingNotice' };
   }
   const module = { exports: {} };

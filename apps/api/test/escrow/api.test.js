@@ -284,6 +284,39 @@ for (const currency of ['SOL', 'USDC', 'SKR']) test(`an anonymous finder can rec
   assert.equal((await h.request(base, report.token, { address: recipient.toBase58() })).status, 409);
 });
 
+test('an unsolicited finder wallet cannot take or lock a reward away from the finder chosen by its owner', async t => {
+  const h = await harness(t); const owner = await h.account(); const attacker = await h.account(); const tag = await h.tag(owner);
+  const funding = (await h.prepare(owner, tag)).data.operation;
+  await h.submit(owner, funding); await h.state(owner, tag);
+  const unsolicited = (await h.request(`/public/tags/${tag.code}/reports`, attacker.token, { message: 'Unsolicited claim' })).data;
+  const legitimate = (await h.request(`/public/tags/${tag.code}/reports`, null, { message: 'Actual finder' })).data;
+  const recipient = Keypair.generate().publicKey.toBase58();
+  const sends = h.rpc.sends;
+  assert.equal((await h.request(`/finder/reports/${unsolicited.report.id}/reward/wallet`, unsolicited.token, { address: attacker.wallet.publicKey.toBase58() })).status, 200);
+  assert.equal(h.rpc.sends, sends, 'Registering a wallet cannot send funds');
+  assert.equal((await h.state(owner, tag)).data.reward.status, 'reserved');
+  assert.equal(h.app.locals.db.prepare("SELECT COUNT(*) AS n FROM reward_operations WHERE kind='release'").get().n, 0);
+  for (const [token, status] of [[unsolicited.token, 401], [attacker.token, 404]]) {
+    assert.equal((await h.request(`/tags/${tag.id}/reward/prepare`, token, { kind: 'release', reportId: unsolicited.report.id })).status, status);
+    assert.equal((await h.request(`/reports/${unsolicited.report.id}/resolve`, token, {})).status, status);
+  }
+  assert.equal((await h.request(`/finder/reports/${legitimate.report.id}/reward/wallet`, unsolicited.token, { address: attacker.wallet.publicKey.toBase58() })).status, 404);
+  assert.equal((await h.request(`/finder/reports/${legitimate.report.id}/reward/wallet`, legitimate.token, { address: recipient })).status, 200);
+  const release = await h.prepare(owner, tag, { kind: 'release', reportId: legitimate.report.id, recipient: attacker.wallet.publicKey.toBase58() });
+  assert.equal(release.status, 201);
+  assert.equal(release.data.operation.spec.recipient, recipient, 'Payout uses the selected conversation, never a client-supplied recipient');
+  for (const [token, status] of [[unsolicited.token, 401], [attacker.token, 404]]) {
+    assert.equal((await h.request(`/reward-operations/${release.data.operation.id}/submit`, token, { transaction: release.data.operation.transaction })).status, status);
+  }
+  assert.equal((await h.request(`/reward-operations/${release.data.operation.id}/submit`, owner.token, { transaction: release.data.operation.transaction })).status, 409, 'An owner session still needs the funding wallet signature');
+  assert.equal(h.rpc.sends, sends);
+  const attackerBalance = h.rpc.svm.getBalance(attacker.wallet.publicKey.toBase58());
+  await h.submit(owner, release.data.operation);
+  assert.equal((await h.state(owner, tag)).data.reward.status, 'released');
+  assert.equal(h.rpc.svm.getBalance(recipient), 19_000_000n);
+  assert.equal(h.rpc.svm.getBalance(attacker.wallet.publicKey.toBase58()), attackerBalance);
+});
+
 test('new object reward setup is authenticated and timed reservations preserve exact hours through renewal', async t => {
   const h = await harness(t); const owner = await h.account();
   assert.equal((await h.request('/rewards/config')).status, 401);

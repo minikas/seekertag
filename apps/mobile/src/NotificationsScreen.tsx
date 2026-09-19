@@ -1,18 +1,15 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, BackHandler, FlatList, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
+import { NavigationScope, useNavigationLayer } from './Navigation';
 import { useNotifications } from './NotificationsProvider';
 import { Button, formatDate, Icon, Notice, useUI } from './ui';
 
 export default function NotificationsScreen({ onClose, covered = false }: { onClose: () => void; covered?: boolean }) {
   const { C, s, t, locale } = useUI();
   const inbox = useNotifications();
-  useEffect(() => {
-    if (covered) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { onClose(); return true; });
-    return () => sub.remove();
-  }, [onClose, covered]);
-  return <View style={{ flex: 1, backgroundColor: C.bg }} accessibilityElementsHidden={covered} importantForAccessibility={covered ? 'no-hide-descendants' : 'auto'}>
+  const layer = useNavigationLayer(onClose);
+  return <NavigationScope path={layer.path}><View style={{ flex: 1, backgroundColor: C.bg }} accessibilityElementsHidden={covered || !layer.active} importantForAccessibility={covered || !layer.active ? 'no-hide-descendants' : 'auto'}>
     <View style={s.screenHeader}>
       <Button variant="ghost" icon="arrow-left" label={t('Voltar')} onPress={onClose} />
       <Text accessibilityRole="header" style={s.screenTitle}>{t('Notificações')}</Text>
@@ -48,5 +45,5 @@ export default function NotificationsScreen({ onClose, covered = false }: { onCl
           <Text style={[s.h2, { textAlign: 'center' }]}>{t('Nenhuma notificação por enquanto')}</Text>
           <Text style={[s.body, { textAlign: 'center' }]}>{t('Quando alguém enviar uma mensagem, o aviso aparece aqui.')}</Text></View>}
       ListFooterComponent={inbox.nextCursor ? <Button variant="ghost" busy={inbox.loading} onPress={() => void inbox.loadMore()}>{t('Carregar mais')}</Button> : null} />
-  </View>;
+  </View></NavigationScope>;
 }

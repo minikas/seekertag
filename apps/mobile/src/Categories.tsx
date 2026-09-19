@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ActivityIndicator, Keyboard, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Text, View } from 'react-native';
+import AccountActionSheet, { AccountActionSheetHandle } from './AccountActionSheet';
 import Screen from './Screen';
 import ScreenBottomSheet from './ScreenBottomSheet';
 import Pressable from './HapticPressable';
@@ -14,9 +15,11 @@ import { categoryFormSchema, type CategoryFormValues } from './form.model';
 const icons: IconName[] = ['shopping-bag', 'briefcase', 'key', 'heart', 'headphones', 'box', 'smartphone', 'watch', 'book', 'camera', 'credit-card', 'umbrella', 'truck', 'home', 'coffee', 'tag'];
 const colors = ['#304441', '#34434B', '#634457', '#5B4938', '#403D67', '#285569'];
 const iconNames: Record<string, string> = { 'shopping-bag': 'Mochila', briefcase: 'Mala', key: 'Chaves', heart: 'Pet', headphones: 'Eletrônico', box: 'Outro', smartphone: 'Telefone', watch: 'Relógio', book: 'Livro', camera: 'Câmera', 'credit-card': 'Cartão', umbrella: 'Guarda-chuva', truck: 'Veículo', home: 'Casa', coffee: 'Café', tag: 'Etiqueta' };
-export default function Categories({ token, onClose, onChanged, presentation = 'modal' }: { presentation?: 'screen' | 'modal'; token: string; onClose: () => void; onChanged: (categories: Category[]) => void }) {
+export default function Categories({ token, onClose, onChanged, presentation = 'modal' }: { presentation?: 'screen' | 'modal' | 'sheet'; token: string; onClose: () => void; onChanged: (categories: Category[]) => void }) {
   const { C, s, t, locale } = useUI();
   const Frame = presentation === 'screen' ? Screen : Sheet;
+  const sheetRef = useRef<AccountActionSheetHandle>(null);
+  const editingState = useRef({ dirty: false, busy: false });
   const [categories, setCategories] = useState<Category[]>([]);
   const [editing, setEditing] = useState<Category | 'new' | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,8 +34,15 @@ export default function Categories({ token, onClose, onChanged, presentation = '
       .catch(cause => { if (live) setError((cause as Error).message); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [token]);
-  if (editing) return <CategoryEditor key={editing === 'new' ? 'new' : editing.id} token={token} category={editing === 'new' ? undefined : editing} categories={categories} presentation={presentation} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); setEditing(null); }} />;
-  return <Frame contentKey="categories" title={t('Categorias')} onClose={onClose}>
+  const guardEditor = (finish: () => void) => {
+    if (editingState.current.busy) return;
+    if (editing && editingState.current.dirty) Alert.alert(t('Descartar alterações?'), t('As alterações não salvas serão perdidas.'), [
+      { text: t('Continuar editando'), style: 'cancel' }, { text: t('Descartar'), style: 'destructive', onPress: finish },
+    ]); else finish();
+  };
+  const editor = editing ? <CategoryEditor key={editing === 'new' ? 'new' : editing.id} token={token} category={editing === 'new' ? undefined : editing} categories={categories} presentation={presentation === 'sheet' ? 'inline' : 'modal'}
+    stateRef={editingState} onClose={() => { editingState.current = { dirty: false, busy: false }; setEditing(null); }} onSaved={async () => { await refresh(); editingState.current = { dirty: false, busy: false }; setEditing(null); }} /> : null;
+  const list = <>
       <Text style={s.body}>{t("Organize seus objetos do seu jeito.")}</Text>
       <Button icon="plus" onPress={() => setEditing('new')}>{t("Criar categoria")}</Button>
       {loading && <CategoryListSkeleton />}
@@ -42,7 +52,12 @@ export default function Categories({ token, onClose, onChanged, presentation = '
       </Pressable>)}
       {!loading && !categories.length && <Text style={s.body}>{t("Crie sua primeira categoria.")}</Text>}
       {!!error && <><Notice error text={error} /><Button variant="secondary" onPress={() => { setError(''); void refresh().catch(cause => setError(cause.message)); }}>{t("Tentar novamente")}</Button></>}
-  </Frame>;
+  </>;
+  if (presentation === 'sheet') return <AccountActionSheet ref={sheetRef} title={editing ? t(editing === 'new' ? 'Nova categoria' : 'Editar categoria') : t('Categorias')} onClose={onClose}
+    guardClose={guardEditor} onBack={editing ? () => guardEditor(() => { setEditing(null); editingState.current = { dirty: false, busy: false }; }) : undefined}>
+    <View style={{ display: editing ? 'none' : 'flex', gap: 20 }}>{list}</View>{editor}
+  </AccountActionSheet>;
+  return <Frame title={t('Categorias')} onClose={onClose} overlay={editor}>{list}</Frame>;
 }
 
 function CategoryListSkeleton() {
@@ -55,10 +70,10 @@ function CategoryListSkeleton() {
   </View>;
 }
 
-function CategoryEditor({ token, category, categories, onSaved, onClose, presentation }: { token: string; category?: Category; categories: Category[]; onSaved: () => Promise<void>; onClose: () => void; presentation: 'screen' | 'modal' }) {
-  const Frame = presentation === 'screen' ? Screen : Sheet;
+function CategoryEditor({ token, category, categories, onSaved, onClose, presentation, stateRef }: { token: string; category?: Category; categories: Category[]; onSaved: () => Promise<void>; onClose: () => void; presentation: 'inline' | 'modal'; stateRef: React.RefObject<{ dirty: boolean; busy: boolean }> }) {
+  const Frame = presentation === 'inline' ? InlineCategoryFrame : CategorySheet;
   const { C, s, t, locale } = useUI();
-  const { control, handleSubmit, watch, formState: { errors } } = useForm<CategoryFormValues>({
+  const { control, handleSubmit, watch, formState: { errors, isDirty } } = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema), mode: 'onChange', defaultValues: { name: category ? categoryLabel(category, t) : '' },
   });
   const name = watch('name');
@@ -68,6 +83,14 @@ function CategoryEditor({ token, category, categories, onSaved, onClose, present
   const [replacement, setReplacement] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const dirty = isDirty || icon !== (category?.icon || 'tag') || color !== (category?.color || colors[0]);
+  stateRef.current = { dirty, busy };
+  const guardClose = (finish: () => void) => {
+    if (busy) return;
+    if (dirty) Alert.alert(t('Descartar alterações?'), t('As alterações não salvas serão perdidas.'), [
+      { text: t('Continuar editando'), style: 'cancel' }, { text: t('Descartar'), style: 'destructive', onPress: finish },
+    ]); else finish();
+  };
   async function submit(values: CategoryFormValues) {
     if (busy) return;
     setBusy(true); setError('');
@@ -85,7 +108,7 @@ function CategoryEditor({ token, category, categories, onSaved, onClose, present
     catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
-  return <Frame title={category ? t('Editar categoria') : t('Nova categoria')} onClose={() => { if (busy) return; if (deleting) { setDeleting(false); setError(''); } else onClose(); }}
+  return <Frame guardClose={guardClose} title={category ? t('Editar categoria') : t('Nova categoria')} onClose={() => { if (busy) return; if (deleting) { setDeleting(false); setError(''); } else onClose(); }}
     dismissible={!busy} overlay={deleting && category ? <ScreenBottomSheet title={t('Excluir categoria?')} dismissible={!busy} onClose={() => { if (!busy) { setDeleting(false); setError(''); } }}>
       <Text style={s.body}>{category.tagCount ? t("Escolha para onde mover os objetos. As etiquetas e os QRs serão mantidos.") : t("Esta categoria não tem objetos e será removida da sua lista.")}</Text>
       {category.tagCount > 0 && categories.filter(c => c.id !== category.id).map(c => <Button key={c.id} variant={replacement === c.id ? 'primary' : 'secondary'} onPress={() => setReplacement(c.id)} disabled={busy}>{categoryLabel(c, t)}</Button>)}
@@ -94,7 +117,7 @@ function CategoryEditor({ token, category, categories, onSaved, onClose, present
       <Button variant="secondary" disabled={busy} onPress={() => { setDeleting(false); setError(''); }}>{t("Cancelar")}</Button>
       {!!error && <Notice error text={error} />}
     </ScreenBottomSheet> : undefined}>
-      <Controller control={control} name="name" render={({ field }) => <Field testID="category-name" label={t("Nome da categoria")} placeholder={t("Ex.: Bicicleta")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.name?.message} selectTextOnFocus={!!category} maxLength={32} editable={!busy} />} />
+      <Controller control={control} name="name" render={({ field }) => <Field inSheet testID="category-name" label={t("Nome da categoria")} placeholder={t("Ex.: Bicicleta")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.name?.message} selectTextOnFocus={!!category} maxLength={32} editable={!busy} />} />
       <Text style={s.label}>{t("Ícone")}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{icons.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={t("Ícone {name}", { name: t(iconNames[value]) })} accessibilityState={{ selected: icon === value, disabled: busy }} disabled={busy} onPress={() => setIcon(value)} style={[s.settingsIcon, { width: 48, height: 48, backgroundColor: icon === value ? C.primary : C.secondary }]}><Icon name={value} color={icon === value ? C.onPrimary : C.ink} /></Pressable>)}</View>
       <Text style={s.label}>{t("Cor")}</Text>
@@ -105,4 +128,11 @@ function CategoryEditor({ token, category, categories, onSaved, onClose, present
       </View>
       {!!error && !deleting && <Notice error text={error} />}
   </Frame>;
+}
+
+function InlineCategoryFrame({ children, overlay }: React.PropsWithChildren<{ title: string; onClose: () => void; dismissible?: boolean; guardClose: (finish: () => void) => void; overlay?: React.ReactNode }>) {
+  return <View style={{ gap: 20 }}>{children}{overlay}</View>;
+}
+function CategorySheet({ children, overlay, dismissible = true, ...props }: React.ComponentProps<typeof InlineCategoryFrame>) {
+  return <AccountActionSheet {...props} busy={!dismissible}>{children}{overlay}</AccountActionSheet>;
 }

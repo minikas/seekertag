@@ -5,7 +5,8 @@ import { ActivityIndicator, Animated, AppState, Linking, Share, StyleSheet, Text
 import QRCode from 'react-native-qrcode-svg';
 import Pressable from './HapticPressable';
 import ScreenBottomSheet from './ScreenBottomSheet';
-import { nativeTagUrl } from './links';
+import AccountActionSheet from './AccountActionSheet';
+import { Alert } from 'react-native';
 import { api, API_URL, Report, Tag, User } from './api';
 import { tagCategoryLabel } from './category.model';
 import { authenticate, providerNames } from './platform/auth';
@@ -39,6 +40,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
   const [busy, setBusy] = useState<Action>(null);
   const [error, setError] = useState('');
   const [nfcStopping, setNfcStopping] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [page, setPage] = useState<'overview' | 'info' | 'transfer'>('overview');
   const [overlay, setOverlay] = useState<'actions' | 'nfc' | null>(null);
   const [pendingStatus, setPendingStatus] = useState<'active' | 'lost' | 'paused' | null>(null);
@@ -118,6 +120,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
   }
 
   function close() {
+    if (pendingStatus) { setPendingStatus(null); return; }
     if (overlay) { closeOverlay(); return; }
     if (page !== 'overview') { setPage('overview'); setPassword(''); setError(''); return; }
     operation.current++;
@@ -177,10 +180,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
     });
   }
 
-  function openVisitor() {
-    setError('');
-    void Linking.openURL(nativeTagUrl(tag.publicUrl)).catch(() => setError('Não foi possível abrir a etiqueta. Use o leitor do aplicativo.'));
-  }
+  function openVisitor() { setError(''); setPreview(true); }
 
   function writeNfc() {
     if (active.current || nfcStopping) return;
@@ -263,11 +263,55 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
     {busy === 'nfc' ? <Button variant="secondary" onPress={() => void cancelNfc()}>{t("Cancelar gravação")}</Button> : <Button onPress={writeNfc} disabled={nfcStopping}>{t("Tentar novamente")}</Button>}
   </ScreenBottomSheet>;
 
-  return <Sheet title={page === 'transfer' ? t("Transferir etiqueta") : page === 'info' ? t("Detalhes do objeto") : t("Sua etiqueta")} contentKey={page} onClose={close} dismissible={busy !== 'transfer'}
-    headerRight={page === 'overview' ? <Button variant="ghost" icon="more-horizontal" label={t("Opções do objeto")} busy={busy === 'status' || busy === 'sharePdf'} disabled={!!busy} onPress={() => setOverlay('actions')} /> : undefined}
-    overlay={overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : undefined}>
+  const closeTransfer = (dismiss: () => void) => {
+    if (recipient || password) Alert.alert(t('Descartar alterações?'), t('As alterações não salvas serão perdidas.'), [
+      { text: t('Continuar editando'), style: 'cancel' },
+      { text: t('Descartar'), style: 'destructive', onPress: dismiss },
+    ]); else dismiss();
+  };
+  const Frame = conversation ? ContextualDetails : Sheet;
+  const InfoFrame = conversation ? AccountActionSheet : Sheet;
+  return <Frame title={t('Sua etiqueta')} onClose={close}
+    headerRight={<Button variant="ghost" icon="more-horizontal" label={t('Opções do objeto')} busy={busy === 'status' || busy === 'sharePdf'} disabled={!!busy} onPress={() => setOverlay('actions')} />}
+    overlay={<>
+      {overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : null}
+      {page === 'info' && <InfoFrame title={t('Detalhes do objeto')} onClose={() => setPage('overview')}
+        headerRight={<Button variant="ghost" icon="edit-2" label={t('Editar objeto')} disabled={waiting || !!busy} onPress={() => onEdit(tag)} />}>
+      <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} /></View>
+      <InfoBlock label={t("Categoria")} value={tagCategoryLabel(tag, t)} />
+      <Text style={s.small}>{t("Criada em {date}", { date: formatDate(tag.createdAt, locale) })}</Text>
+      {tag.description ? <InfoBlock label={t("Sua anotação particular")} value={tag.description} /> : null}
+      {tag.publicMessage ? <InfoBlock label={t("Mensagem na etiqueta")} value={tag.publicMessage} /> : null}
+      {tag.rewardAmount > 0 ? <InfoBlock label={t("Valor da recompensa")} value={tag.reward ? `${tag.reward.amount} ${tag.reward.currency}` : `${tag.rewardAmount.toLocaleString(locale)} ${tag.rewardCurrency}`} /> : null}
+      {tag.recoveryCount > 0 && <Text style={s.body}>{tag.recoveryCount} {tag.recoveryCount === 1 ? t("devolução") : t("devoluções")}</Text>}
+      </InfoFrame>}
+      {page === 'transfer' && <AccountActionSheet title={t('Transferir etiqueta')} busy={busy === 'transfer'} guardClose={closeTransfer} onClose={() => { setPage('overview'); setRecipient(''); setPassword(''); setError(''); }}>
+      <Text style={s.h2}>{tag.name}</Text>
+      <Text style={s.body}>{t("A etiqueta sairá da sua conta e o mesmo QR passará para a pessoa abaixo. Ela precisa ter uma conta SeekerTag.")}</Text>
+      <Text style={s.small}>{t("Suas conversas antigas continuam privadas. Anotação, mensagem pública e recompensa serão apagadas da etiqueta. Para recebê-la de volta, a nova pessoa precisa transferi-la para você.")}</Text>
+      {tag.openReportCount > 0 && <Notice error text={t("Conclua as conversas abertas deste objeto antes de transferir a etiqueta.")} />}
+      <Field inSheet label={t("ID da conta ou carteira de quem vai receber")} value={recipient} onChangeText={setRecipient} autoCapitalize="none" autoCorrect={false} keyboardType="default" maxLength={64} editable={!busy && !waiting} placeholder={t("ID da conta ou endereço Solana")} />
+      {user.hasPassword ? <Field inSheet label={t("Sua senha atual")} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" maxLength={128} editable={!busy && !waiting} onSubmitEditing={transfer} /> : <Text style={s.small}>{t("Você confirmará sua identidade com {provider} antes da transferência.", { provider: providerNames[user.providers[0]] || t("seu acesso vinculado") })}</Text>}
+      <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || waiting || tag.openReportCount > 0 || !recipient.trim() || (user.hasPassword && password.length < 10)}>{t("Confirmar transferência")}</Button>
+        {!!error && <Notice text={error} error />}
+      </AccountActionSheet>}
+      {preview && <AccountActionSheet title={t('Ver como visitante')} onClose={() => setPreview(false)}>
+        <Text style={s.h2}>{tag.name}</Text><Text style={s.body}>{tagCategoryLabel(tag, t)}</Text>
+        {!!tag.publicMessage && <View style={[s.card, { gap: 8 }]}><Text style={s.label}>{t('Mensagem do dono')}</Text><Text style={s.body}>{tag.publicMessage}</Text></View>}
+        {(tag.reward || tag.rewardAmount > 0) && <RewardSummary reward={tag.reward} amount={tag.rewardAmount} currency={tag.rewardCurrency} />}
+        <Notice text={t('Esta etiqueta é sua')} /><Text style={s.body}>{t('Você está vendo como seu objeto aparece para quem o encontrar.')}</Text>
+      </AccountActionSheet>}
+    {pendingStatus && <ScreenBottomSheet title="" onClose={() => setPendingStatus(null)}>
+      <View style={{ gap: 16 }}>
+        <Text style={s.h3}>{t(pendingStatus === 'lost' ? 'Marcar esta etiqueta como perdida?' : pendingStatus === 'paused' ? 'Arquivar este objeto?' : hasOpenReports && tag.status !== 'paused' ? 'Confirmar devolução?' : 'Restaurar este objeto?')}</Text>
+        {pendingStatus === 'active' && hasOpenReports && tag.status !== 'paused' && <Text style={s.body}>{t('Confirme somente se o objeto já estiver com você. Isso encerra as conversas deste objeto.')}</Text>}
+        {pendingStatus === 'paused' && <Text style={s.body}>{t('Ele sairá das listas principais. O QR e o NFC deixarão de receber novos avisos e mensagens, mas você poderá restaurá-lo depois.')}</Text>}
+        <Button variant={pendingStatus === 'lost' || pendingStatus === 'paused' ? 'warning' : 'success'} busy={busy === 'status'} disabled={!!busy} onPress={() => { const next = pendingStatus; setPendingStatus(null); changeStatus(next); }}>{t('Confirmar')}</Button>
+        <Button variant="ghost" disabled={!!busy} onPress={() => setPendingStatus(null)}>{t('Cancelar')}</Button>
+      </View>
+    </ScreenBottomSheet>}
+    </>}>
     {waiting && <RewardPendingNotice />}
-    {page === 'overview' ? <>
       <View style={styles.qrCard}>
         <Text accessibilityRole="header" style={[s.h2, styles.center]}>{tag.name}</Text>
         <View style={styles.metadata}><Icon name={info.icon} color={C.muted} size={18} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text><Pill status={tag.status} /></View>
@@ -287,35 +331,14 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
       {hasOpenReports && returnLocked && !conversation && <Notice text={t('Para entregar a recompensa, confirme a devolução na conversa com quem encontrou.')} />}
       {tag.status === 'paused' ? <View style={{ gap: 12 }}><Notice tone="warning" text={t("Este objeto está arquivado. O QR e o NFC não recebem novos avisos ou mensagens até você restaurá-lo.")} /><Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="rotate-ccw">{t("Restaurar objeto")}</Button></View> : hasOpenReports && !returnLocked ? <Button variant="success" onPress={() => setPendingStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting} icon="check-circle">{t('Finalizar devolução')}</Button> : tag.status === 'lost' ? <Button variant="success" onPress={() => changeStatus('active')} busy={busy === 'status'} disabled={!!busy || waiting || (hasOpenReports && returnLocked)} icon="check-circle">{t("Já está comigo")}</Button> : null}
       {returned && <Notice tone="success" text={t('Devolução confirmada.')} />}
-    </> : page === 'info' ? <>
-      <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} /></View>
-      <InfoBlock label={t("Categoria")} value={tagCategoryLabel(tag, t)} />
-      <Text style={s.small}>{t("Criada em {date}", { date: formatDate(tag.createdAt, locale) })}</Text>
-      {tag.description ? <InfoBlock label={t("Sua anotação particular")} value={tag.description} /> : null}
-      {tag.publicMessage ? <InfoBlock label={t("Mensagem na etiqueta")} value={tag.publicMessage} /> : null}
-      {tag.rewardAmount > 0 ? <InfoBlock label={t("Valor da recompensa")} value={tag.reward ? `${tag.reward.amount} ${tag.reward.currency}` : `${tag.rewardAmount.toLocaleString(locale)} ${tag.rewardCurrency}`} /> : null}
-      {tag.recoveryCount > 0 && <Text style={s.body}>{tag.recoveryCount} {tag.recoveryCount === 1 ? t("devolução") : t("devoluções")}</Text>}
-    </> : <>
-      <Text style={s.h2}>{tag.name}</Text>
-      <Text style={s.body}>{t("A etiqueta sairá da sua conta e o mesmo QR passará para a pessoa abaixo. Ela precisa ter uma conta SeekerTag.")}</Text>
-      <Text style={s.small}>{t("Suas conversas antigas continuam privadas. Anotação, mensagem pública e recompensa serão apagadas da etiqueta. Para recebê-la de volta, a nova pessoa precisa transferi-la para você.")}</Text>
-      {tag.openReportCount > 0 && <Notice error text={t("Conclua as conversas abertas deste objeto antes de transferir a etiqueta.")} />}
-      <Field label={t("ID da conta ou carteira de quem vai receber")} value={recipient} onChangeText={setRecipient} autoCapitalize="none" autoCorrect={false} keyboardType="default" maxLength={64} editable={!busy && !waiting} placeholder={t("ID da conta ou endereço Solana")} />
-      {user.hasPassword ? <Field label={t("Sua senha atual")} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" maxLength={128} editable={!busy && !waiting} onSubmitEditing={transfer} /> : <Text style={s.small}>{t("Você confirmará sua identidade com {provider} antes da transferência.", { provider: providerNames[user.providers[0]] || t("seu acesso vinculado") })}</Text>}
-      <Button variant="danger" icon="arrow-right" onPress={transfer} busy={busy === 'transfer'} disabled={!!busy || waiting || tag.openReportCount > 0 || !recipient.trim() || (user.hasPassword && password.length < 10)}>{t("Confirmar transferência")}</Button>
-    </>}
-    {!!error && overlay !== 'nfc' && <Notice text={error} error />}
-    {pendingStatus && <ScreenBottomSheet title="" onClose={() => setPendingStatus(null)}>
-      <View style={{ gap: 16 }}>
-        <Text style={s.h3}>{t(pendingStatus === 'lost' ? 'Marcar esta etiqueta como perdida?' : pendingStatus === 'paused' ? 'Arquivar este objeto?' : hasOpenReports && tag.status !== 'paused' ? 'Confirmar devolução?' : 'Restaurar este objeto?')}</Text>
-        {pendingStatus === 'active' && hasOpenReports && tag.status !== 'paused' && <Text style={s.body}>{t('Confirme somente se o objeto já estiver com você. Isso encerra as conversas deste objeto.')}</Text>}
-        {pendingStatus === 'paused' && <Text style={s.body}>{t('Ele sairá das listas principais. O QR e o NFC deixarão de receber novos avisos e mensagens, mas você poderá restaurá-lo depois.')}</Text>}
-        <Button variant={pendingStatus === 'lost' || pendingStatus === 'paused' ? 'warning' : 'success'} busy={busy === 'status'} disabled={!!busy} onPress={() => { const next = pendingStatus; setPendingStatus(null); changeStatus(next); }}>{t('Confirmar')}</Button>
-        <Button variant="ghost" disabled={!!busy} onPress={() => setPendingStatus(null)}>{t('Cancelar')}</Button>
-      </View>
-    </ScreenBottomSheet>}
-  </Sheet>;
+    {!!error && !overlay && page === 'overview' && <Notice text={error} error />}
+  </Frame>;
 }
+
+function ContextualDetails({ overlay, children, ...props }: React.ComponentProps<typeof Sheet>) {
+  return <AccountActionSheet title={props.title} onClose={props.onClose} headerRight={props.headerRight}>{children}{overlay}</AccountActionSheet>;
+}
+
 
 function QrAction({ icon, label, accessibilityLabel, onPress, busy = false, disabled = false }: { icon: IconName; label: string; accessibilityLabel?: string; onPress: () => void; busy?: boolean; disabled?: boolean }) {
   const { C } = useUI();

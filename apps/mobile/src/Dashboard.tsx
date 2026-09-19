@@ -1,6 +1,6 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
-import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import TagRow from './TagRow';
 import ObjectsScreen from './ObjectsScreen';
@@ -17,7 +17,8 @@ import TagForm from './TagForm';
 import TagDetails from './TagDetails';
 import Conversation from './Conversation';
 import Account from './Account';
-import AccountActionSheet from './AccountActionSheet';
+import { Sheet } from './ui';
+import { PageLayer, useNavigationState } from './Navigation';
 import Animated from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useScrollHeader } from './useScrollHeader';
@@ -33,14 +34,15 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const inbox = useNotifications();
+  const navigation = useNavigationState();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [finderChat, setFinderChat] = useState(false);
   const [browseRevision, setBrowseRevision] = useState(0);
   const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [initialLoading, setInitialLoading] = useState(true); const [browsing, setBrowsing] = useState<TagFilter>('all'); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [conversationTag, setConversationTag] = useState<Report>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
   const [focusReward, setFocusReward] = useState(false);
-  const scroll = useRef<KeyboardAwareScrollViewRef>(null);
   const [headerHeight, setHeaderHeight] = useState(72);
-  const header = useScrollHeader(headerHeight);
+  const itemHeader = useScrollHeader(headerHeight);
+  const messageHeader = useScrollHeader(headerHeight);
   const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setSelected(current => current ? items.tags.find(tag => tag.id === current.id) : current); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); setInitialLoading(false); } }, [token]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
@@ -53,13 +55,12 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const homeTags = visibleTags.slice(0, 3);
   const openReports = reports.filter(r => r.status === 'open');
   const activeConversation = reports.find(report => report.id === chat);
-  const switchTab = (key: Tab) => { setAccount(false); setNotificationsOpen(false); setTab(key); setChat(undefined); setFinderChat(false); scroll.current?.scrollTo({ y: 0, animated: false }); header.reset(); };
+  const switchTab = (key: Tab) => { setAccount(false); setNotificationsOpen(false); setTab(key); setChat(undefined); setFinderChat(false); };
   const browseTags = (filter: TagFilter) => { setBrowsing(filter); setBrowseRevision(value => value + 1); switchTab('tags'); };
   useEffect(() => {
-    if (!notification) return;
-    setAccount(false); setSelected(undefined); setForm(null);
+    if (!notification || form || selected || account || chat || navigation.tasks) return;
     setFinderChat(notification.finder); setChat(notification.reportId); onNotificationOpened();
-  }, [notification]);
+  }, [notification, form, selected, account, chat, navigation.tasks, onNotificationOpened]);
   const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
   const finishReturn = (tagId: string) => {
     setReports(previous => previous.map(report => report.tagId === tagId ? { ...report, status: 'resolved' } : report));
@@ -74,12 +75,14 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   ];
 
   return <View style={styles.page}>
-    <View style={{ flex: 1, display: account || notificationsOpen || tab === 'tags' ? 'none' : 'flex' }} accessibilityElementsHidden={account || notificationsOpen || tab === 'tags'} importantForAccessibility={account || notificationsOpen || tab === 'tags' ? 'no-hide-descendants' : 'auto'}>
+    <View style={{ flex: 1 }}>
+    {(['items', 'messages'] as const).map(pane => { const header = pane === 'items' ? itemHeader : messageHeader; return (
+    <View key={pane} style={[StyleSheet.absoluteFill, { opacity: pane === tab ? 1 : 0 }]} pointerEvents={pane === tab ? 'auto' : 'none'} accessibilityElementsHidden={pane !== tab || navigation.top !== 0} importantForAccessibility={pane !== tab || navigation.top !== 0 ? 'no-hide-descendants' : 'auto'}>
     <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)} animatedProps={header.accessibilityProps} style={[styles.topBar, header.style]}><Button variant="ghost" icon="user" label={t("Minha conta")} onPress={() => setAccount(true)} style={{ backgroundColor: C.surface, borderRadius: 18 }} /><Text style={{ color: C.ink, fontSize: 20, fontWeight: '500' }}>SeekerTag</Text><View style={{ flexDirection: 'row', alignItems: 'center' }}><View><Button variant="ghost" icon="bell" onPress={() => setNotificationsOpen(true)} label={inbox.unreadCount ? t("Notificações, {count} não lidas", { count: inbox.unreadCount }) : t("Notificações")} />{inbox.unreadCount > 0 && <View pointerEvents="none" style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{inbox.unreadCount > 99 ? '99+' : inbox.unreadCount}</Text></View>}</View><Button variant="ghost" icon="maximize" onPress={onScan} label={t("Escanear etiqueta")} /></View></Animated.View>
-    <KeyboardAwareScrollView bottomOffset={24} ref={scroll} onScroll={header.onScroll} scrollEventThrottle={16} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} progressViewOffset={headerHeight} />} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight }]}>
+    <KeyboardAwareScrollView bottomOffset={24} onScroll={header.onScroll} scrollEventThrottle={16} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} progressViewOffset={headerHeight} />} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight }]}>
       <View style={styles.content}>
       {!!error && <Notice error text={error} />}
-      {tab === 'items' ? initialLoading ? <DashboardSkeleton /> : <>
+      {pane === 'items' ? initialLoading ? <DashboardSkeleton /> : <>
         <Text accessibilityRole="header" style={s.h1}>{t("Meus objetos")}</Text>
         <View style={styles.stats}>{stats.map(stat => <Pressable key={stat.filter} accessibilityRole="button" accessibilityLabel={stat.label} onPress={() => browseTags(stat.filter)} style={({ pressed }) => [styles.stat, pressed && styles.pressed]}>
           <Text style={styles.statValue}>{stat.value.toLocaleString(locale)}</Text><Text style={styles.statLabel}>{stat.label}</Text>
@@ -123,22 +126,25 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
       <Svg width="100%" height="100%"><Defs><LinearGradient id="bottomFade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor={C.bg} stopOpacity={0} /><Stop offset="0.7" stopColor={C.bg} stopOpacity={0.9} /><Stop offset="1" stopColor={C.bg} /></LinearGradient></Defs><Rect width="100%" height="100%" fill="url(#bottomFade)" /></Svg>
     </View>
     </View>
-    <View style={{ flex: 1, display: tab === 'tags' && !account && !notificationsOpen ? 'flex' : 'none' }} accessibilityElementsHidden={tab !== 'tags' || account || notificationsOpen} importantForAccessibility={tab !== 'tags' || account || notificationsOpen ? 'no-hide-descendants' : 'auto'}>
-      <ObjectsScreen key={browseRevision} embedded initialFilter={browsing} tags={tags} onSelect={setSelected} onAdd={() => setForm('new')} onClose={() => switchTab('items')} refreshing={refreshing} loading={initialLoading} onRefresh={() => void refresh()} error={error} covered={tab !== 'tags' || !!selected || !!form || !!chat || account || notificationsOpen} suspended={!!form} />
+    ); })}
+    <View style={[StyleSheet.absoluteFill, { opacity: tab === 'tags' ? 1 : 0 }]} pointerEvents={tab === 'tags' ? 'auto' : 'none'} accessibilityElementsHidden={tab !== 'tags' || account || notificationsOpen} importantForAccessibility={tab !== 'tags' || account || notificationsOpen ? 'no-hide-descendants' : 'auto'}>
+      <ObjectsScreen active={tab === 'tags'} filterRevision={browseRevision} embedded initialFilter={browsing} tags={tags} onSelect={setSelected} onAdd={() => setForm('new')} onClose={() => switchTab('items')} refreshing={refreshing} loading={initialLoading} onRefresh={() => void refresh()} error={error} covered={tab !== 'tags' || !!selected || !!form || !!chat || account || notificationsOpen} suspended={!!form} />
     </View>
-    {notificationsOpen && <NotificationsScreen covered={!!chat || !!selected || !!form} onClose={() => setNotificationsOpen(false)} />}
-    {account && <Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} />}
-    {!account && !notificationsOpen && <View style={styles.navigation}>{tabs.map(tabItem => <Pressable key={tabItem.key} accessibilityRole="tab" accessibilityLabel={t(tabItem.label)} accessibilityState={{ selected: tab === tabItem.key }} onPress={() => switchTab(tabItem.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
+    </View>
+    <View style={styles.navigation} accessibilityElementsHidden={!!(account || notificationsOpen || selected || form || chat)} importantForAccessibility={account || notificationsOpen || selected || form || chat ? "no-hide-descendants" : "auto"}>{tabs.map(tabItem => <Pressable key={tabItem.key} testID={`tab-${tabItem.key}`} accessibilityRole="tab" accessibilityLabel={t(tabItem.label)} accessibilityState={{ selected: tab === tabItem.key }} onPress={() => switchTab(tabItem.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
       <View style={styles.tabIcon}>
         {!account && tab === tabItem.key && <View pointerEvents="none" style={styles.tabSelection} />}
         <Icon name={tabItem.icon} color={!account && tab === tabItem.key ? C.onPrimary : C.ink} size={28} />{tabItem.key === 'messages' && inbox.unreadCount > 0 && <View style={styles.badge} />}
       </View>
-    </Pressable>)}</View>}
+      <Text style={{ color: C.ink, fontSize: 12, fontWeight: tab === tabItem.key ? '600' : '400' }}>{t(tabItem.label)}</Text>
+    </Pressable>)}</View>
+    {notificationsOpen && <PageLayer><NotificationsScreen covered={!!chat || !!selected || !!form} onClose={() => setNotificationsOpen(false)} /></PageLayer>}
+    {account && <PageLayer><Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} /></PageLayer>}
+    {chat && <Sheet title={t('Conversa')} scrollable={false} onClose={() => setChat(undefined)} headerRight={!finderChat && activeConversation ? <Button variant="ghost" icon="external-link" label={t('Ver objeto')} onPress={() => { const tag = tags.find(item => item.id === activeConversation.tagId); if (!tag) return; setConversationTag(activeConversation); setSelected(tag); }} style={{ minHeight: 44, paddingHorizontal: 10 }}>{t('Ver objeto')}</Button> : undefined}>
+      <Conversation key={chat} id={chat} token={token} finder={finderChat} covered={!!selected} />
+    </Sheet>}
+    {selected && <TagDetails tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { setSelected(undefined); setConversationTag(undefined); }} onUpdated={saveTag} onResolved={() => finishReturn(selected.id)} onEdit={(tag, reward = false) => { setFocusReward(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); setConversationTag(undefined); void refresh(); }} />}
     {form && <TagForm focusReward={focusReward} onCategoriesChanged={() => void refresh(true)} token={token} user={user} onUserUpdated={onUserUpdated} tag={form === 'new' ? undefined : form} onClose={() => { setForm(null); setFocusReward(false); }} onSaved={tag => { saveTag(tag); setForm(null); setFocusReward(false); }} />}
-    {selected && !form && <TagDetails tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { const conversationId = conversationTag?.tagId === selected.id ? conversationTag.id : undefined; setSelected(undefined); setConversationTag(undefined); if (conversationId) setChat(conversationId); }} onUpdated={saveTag} onResolved={() => finishReturn(selected.id)} onEdit={(tag, reward = false) => { setFocusReward(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); setConversationTag(undefined); void refresh(); }} />}
-    {chat && <AccountActionSheet title={t('Conversa')} onClose={() => setChat(undefined)} headerRight={!finderChat && activeConversation ? <Button variant="ghost" icon="external-link" label={t('Ver objeto')} onPress={() => { const tag = tags.find(item => item.id === activeConversation.tagId); if (!tag) return; setConversationTag(activeConversation); setChat(undefined); setSelected(tag); }} style={{ minHeight: 44, paddingHorizontal: 10 }}>{t('Ver objeto')}</Button> : undefined}>
-      <Conversation key={chat} id={chat} token={token} finder={finderChat} presentation="sheet" />
-    </AccountActionSheet>}
   </View>;
 }
 

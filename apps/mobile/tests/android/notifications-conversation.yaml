@@ -1,0 +1,42 @@
+appId: app.seekertag.mobile
+name: Notifications and conversation load without push registration flooding
+---
+# Signed-in English test account with the existing open conversation supplied
+# by QA_CHAT_OBJECT_NAME. Opening it marks it read; no message is sent.
+- launchApp
+- extendedWaitUntil:
+    visible: "Add item"
+    timeout: 30000
+- tapOn: "Notifications.*"
+- extendedWaitUntil:
+    visible: ".*${QA_CHAT_OBJECT_NAME}\\. Hi!.*"
+    timeout: 10000
+- assertNotVisible: ".*Too many attempts.*"
+- assertNotVisible: ".*Could not connect.*"
+- takeScreenshot: notifications-loaded
+- tapOn: ".*${QA_CHAT_OBJECT_NAME}\\. Hi!.*"
+- extendedWaitUntil:
+    visible: "Message"
+    timeout: 10000
+- assertNotVisible: "Loading conversation"
+- assertNotVisible: ".*Too many attempts.*"
+- assertNotVisible: ".*Could not connect.*"
+- takeScreenshot: notification-conversation-loaded
+- tapOn: "View item"
+- assertVisible: "Your tag"
+- back
+- assertVisible: "Message"
+- back
+- assertVisible: "Notifications"
+- back
+- tapOn:
+    id: "tab-messages"
+- runFlow: navigation-conversation.yaml
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Add item"
+    timeout: 10000
+- assertNotVisible: ".*Too many attempts.*"
+- assertNotVisible: ".*Could not connect.*"

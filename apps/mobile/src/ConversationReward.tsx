@@ -10,7 +10,7 @@ import { Address } from './RewardReview';
 import { rewardLocked } from './reward.model';
 
 type State = { reward: RewardView | null; recipient: string | null; tagId: string };
-export default function ConversationReward({ id, token, finder, open, onLocked, onReleased, showSummary = true, amount = 0, currency = 'SOL' }: { id: string; token: string; finder: boolean; open: boolean; onLocked: (locked: boolean) => void; onReleased: () => void; showSummary?: boolean; amount?: number; currency?: string }) {
+export default function ConversationReward({ id, token, finder, open, onLocked, onReleased, showSummary = true, amount = 0, currency = 'SOL', onReceivingWallet, refreshKey = 0 }: { id: string; token: string; finder: boolean; open: boolean; onLocked: (locked: boolean) => void; onReleased: () => void; showSummary?: boolean; amount?: number; currency?: string; onReceivingWallet?: () => void; refreshKey?: number }) {
   const { C, s, t } = useUI();
   const [data, setData] = useState<State>();
   const [error, setError] = useState('');
@@ -40,7 +40,7 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
     alive.current = true; void load(); const timer = setInterval(() => { if (!show) void load(); }, 6000);
     const subscription = AppState.addEventListener('change', state => { if (state === 'active' && !show) void load(); });
     return () => { alive.current = false; clearInterval(timer); subscription.remove(); };
-  }, [load, show]);
+  }, [load, show, refreshKey]);
   if (!data && !error) return <View style={{ gap: 16 }} accessibilityLabel={t('Carregando recompensa')}>
     <View style={[s.card, { gap: 14 }]}>
       <View style={{ width: '44%', height: 18, borderRadius: 9, backgroundColor: C.surface }} />
@@ -54,7 +54,7 @@ export default function ConversationReward({ id, token, finder, open, onLocked, 
     {!!error && <><Notice error text={error} /><Button variant="ghost" onPress={() => void load()}>{t('Tentar novamente')}</Button></>}
     {open && data && rewardLocked(data.reward) && (finder ? <>
       {data.recipient ? <Address label={t('Sua carteira de recebimento')} address={data.recipient} /> : <>
-        <Button variant="accent" icon="edit-3" onPress={() => setReceivingWallet(true)}>{t('Informar carteira de recebimento')}</Button>
+        <Button variant="accent" icon="edit-3" onPress={onReceivingWallet || (() => setReceivingWallet(true))}>{t('Informar carteira de recebimento')}</Button>
       </>}
     </> : <>
       {!data.recipient && <Notice text={t('Quem encontrou precisa confirmar a carteira de recebimento na conversa.')} />}

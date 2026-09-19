@@ -1,0 +1,29 @@
+appId: app.seekertag.mobile
+name: Account pages and selectors return one level at a time
+---
+# Signed-in English dashboard. No preference or category is saved.
+- tapOn: "My account"
+- scrollUntilVisible:
+    element: "Categories"
+    direction: DOWN
+- tapOn: "Categories"
+- assertVisible: "Create category"
+- tapOn: "Create category"
+- assertVisible: "New category"
+- back
+- assertVisible: "Create category"
+- back
+- assertVisible: "My account"
+- assertNotVisible: "Create category"
+- scrollUntilVisible:
+    element: "Appearance.*"
+    direction: UP
+- tapOn: "Appearance.*"
+- assertVisible:
+    id: "preference-theme-light"
+- back
+- assertNotVisible:
+    id: "preference-theme-light"
+- assertVisible: "My account"
+- back
+- assertVisible: "Add item"

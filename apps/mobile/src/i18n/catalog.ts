@@ -1,6 +1,11 @@
 // Portuguese source messages, followed by English and Spanish translations.
 import { rewards } from './rewards.ts';
 export const catalog: Record<string, readonly [string, string]> = {
+  'Descartar alterações?': ['Discard changes?', '¿Descartar cambios?'],
+  'As alterações não salvas serão perdidas.': ['Unsaved changes will be lost.', 'Se perderán los cambios sin guardar.'],
+  'Continuar editando': ['Keep editing', 'Seguir editando'],
+  'Descartar': ['Discard', 'Descartar'],
+  'Voltar ao objeto': ['Back to item', 'Volver al objeto'],
   "As notificações ainda não estão disponíveis neste servidor.": ["Notifications are not available on this server yet.", "Las notificaciones aún no están disponibles en este servidor."],
   "Tags": ["Tags", "Tags"],
   "Notificações": ["Notifications", "Notificaciones"],
@@ -74,6 +79,7 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Ex.: Minha mochila verde': ['E.g. My green backpack', 'Ej.: Mi mochila verde'],
   'Categoria': ['Category', 'Categoría'], 'Categorias': ['Categories', 'Categorías'],
   'Gerenciar categorias': ['Manage categories', 'Administrar categorías'],
+  'Carregando categorias…': ['Loading categories…', 'Cargando categorías…'],
   'Mochila': ['Backpack', 'Mochila'], 'Mala': ['Luggage', 'Maleta'], 'Chaves': ['Keys', 'Llaves'],
   'Pet': ['Pet', 'Mascota'], 'Eletrônico': ['Electronics', 'Electrónica'], 'Outro': ['Other', 'Otro'],
   'Criar categoria': ['Create category', 'Crear categoría'], 'Nova categoria': ['New category', 'Nueva categoría'],

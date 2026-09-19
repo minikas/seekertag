@@ -1,10 +1,9 @@
 import React, { PropsWithChildren, useMemo, useState } from 'react';
-import { ActivityIndicator, Keyboard, Modal, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import Pressable from './HapticPressable';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { BottomSheetModalProvider, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import Screen from './Screen';
+import { PageLayer } from './Navigation';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Feather from '@expo/vector-icons/Feather';
 import { usePreferences } from './PreferencesProvider';
 import { Colors, darkColors, lightColors } from './theme';
@@ -60,26 +59,12 @@ export function Pill({ status }: { status: 'active' | 'lost' | 'paused' }) {
   return <View style={[s.pill, { backgroundColor }]}><View style={{ height: 6, width: 6, borderRadius: 3, backgroundColor: color }} /><Text style={{ fontSize: 13, fontWeight: '500', color }}>{label}</Text></View>;
 }
 
-// Detail screens use full-screen navigation. Short help and forms use Gorhom sheets.
-// The app-level KeyboardProvider also tracks native Modals. Nested providers
-// overwrite Android modal dismissal listeners and leave the root keyboard suspended.
-export function Sheet({ title, subtitle, onClose, children, footer, headerRight, overlay, contentKey, dismissible = true }: PropsWithChildren<{ title: string; subtitle?: string; onClose: () => void; footer?: React.ReactNode; headerRight?: React.ReactNode; overlay?: React.ReactNode; contentKey?: string; dismissible?: boolean }>) {
-  const { C, s, t, locale } = useUI();
-  return <Modal visible animationType="slide" onRequestClose={() => { if (Keyboard.isVisible()) Keyboard.dismiss(); else if (dismissible) onClose(); }}>
-    <GestureHandlerRootView style={{ flex: 1 }}><BottomSheetModalProvider><SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-      <View style={{ flex: 1 }} accessibilityElementsHidden={!!overlay} importantForAccessibility={overlay ? "no-hide-descendants" : "auto"}>
-      <View style={s.screenHeader}>
-        {dismissible ? <Button variant="ghost" onPress={onClose} icon="arrow-left" label={t("Fechar")} /> : <View style={{ width: 48 }} />}
-        <Text accessibilityRole="header" style={s.screenTitle}>{title}</Text>{headerRight || <View style={{ width: 48 }} />}
-      </View>
-      <KeyboardAwareScrollView mode="layout" disableScrollOnKeyboardHide key={contentKey} style={{ flex: 1 }} bottomOffset={24} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 20, paddingBottom: 36, gap: 24, width: '100%', maxWidth: 600, alignSelf: 'center' }}>
-        {!!subtitle && <Text style={s.body}>{subtitle}</Text>}{children}
-      </KeyboardAwareScrollView>
-      {!!footer && <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, width: '100%', maxWidth: 600, alignSelf: 'center' }}>{footer}</View>}
-      </View>
-      {overlay}
-    </SafeAreaView></BottomSheetModalProvider></GestureHandlerRootView>
-  </Modal>;
+// Full-screen pages stay in the same window as the shared sheet portal.
+export function Sheet({ title, subtitle, onClose, children, ...props }: PropsWithChildren<{ title: string; subtitle?: string; onClose: () => void; footer?: React.ReactNode; headerRight?: React.ReactNode; overlay?: React.ReactNode; contentKey?: string; dismissible?: boolean; scrollable?: boolean }>) {
+  const { s } = useUI();
+  return <PageLayer><Screen title={title} onClose={onClose} {...props}>
+    {!!subtitle && <Text style={s.body}>{subtitle}</Text>}{children}
+  </Screen></PageLayer>;
 }
 
 export const formatDate = (date: string, locale: string) => new Date(date).toLocaleDateString(locale, { day: 'numeric', month: 'short' });

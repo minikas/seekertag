@@ -2,7 +2,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ActivityIndicator, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { api, Provider, Report, Tag, User } from './api';
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
@@ -14,16 +14,25 @@ import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
 import { finderFormSchema, type FinderFormValues } from './form.model';
 import { authenticate, AuthAvailability } from './platform/auth';
 import ProviderButton from './ProviderButton';
+import { NavigationScope, useNavigationLayer } from './Navigation';
 import AccountActionSheet from './AccountActionSheet';
 import { translateNotice } from './i18n';
 import Pressable from './HapticPressable';
 
 export default function Found({ code, chatId, token, goHome, goChat, onAuth }: { code?: string; chatId?: string; token: string | null; goHome: () => void; goChat: (id: string) => void; onAuth: (token: string, user: User) => Promise<void> }) {
   const { C, s, t, locale } = useUI();
+  const layer = useNavigationLayer(() => requestBack());
   const styles = useThemedStyles(makeStyles);
   const [viewerIsOwner, setViewerIsOwner] = useState(false); const [account, setAccount] = useState(false); const [availability, setAvailability] = useState<AuthAvailability>(); const [provider, setProvider] = useState<Provider | null>(null);
   const [tag, setTag] = useState<Tag>(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [chatToken, setChatToken] = useState<string | null>(null);
-  const { control, handleSubmit, watch, formState: { errors } } = useForm<FinderFormValues>({ resolver: zodResolver(finderFormSchema), mode: 'onChange', defaultValues: { finderName: '', message: '' } });
+  const { control, handleSubmit, watch, formState: { errors, isDirty } } = useForm<FinderFormValues>({ resolver: zodResolver(finderFormSchema), mode: 'onChange', defaultValues: { finderName: '', message: '' } });
+  function requestBack() {
+    if (busy) return;
+    if (!chatId && isDirty) Alert.alert(t('Descartar alterações?'), t('As alterações não salvas serão perdidas.'), [
+      { text: t('Continuar editando'), style: 'cancel' },
+      { text: t('Descartar'), style: 'destructive', onPress: goHome },
+    ]); else goHome();
+  }
   const message = watch('message');
   useEffect(() => {
     let live = true;
@@ -77,13 +86,14 @@ export default function Found({ code, chatId, token, goHome, goChat, onAuth }: {
     finally { setProvider(null); }
   }
   const cat = { color: tag?.color || C.raised, icon: (tag?.categoryIcon || 'box') as IconName };
-  return <View style={{ flex: 1, backgroundColor: C.bg }}>
+  return <NavigationScope path={layer.path}><View style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={{ flex: 1 }} accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? "auto" : "no-hide-descendants"}>
     <View style={s.screenHeader}>
-      <Button variant="ghost" icon="arrow-left" onPress={goHome} label={t("Página inicial")} />
+      <Button variant="ghost" icon="arrow-left" onPress={requestBack} disabled={busy} label={t("Voltar")} />
       <Text accessibilityRole="header" style={s.screenTitle}>{chatId ? t("Conversa") : t("Devolver objeto")}</Text>
       <View style={{ width: 48 }} />
     </View>
-    <KeyboardAwareScrollView mode="layout" bottomOffset={24} disableScrollOnKeyboardHide keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={styles.content}>
+    {chatId && chatToken ? <Conversation id={chatId} token={chatToken} finder historyFooter={!token ? <AccountPrompt onPress={() => setAccount(true)} /> : undefined} /> : <KeyboardAwareScrollView mode="layout" bottomOffset={24} disableScrollOnKeyboardHide keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={styles.content}>
       {loading && <View style={styles.loadingState} accessibilityLabel={t('Carregando etiqueta')}>
         <View style={styles.skeletonIdentity}>
           <View style={[styles.skeletonBlock, { height: 64, width: 64, borderRadius: 22 }]} />
@@ -107,7 +117,7 @@ export default function Found({ code, chatId, token, goHome, goChat, onAuth }: {
         </View>
       </View>}
       {!!error && <Notice error text={error} />}
-      {chatId && chatToken ? <><Conversation id={chatId} token={chatToken} finder />{!token && <AccountPrompt onPress={() => setAccount(true)} />}</> : tag ? <>
+      {tag ? <>
         <View style={styles.identity}>
           <View style={[styles.itemIcon, { backgroundColor: cat.color }]}><Icon name={cat.icon} color={categoryInk(cat.color)} size={28} /></View>
           <View style={{ flex: 1, gap: 4 }}><Text accessibilityRole="header" style={s.h2}>{tag.name}</Text><Text style={s.body}>{tagCategoryLabel(tag, t)}</Text></View>
@@ -126,7 +136,8 @@ export default function Found({ code, chatId, token, goHome, goChat, onAuth }: {
         <View style={[s.row, { alignItems: 'flex-start' }]}><Icon name="shield" size={16} color={C.muted} /><Text style={[s.small, { flex: 1 }]}>{t("Converse pelo app sem compartilhar seus contatos.")}</Text></View>
         </>}
       </> : null}
-    </KeyboardAwareScrollView>
+    </KeyboardAwareScrollView>}
+    </View>
     {account && <AccountActionSheet title={t('Salvar conversa na conta')} busy={!!provider} onClose={() => setAccount(false)}><View style={styles.methods}>
       <Text style={s.body}>{t('Use sua conta SeekerTag para retomar esta conversa em qualquer celular.')}</Text>
       <ProviderButton align="left" provider="solana" label={t('Continuar com Seeker / Solana')} busy={provider === 'solana'} disabled={!!provider && provider !== 'solana'} onPress={() => void login('solana')} />
@@ -134,7 +145,7 @@ export default function Found({ code, chatId, token, goHome, goChat, onAuth }: {
       <ProviderButton align="left" provider="google" label={t('Continuar com Google')} busy={provider === 'google'} disabled={!availability || (!!provider && provider !== 'google')} unavailable={availability?.google === false} onPress={() => void login('google')} />
       <ProviderButton align="left" provider="apple" label={t('Continuar com Apple')} busy={provider === 'apple'} disabled={!availability || (!!provider && provider !== 'apple')} unavailable={availability?.apple === false} onPress={() => void login('apple')} />
     </View></AccountActionSheet>}
-  </View>;
+  </View></NavigationScope>;
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({

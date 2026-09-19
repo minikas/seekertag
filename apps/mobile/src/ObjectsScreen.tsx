@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, FlatList, Keyboard, Modal, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Keyboard, Modal, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Tag } from './api';
 import Pressable from './HapticPressable';
 import { objectCount } from './i18n';
 import ScreenBottomSheet from './ScreenBottomSheet';
+import { NavigationScope, useNavigationLayer } from './Navigation';
 import TagRow from './TagRow';
 import { matchesTagFilter, searchTags, TagFilter } from './tag-search.model';
 import { Button, Field, Icon, IconName, Notice, useUI } from './ui';
@@ -18,9 +19,9 @@ const filters: { key: TagFilter; name: string; icon: IconName }[] = [
   { key: 'paused', name: 'Arquivados', icon: 'archive' },
 ];
 
-type Props = { tags: Tag[]; initialFilter: TagFilter; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean; embedded?: boolean; onAdd?: () => void; loading?: boolean };
+type Props = { tags: Tag[]; initialFilter: TagFilter; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean; embedded?: boolean; onAdd?: () => void; loading?: boolean; filterRevision?: number; active?: boolean };
 
-export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, refreshing, onRefresh, error, covered, suspended, embedded = false, onAdd, loading = false }: Props) {
+export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, refreshing, onRefresh, error, covered, suspended, embedded = false, onAdd, loading = false, filterRevision = 0, active = true }: Props) {
   const { C, s, t, locale } = useUI();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<TagFilter>(initialFilter);
@@ -37,12 +38,8 @@ export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, 
     else close();
   };
 
-  useEffect(() => { setFilter(initialFilter); resetScroll(); }, [initialFilter]);
-  useEffect(() => {
-    if (!embedded || covered) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { requestClose(); return true; });
-    return () => sub.remove();
-  }, [embedded, covered, filterOpen, onClose]);
+  useEffect(() => { setFilter(initialFilter); resetScroll(); }, [initialFilter, filterRevision]);
+  const layer = useNavigationLayer(requestClose, false, embedded && active);
   const content = <View style={[styles.fill, { backgroundColor: C.bg }]}>
         <View style={styles.fill} accessibilityElementsHidden={filterOpen || covered} importantForAccessibility={filterOpen || covered ? 'no-hide-descendants' : 'auto'}>
           <View style={s.screenHeader}>
@@ -62,7 +59,7 @@ export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, 
               </Pressable>}
             </View>
             <View>
-              <Field hideLabel label={t('Buscar objetos')} placeholder={t('Buscar por nome ou categoria')} value={search} onChangeText={changeSearch}
+              <Field testID="object-search" hideLabel label={t('Buscar objetos')} placeholder={t('Buscar por nome ou categoria')} value={search} onChangeText={changeSearch}
                 autoCorrect={false} autoCapitalize="none" returnKeyType="search" onSubmitEditing={Keyboard.dismiss} style={styles.searchInput} />
               <View pointerEvents="none" style={styles.searchIcon}><Icon name="search" size={22} color={C.muted} /></View>
               {!!search && <View style={styles.clearSearch}><Button variant="ghost" icon="x" label={t('Limpar busca')} onPress={() => changeSearch('')} /></View>}
@@ -93,7 +90,7 @@ export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, 
           </Pressable>)}</View>
         </ScreenBottomSheet>}
   </View>;
-  if (embedded) return content;
+  if (embedded) return <NavigationScope path={layer.path}>{content}</NavigationScope>;
   // Retain native-modal support for callers outside the tab navigator.
   return <Modal visible={!suspended} animationType="slide" onRequestClose={requestClose}><GestureHandlerRootView style={styles.fill}><SafeAreaView style={[styles.fill, { backgroundColor: C.bg }]}>{content}</SafeAreaView></GestureHandlerRootView></Modal>;
 }

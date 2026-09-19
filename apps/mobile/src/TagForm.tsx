@@ -3,7 +3,7 @@ import { Colors } from './theme';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { BackHandler, Keyboard, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import Pressable from './HapticPressable';
 import {
   BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFooter, BottomSheetFooterProps,
@@ -26,6 +26,7 @@ import RewardEditorSheet from './RewardEditorSheet';
 import RewardSummary, { RewardPendingNotice, RewardNetworkBadge } from './RewardSummary';
 import AccountActionSheet from './AccountActionSheet';
 import { tagFormSchema, type TagFormValues } from './form.model';
+import { NavigationScope, useNavigationLayer } from './Navigation';
 import { authenticate } from './platform/auth';
 
 export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSaved, onCategoriesChanged, focusReward = false }: { token: string; user: User; onUserUpdated: (user: User) => void; tag?: Tag; focusReward?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
@@ -35,16 +36,14 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const formScroll = useRef<KeyboardAwareSheetScrollViewRef>(null);
   const focusedReward = useRef(false);
   const rewardSheet = useRef<BottomSheetModal>(null);
-  const [renewSheetOpen, setRenewSheetOpen] = useState(false);
   const [rewardOpen, setRewardOpen] = useState(false);
-  const rewardOpenRef = useRef(rewardOpen); rewardOpenRef.current = rewardOpen;
   const insets = useSafeAreaInsets();
   const snapPoints = useMemo(() => ['78%', '96%'], []);
   const saving = useRef(false);
   const closing = useRef(false);
   const mounted = useRef(false);
   const savedTag = useRef<Tag | null>(null);
-  const { control, handleSubmit, watch, formState: { errors } } = useForm<TagFormValues>({
+  const { control, handleSubmit, watch, reset, formState: { errors, isDirty } } = useForm<TagFormValues>({
     resolver: zodResolver(tagFormSchema), mode: 'onChange',
     defaultValues: { name: tag?.name || '', description: tag?.description || '', publicMessage: tag?.publicMessage || t("Obrigado por cuidar do que é importante para mim. Me envie uma mensagem para combinarmos a devolução.") },
   });
@@ -52,8 +51,11 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const [categories, setCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState(tag?.categoryId || '');
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState('');
+  const [categoriesRevision, setCategoriesRevision] = useState(0);
   const [managingCategories, setManagingCategories] = useState(false);
-  const categoryScreenOpen = useRef(false);
+  const initialCategory = useRef(tag?.categoryId);
+  const guard = useRef({ dirty: false, t });
   const lastSheetIndex = useRef(0);
   const [sheetIndex, setSheetIndex] = useState(-1);
   const [currentTag, setCurrentTag] = useState(tag);
@@ -61,6 +63,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const supported = !tag?.rewardCurrency || ['SOL', 'USDC', 'SKR'].includes(tag.rewardCurrency);
   const [reward, setReward] = useState(supported && tag?.rewardAmount ? rewardInput(String(tag.rewardAmount), locale) : '');
   const [currency, setCurrency] = useState<RewardCurrency>(supported ? (tag?.rewardCurrency as RewardCurrency || 'SKR') : 'SKR');
+  const initialReward = useRef({ reward, currency, quantity: '30', unit: 'days' });
   const [legacyReward, setLegacyReward] = useState(!supported && !!tag?.rewardAmount);
   const [quantity, setQuantity] = useState('30');
   const [unit, setUnit] = useState<ReservationUnit>('days');
@@ -84,6 +87,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const activeReward = wallet.data ? wallet.data.reward : currentTag?.reward;
   const waiting = wallet.operation?.status === 'submitted' || rewardAwaitingConfirmation(activeReward);
   const editingDisabled = busy || waiting || wallet.loading;
+  const categoriesDisabled = busy || waiting;
   const lockedReward = rewardLocked(activeReward) || !!wallet.operation;
   const period = reservationSeconds(quantity, unit);
   const durationValid = !!period && (!renewing || reservationDeadline(period, activeReward?.refundAfter).getTime() <= Date.now() + MAX_REWARD_SECONDS * 1000);
@@ -107,40 +111,39 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const [error, setError] = useState('');
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
   const applyCategories = useCallback((next: Category[]) => {
+    if (initialCategory.current === undefined) initialCategory.current = next[0]?.id || '';
     setCategories(next);
+    setCategoriesError('');
     setCategory(current => next.some(c => c.id === current) ? current : next[0]?.id || '');
   }, []);
   useEffect(() => {
     let live = true;
+    setCategoriesLoading(true); setCategoriesError('');
     void api<{ categories: Category[] }>('/categories', token).then(result => { if (live) applyCategories(result.categories); })
-      .catch(cause => { if (live) setError(cause.message); }).finally(() => { if (live) setCategoriesLoading(false); });
+      .catch(cause => { if (live) setCategoriesError(cause.message); }).finally(() => { if (live) setCategoriesLoading(false); });
     return () => { live = false; };
-  }, [token, applyCategories]);
+  }, [token, applyCategories, categoriesRevision]);
 
+  const dirty = isDirty || (initialCategory.current !== undefined && category !== initialCategory.current) || reward !== initialReward.current.reward || currency !== initialReward.current.currency || quantity !== initialReward.current.quantity || unit !== initialReward.current.unit;
+  guard.current = { dirty, t };
   const close = useCallback(() => {
     if (saving.current || busyRef.current || closing.current) return;
-    closing.current = true;
-    Keyboard.dismiss();
-    sheet.current?.dismiss();
+    const dismiss = () => { closing.current = true; Keyboard.dismiss(); sheet.current?.dismiss(); };
+    if (guard.current.dirty) Alert.alert(guard.current.t('Descartar alterações?'), guard.current.t('As alterações não salvas serão perdidas.'), [
+      { text: guard.current.t('Continuar editando'), style: 'cancel' },
+      { text: guard.current.t('Descartar'), style: 'destructive', onPress: dismiss },
+    ]); else dismiss();
   }, []);
-
+  const layer = useNavigationLayer(close, true);
   useEffect(() => {
-    if (managingCategories) return;
-    categoryScreenOpen.current = false;
     mounted.current = true;
     const modal = sheet.current;
     modal?.present();
-    const back = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (Keyboard.isVisible()) Keyboard.dismiss();
-      else if (rewardOpenRef.current) { if (!busyRef.current) rewardSheet.current?.dismiss(); }
-      else close();
-      return true;
-    });
-    return () => { mounted.current = false; back.remove(); modal?.dismiss(); };
-  }, [close, managingCategories]);
+    return () => { mounted.current = false; modal?.dismiss(); };
+  }, []);
 
   function finishDismiss() {
-    if (!mounted.current || categoryScreenOpen.current) return;
+    if (!mounted.current) return;
     Keyboard.dismiss();
     if (savedTag.current) onSaved(savedTag.current);
     else onClose();
@@ -163,6 +166,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
       // Creation is durable before preparing a deposit. A retry edits this same
       // tag, so backing out of wallet review never creates a duplicate object.
       savedTag.current = saved; currentTagRef.current = saved; setCurrentTag(saved);
+      reset(values); initialCategory.current = category; initialReward.current = { reward, currency, quantity, unit };
       if (kind) {
         const ready = await wallet.review(kind, { amount: canonicalRewardAmount(reward), currency, durationSeconds: period || undefined }, saved.id);
         if (ready && mounted.current) { setRefundConfirm(false); setReviewing(true); setRewardOpen(true); }
@@ -187,7 +191,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     } finally { if (mounted.current) setConnectingWallet(false); }
   }
 
-  const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.6} pressBehavior={busy ? 'none' : 'close'} onPress={() => { closing.current = true; Keyboard.dismiss(); }} accessible={!busy} accessibilityLabel={t("Fechar formulário")} accessibilityHint={t("Fecha o formulário sem salvar.")} />, [busy, t]);
+  const backdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.35} pressBehavior="none" onPress={close} accessible={!busy} accessibilityLabel={t('Fechar formulário')} />, [busy, close, t]);
   // Keep the footer mounted while typing; the action always reads current fields.
   const saveDisabled = waiting || categoriesLoading || !category || !name.trim() || !!errors.name || wallet.loading || (!lockedReward && !!reward && (!amountValid || wantsReward && !canReserve)) || renewing && !durationValid;
   const footerError = error || wallet.error;
@@ -198,33 +202,29 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   const saveAction = useRef(save);
   useLayoutEffect(() => { saveAction.current = save; });
   const footer = useCallback((props: BottomSheetFooterProps) => <BottomSheetFooter {...props}>
-    <View onLayout={event => setFooterHeight(event.nativeEvent.layout.height)} style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+    <View accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? 'auto' : 'no-hide-descendants'} onLayout={event => setFooterHeight(event.nativeEvent.layout.height)} style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
       {!!footerError && <Notice error text={footerError} />}
       <Button onPress={() => void saveAction.current()} busy={busy} disabled={saveDisabled} icon={currentTag ? 'check' : 'plus'}>{actionLabel}</Button>
     </View>
-  </BottomSheetFooter>, [busy, footerError, insets.bottom, !!currentTag, styles, saveDisabled, actionLabel, reviewing, operationId, reviewPrepared, reviewKind, t]);
+  </BottomSheetFooter>, [busy, footerError, insets.bottom, !!currentTag, styles, saveDisabled, actionLabel, reviewing, operationId, reviewPrepared, reviewKind, t, layer.active]);
 
   // Let Gorhom measure the entire fixed header as its handle, so the scroll
   // viewport and keyboard calculations exclude this space.
   const handle = useCallback((props: BottomSheetHandleProps) => <View>
     <BottomSheetHandle {...props} indicatorStyle={styles.handle} />
-    <View style={styles.header}>
-      <Text accessibilityRole="header" style={[s.h2, { flex: 1 }]}>{currentTag ? t("Editar objeto") : t("Adicionar objeto")}</Text>
+    <View style={styles.header} pointerEvents={layer.active ? 'auto' : 'none'} accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? 'auto' : 'no-hide-descendants'}>
+      <Text accessibilityRole="header" style={[s.h2, { flex: 1 }]}>{currentTag ? t("Editar objeto") : t("Adicionar objeto")}</Text><Button variant="ghost" icon="x" label={t("Fechar formulário")} disabled={busy} onPress={close} />
     </View>
-  </View>, [!!currentTag, s, styles, t, reviewing, operationId, busy, waiting]);
+  </View>, [!!currentTag, s, styles, t, reviewing, operationId, busy, waiting, close, layer.active]);
 
-  // Keep the draft in this component while presenting only one keyboard surface.
-  // An Android Modal over an interactive sheet can change its hidden keyboard offset.
-  if (managingCategories) return <Categories token={token} onClose={() => setManagingCategories(false)} onChanged={next => { applyCategories(next); onCategoriesChanged(); }} />;
-
-  return <><BottomSheetModal
+  return <NavigationScope path={layer.path}><BottomSheetModal stackBehavior="push"
     ref={sheet}
     name="object-form"
     index={lastSheetIndex.current}
     onChange={index => { setSheetIndex(index); if (index >= 0) lastSheetIndex.current = index; }}
     snapPoints={snapPoints}
     enableDynamicSizing={false}
-    enablePanDownToClose={!busy}
+    enablePanDownToClose={!busy && !dirty}
     enableHandlePanningGesture={!busy}
     enableContentPanningGesture={!busy}
     enableBlurKeyboardOnGesture={false}
@@ -241,8 +241,9 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     onDismiss={finishDismiss}
     accessibilityLabel={tag ? t("Editar objeto") : t("Adicionar objeto")}
   >
-    <KeyboardAwareSheetScrollView
+    <NavigationScope path={layer.path}><KeyboardAwareSheetScrollView
       ref={formScroll}
+      accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? 'auto' : 'no-hide-descendants'}
       key="form"
       mode="layout"
       disableScrollOnKeyboardHide
@@ -254,7 +255,14 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     >
       {waiting && <RewardPendingNotice />}
       <Controller control={control} name="name" render={({ field }) => <Field inSheet testID="object-name" label={t("Nome do objeto")} placeholder={t("Ex.: Minha mochila verde")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.name?.message} maxLength={80} editable={!editingDisabled} />} />
-      <View style={{ gap: 12 }}><Text style={s.label}>{t("Categoria")}</Text><View style={styles.categories}>{categories.map(c => <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={categoryLabel(c, t)} accessibilityState={{ selected: c.id === category, disabled: editingDisabled }} disabled={editingDisabled} onPress={() => setCategory(c.id)} style={({ pressed }) => [styles.category, { backgroundColor: c.id === category ? C.primary : C.secondary, opacity: pressed || editingDisabled ? 0.65 : 1 }]}><Icon name={c.icon as IconName} size={20} color={c.id === category ? C.onPrimary : C.ink} /><Text style={{ color: c.id === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{categoryLabel(c, t)}</Text></Pressable>)}</View><Button variant="ghost" icon="edit-2" onPress={() => { categoryScreenOpen.current = true; Keyboard.dismiss(); setManagingCategories(true); }} disabled={editingDisabled}>{t("Gerenciar categorias")}</Button></View>
+      <View style={{ gap: 12 }}>
+        <Text style={s.label}>{t("Categoria")}</Text>
+        {categoriesLoading && <View style={s.row} accessibilityLiveRegion="polite"><ActivityIndicator color={C.accent} /><Text style={s.small}>{t('Carregando categorias…')}</Text></View>}
+        <View style={styles.categories}>{categories.map(c => <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={categoryLabel(c, t)} accessibilityState={{ selected: c.id === category, disabled: categoriesDisabled }} disabled={categoriesDisabled} onPress={() => setCategory(c.id)} style={({ pressed }) => [styles.category, { backgroundColor: c.id === category ? C.primary : C.secondary, opacity: pressed || categoriesDisabled ? 0.65 : 1 }]}><Icon name={c.icon as IconName} size={20} color={c.id === category ? C.onPrimary : C.ink} /><Text style={{ color: c.id === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{categoryLabel(c, t)}</Text></Pressable>)}</View>
+        {!!categoriesError && <><Notice error text={categoriesError} /><Button variant="secondary" disabled={categoriesLoading || categoriesDisabled} onPress={() => setCategoriesRevision(value => value + 1)}>{t('Tentar novamente')}</Button></>}
+        {!categoriesLoading && !categoriesError && !categories.length && <Text style={s.small}>{t('Crie sua primeira categoria.')}</Text>}
+        <Button variant="ghost" icon="edit-2" onPress={() => { Keyboard.dismiss(); setManagingCategories(true); }} disabled={categoriesDisabled}>{t("Gerenciar categorias")}</Button>
+      </View>
       <Controller control={control} name="description" render={({ field }) => <Field inSheet testID="object-note" label={t("Anotação particular (opcional)")} placeholder={t("Modelo, cor ou algum detalhe")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.description?.message} maxLength={500} help={t("Só você vê esta anotação.")} editable={!editingDisabled} />} />
       <Controller control={control} name="publicMessage" render={({ field }) => <Field inSheet testID="object-message" label={t("Mensagem na etiqueta")} multiline scrollEnabled style={{ maxHeight: 160 }} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.publicMessage?.message} maxLength={500} help={t("Quem escanear o QR verá esta mensagem. Evite colocar telefone ou endereço.")} editable={!editingDisabled} />} />
       <Pressable accessibilityRole="button" accessibilityLabel={t(needsWallet ? 'Conecte sua carteira para adicionar uma recompensa' : 'Recompensa (Opcional)')} accessibilityState={{ disabled: busy || wallet.loading || connectingWallet }} disabled={busy || wallet.loading || connectingWallet}
@@ -266,11 +274,11 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         </View>}
         {connectingWallet ? <Icon name="loader" size={20} color={C.muted} /> : <Icon name={waiting ? 'clock' : 'chevron-right'} size={20} color={C.muted} />}
       </Pressable>
-    </KeyboardAwareSheetScrollView>
+    </KeyboardAwareSheetScrollView></NavigationScope>
   </BottomSheetModal>
     {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
       titleAccessory={reviewing && wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
-      title={waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
+      title={renewing && !reviewing ? t('Renovar reserva') : waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => {
         setRewardOpen(false);
@@ -281,7 +289,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         }
         if (closing.current) sheet.current?.dismiss();
       }}
-      onBack={reviewing && !waiting ? () => { wallet.discardReview(); setReviewing(false); } : undefined}
+      onBack={renewing && !reviewing ? () => setRenewing(false) : reviewing && !waiting ? () => { wallet.discardReview(); setReviewing(false); } : undefined}
       footer={<>
         {!!footerError && <Notice error text={footerError} />}
         {reviewing && operationId ? <Button variant={reviewPrepared ? reviewKind === 'refund' ? 'warning' : 'success' : 'secondary'} icon={reviewPrepared ? 'check' : 'refresh-cw'} busy={busy} disabled={reviewPrepared && reviewKind === 'release'} onPress={() => { if (reviewPrepared) void walletAction.current.approve(); else void walletAction.current.retry(); }}>{reviewPrepared ? t('Assinar na carteira') : t('Verificar transação')}</Button>
@@ -289,12 +297,12 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
           : ((lockedReward && activeReward?.status !== 'expired') || legacyReward || wantsReward) && <Button icon="check" disabled={busy || !lockedReward && wantsReward && !canReserve} onPress={() => { Keyboard.dismiss(); rewardSheet.current?.dismiss(); }}>{t('Concluir')}</Button>}
       </>}> 
       {reviewing && wallet.operation ? <RewardReview controller={wallet} /> : <>
-        {lockedReward ? <>
+        {renewing ? <RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} refundAfter={activeReward?.refundAfter} /> : lockedReward ? <>
           <View style={s.card}><RewardSummary reward={activeReward} amount={currentTag?.rewardAmount} currency={currentTag?.rewardCurrency} loading={wallet.loading} /></View>
           {wallet.operation ? <Button variant="accent" icon="shield" onPress={() => { Keyboard.dismiss(); setReviewing(true); }}>{t('Retomar revisão')}</Button> : <>
             {!renewing && activeReward?.refundAfter && <Text style={s.small}>{t('Cancelamento a partir de {date}', { date: new Date(activeReward.refundAfter).toLocaleString(locale) })}</Text>}
             {activeReward?.status === 'expired' && <>
-              <Button variant="accent" icon="refresh-cw" disabled={editingDisabled} onPress={() => { setRenewing(true); setRenewSheetOpen(true); }}>{t('Renovar reserva')}</Button>
+              <Button variant="accent" icon="refresh-cw" disabled={editingDisabled} onPress={() => { setRenewing(true); }}>{t('Renovar reserva')}</Button>
               {!renewing && <Button variant="warning" icon="corner-up-left" busy={busy} disabled={editingDisabled || !activeReward?.refundAfter || Date.parse(activeReward.refundAfter) > Date.now()} onPress={() => setRefundConfirm(true)}>{t('Cancelar e recuperar')}</Button>}
             </>}
             {activeReward?.status === 'unverified' && <Notice tone="warning" text={t('Não foi possível confirmar a reserva agora. Aguarde a conexão com a rede antes de continuar.')} />}
@@ -316,12 +324,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         </>}
       </>}
     </RewardEditorSheet>}
-    {renewSheetOpen && <AccountActionSheet title={t('Renovar reserva')} busy={busy} onBack={() => { setRenewSheetOpen(false); setRenewing(false); }} onClose={() => { if (!busy) { setRenewSheetOpen(false); setRenewing(false); } }}>
-      <View style={{ gap: 20 }}>
-        <RewardPeriod quantity={quantity} unit={unit} onQuantity={setQuantity} onUnit={setUnit} disabled={editingDisabled} refundAfter={activeReward?.refundAfter} />
-        <Button onPress={() => { setRenewSheetOpen(false); void save('renew'); }} busy={busy} disabled={saveDisabled}>{t('Salvar e revisar renovação')}</Button>
-      </View>
-    </AccountActionSheet>}
+    {managingCategories && <Categories presentation="sheet" token={token} onClose={() => { setManagingCategories(false); setCategoriesRevision(value => value + 1); }} onChanged={next => { applyCategories(next); onCategoriesChanged(); }} />}
     {refundConfirm && <AccountActionSheet busy={busy} onClose={() => { if (!busy) setRefundConfirm(false); }}>
       <View style={{ gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 14 }}><View style={[s.settingsIcon, { backgroundColor: C.amberSoft }]}><Icon name="corner-up-left" color={C.amber} size={24} /></View><Text style={[s.h2, { textAlign: 'center' }]}>{t('Cancelar e recuperar?')}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t('Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.')}</Text></View>
@@ -329,7 +332,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         <Button variant="ghost" disabled={busy} onPress={() => setRefundConfirm(false)}>{t('Cancelar')}</Button>
       </View>
     </AccountActionSheet>}
-  </>;
+  </NavigationScope>;
 }
 
 const makeStyles = (C: Colors) => StyleSheet.create({

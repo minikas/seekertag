@@ -1,0 +1,29 @@
+appId: app.seekertag.mobile
+name: Chat draft survives object lookup and conversation reopening
+---
+# Start in Conversations with an open owner conversation. Never sends a message.
+- tapOn: "Conversation about ${QA_CHAT_OBJECT_NAME}"
+- extendedWaitUntil:
+    visible: "Message"
+    timeout: 30000
+- tapOn: "Message"
+- inputText: "Navigation chat draft"
+- assertVisible: "Navigation chat draft"
+- takeScreenshot: conversation-composer-keyboard
+- back
+- takeScreenshot: conversation-composer-bottom
+- tapOn: "View item"
+- assertVisible: "Your tag"
+- takeScreenshot: object-over-conversation
+- back
+- assertVisible: "Navigation chat draft"
+- takeScreenshot: conversation-draft-restored
+- back
+- tapOn: "Conversation about ${QA_CHAT_OBJECT_NAME}"
+- assertVisible: "Navigation chat draft"
+- tapOn: "Message"
+- eraseText
+- back
+- back
+- tapOn: "My items"
+- assertVisible: "Add item"

@@ -1,4 +1,5 @@
 import Screen from './Screen';
+import { PageLayer } from './Navigation';
 import PreferenceOptions from './PreferenceOptions';
 import AccountActionSheet, { AccountActionSheetHandle } from './AccountActionSheet';
 import ReceiveLabels from './ReceiveLabels';
@@ -11,7 +12,7 @@ import Pressable from './HapticPressable';
 import Categories from './Categories';
 import { User } from './api';
 import { WalletPanel } from './platform/WalletPanel';
-import { Button, Icon, IconName, Notice, useUI } from './ui';
+import { Button, Icon, IconName, Notice, Sheet, useUI } from './ui';
 import { api } from './api';
 import type { RewardConfig, RewardNetwork } from '@seekertag/shared/reward';
 
@@ -36,11 +37,13 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
   }, [token]);
   const back = () => { if (sheet) { dismissSheet(); return; } setError(''); if (page === 'main') onClose(); else setPage('main'); };
   async function logout() { setBusy(true); setError(''); try { await onLogout(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
-  if (page === 'categories') return <Categories presentation="screen" token={token} onClose={() => setPage('main')} onChanged={onCategoriesChanged} />;
   return <View style={{ flex: 1 }}>
     <View style={{ flex: 1 }} importantForAccessibility={sheet ? 'no-hide-descendants' : 'auto'} accessibilityElementsHidden={!!sheet}>
-    <Screen contentKey={page} title={page === 'access' ? t("Formas de entrar") : t("Minha conta")} onClose={back} footer={page === 'main' ? <Button variant="danger" icon="log-out" busy={busy} onPress={() => void logout()}>{t("Sair da conta")}</Button> : undefined}>
-    {page === 'main' ? <>
+    <Screen title={t("Minha conta")} onClose={back} footer={<Button variant="danger" icon="log-out" busy={busy} onPress={() => void logout()}>{t("Sair da conta")}</Button>} overlay={<>
+      {page === 'categories' && <PageLayer><Categories presentation="screen" token={token} onClose={() => setPage('main')} onChanged={onCategoriesChanged} /></PageLayer>}
+      {page === 'access' && <Sheet title={t("Formas de entrar")} onClose={() => setPage('main')}><WalletPanel token={token} user={user} onUserUpdated={onUserUpdated} /></Sheet>}
+    </>}>
+    <>
       <View style={styles.identity}><View style={styles.identityIcon}><Icon name={user.walletAddress ? "credit-card" : "user"} size={30} color={C.muted} /></View><View style={{ flex: 1, gap: 6 }}><Text style={s.label}>{walletName ? t("Sua carteira") : t("Seu perfil")}</Text><Text style={styles.identityName}>{walletName ? shortAddress : user.name}</Text>{!!user.email && <Text style={s.small}>{user.email}</Text>}</View></View>
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>{t("Preferências")}</Text>
@@ -58,7 +61,7 @@ export default function Account({ token, user, onUserUpdated, onClose, onHelp, o
         <Text accessibilityRole="header" style={styles.sectionTitle}>{t("Ajuda")}</Text>
         <AccountRow icon="help-circle" title={t("Como funciona")} onPress={onHelp} />
       </View>
-    </> : <WalletPanel token={token} user={user} onUserUpdated={onUserUpdated} />}
+    </>
     {!!error && <Notice error text={error} />}
     </Screen>
     </View>

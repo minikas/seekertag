@@ -1,0 +1,22 @@
+appId: app.seekertag.mobile
+name: Sign-in and scanner return to the public entry
+---
+# Signed-out English app. Does not authenticate or grant permissions.
+- launchApp
+- tapOn: "Get started"
+- assertVisible: "Sign in to SeekerTag"
+- assertVisible: "Continue with Google"
+- back
+- assertVisible: "Get started"
+- tapOn: "I found an item"
+- assertVisible: "Read tag"
+- scrollUntilVisible:
+    element: "Tag link"
+    direction: DOWN
+- tapOn: "Tag link"
+- inputText: "not-a-tag"
+- back
+- assertVisible: "Read tag"
+- assertVisible: "not-a-tag"
+- back
+- assertVisible: "Get started"
