@@ -74,6 +74,7 @@ function harness(drafts, options = {}) {
     './Navigation': { useConversationDrafts: () => drafts },
     './NotificationsProvider': { useNotifications: () => ({ markRead, setActiveReport }) },
     './ReceivingWalletSheet': { __esModule: true, default: 'ReceivingWalletSheet' },
+    './RewardReleaseSheet': { __esModule: true, default: 'RewardReleaseSheet' },
     './HapticPressable': { __esModule: true, default: 'Pressable' },
     './category.model': { categoryInk: () => '#ffffff', tagCategoryLabel: tag => tag.category },
     './api': { api: async (path, _token, input) => {
@@ -183,7 +184,7 @@ test('finder wallet action appears after messages and before account prompt only
   chat.queryClient.setQueryData(['api', 'test-session', '/finder/reports/report-1/reward'], { reward: { status: 'reserved' }, recipient: 'already-confirmed', tagId: 'item-1' });
   const saved = chat.render();
   assert.ok(walletAction(saved));
-  assert.ok(nodes(saved).some(node => node.props?.children?.includes('already-confirmed')));
+  assert.ok(nodes(saved).some(node => node.props?.accessibilityHint === 'already-confirmed'));
   walletAction(saved).props.onPress();
   assert.equal(nodes(chat.render()).find(node => node.type === 'ReceivingWalletSheet').props.recipient, 'already-confirmed');
 });
@@ -202,12 +203,53 @@ test('confirmed receiving address stays visible and copies in full after resolut
     reward: { status: 'released' }, messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }] });
   chat.render(); await tick(); chat.render(); await tick();
   const tree = chat.render();
-  assert.ok(nodes(tree).some(node => node.props?.children?.includes(recipient)));
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children.join('') === `${recipient.slice(0, 8)}…${recipient.slice(-8)}`));
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props?.children?.includes(recipient)));
   assert.equal(nodes(tree).find(node => node.props?.testID === 'conversation-receiving-wallet').props.disabled, true);
   nodes(tree).find(node => node.props?.testID === 'conversation-copy-receiving-wallet').props.onPress();
   await tick();
   assert.deepEqual(chat.clipboard, [recipient]);
   assert.ok(!nodes(chat.render()).some(node => node.type === 'ReceivingWalletSheet'));
+});
+
+test('owner finish return appears when the finder wallet arrives and opens confirmation without changing the report', async () => {
+  const chat = harness(new ConversationDrafts(), { reward: { status: 'reserved' } });
+  const action = tree => nodes(tree).find(node => node.props?.testID === 'conversation-finish-return');
+  chat.render(); await tick(); chat.render(); await tick();
+  assert.equal(action(chat.render()), undefined);
+  const key = ['api', 'test-session', '/reports/report-1/reward'];
+  chat.queryClient.setQueryData(key, { tagId: 'item-1', reward: { status: 'reserved' }, recipient: 'FinderWallet' });
+  action(chat.render()).props.onPress();
+  const sheet = nodes(chat.render()).find(node => node.type === 'RewardReleaseSheet');
+  assert.equal(sheet.props.recipient, 'FinderWallet');
+  assert.equal(sheet.props.reportId, 'report-1');
+  assert.equal(sheet.props.tagId, 'item-1');
+  assert.equal(chat.requests.filter(request => request.input).length, 0, 'Opening confirmation must not write or pay');
+  assert.equal(chat.queryClient.getQueryData(['api', 'test-session', '/reports/report-1']).report.status, 'open');
+  sheet.props.onClose();
+  assert.ok(!nodes(chat.render()).some(node => node.type === 'RewardReleaseSheet'));
+  assert.equal(chat.queryClient.getQueryData(['api', 'test-session', '/reports/report-1']).report.status, 'open');
+  sheet.props.onReleased();
+  assert.equal(chat.queryClient.getQueryData(['api', 'test-session', '/reports/report-1']).report.status, 'resolved');
+  assert.equal(action(chat.render()), undefined);
+});
+
+test('finish return is limited to owners with an available reward and a receiving wallet', async () => {
+  for (const options of [
+    { finder: true }, { recipient: null }, { status: 'resolved' }, { reward: null },
+    { reward: { status: 'released' } }, { reward: { status: 'refunded' } }, { reward: { status: 'pending' } },
+    { reward: { status: 'reserved', operation: { kind: 'refund', status: 'submitted' } } },
+  ]) {
+    const chat = harness(new ConversationDrafts(), { recipient: 'FinderWallet', reward: { status: 'reserved' },
+      messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }], ...options });
+    chat.render(); await tick(); chat.render(); await tick();
+    assert.ok(!nodes(chat.render()).some(node => node.props?.testID === 'conversation-finish-return'), JSON.stringify(options));
+  }
+  for (const reward of [{ status: 'expired' }, { status: 'reserved', operation: { kind: 'release', status: 'submitted' } }]) {
+    const chat = harness(new ConversationDrafts(), { recipient: 'FinderWallet', reward });
+    chat.render(); await tick(); chat.render(); await tick();
+    assert.ok(nodes(chat.render()).some(node => node.props?.testID === 'conversation-finish-return'));
+  }
 });
 
 test('finder item details expose public item context and reward while keeping private notes out', async () => {

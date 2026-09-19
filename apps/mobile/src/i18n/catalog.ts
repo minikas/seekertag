@@ -177,6 +177,7 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Continuar com Seeker / Solana': ['Continue with Seeker / Solana', 'Continuar con Seeker / Solana'],
   'Continuar com Google': ['Continue with Google', 'Continuar con Google'], 'Continuar com Apple': ['Continue with Apple', 'Continuar con Apple'],
   'Salve esta conversa': ['Save this conversation', 'Guarda esta conversación'],
+  'Crie uma conta para guardar esta conversa.': ['Create an account to keep this chat.', 'Crea una cuenta para guardar este chat.'],
   'Crie uma conta para continuar esta conversa em outro celular.': ['Create an account to continue this conversation on another phone.', 'Crea una cuenta para continuar esta conversación en otro teléfono.'],
   'Criar conta ou entrar': ['Create account or sign in', 'Crear cuenta o iniciar sesión'],
   'Quer continuar em outro celular?': ['Want to continue on another phone?', '¿Quieres continuar en otro teléfono?'],

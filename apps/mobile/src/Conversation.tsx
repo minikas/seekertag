@@ -16,6 +16,7 @@ import { useConversationDrafts } from './Navigation';
 import AccountActionSheet from './AccountActionSheet';
 import ConversationReward, { type ConversationRewardData } from './ConversationReward';
 import ReceivingWalletSheet from './ReceivingWalletSheet';
+import RewardReleaseSheet from './RewardReleaseSheet';
 import Pressable from './HapticPressable';
 import { categoryInk, tagCategoryLabel } from './category.model';
 import { useNotifications } from './NotificationsProvider';
@@ -36,6 +37,7 @@ export default function Conversation({ id, token, finder = false, presentation =
   const sending = useRef(false);
   const [details, setDetails] = useState(false);
   const [receivingWallet, setReceivingWallet] = useState(false);
+  const [finishReturn, setFinishReturn] = useState(false);
   const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<MessageFormValues>({ resolver: zodResolver(messageFormSchema), mode: 'onChange', defaultValues: { body: drafts?.get(draftKey) || '' } });
   const body = watch('body');
   const scroll = useRef<ScrollView>(null); const generation = useRef(0);
@@ -46,7 +48,7 @@ export default function Conversation({ id, token, finder = false, presentation =
   const item = conversation.data?.tag;
   const hasFinderMessage = messages.some(message => message.role === 'finder');
   const rewardQuery = useQuery({ ...apiQueryOptions<ConversationRewardData>(`${path}/reward`, token),
-    enabled: finder && hasFinderMessage && !covered && !details,
+    enabled: !!report && (!finder || hasFinderMessage) && !covered && !details,
     refetchInterval: 6000,
   });
   const recipient = rewardQuery.data?.recipient;
@@ -54,6 +56,11 @@ export default function Conversation({ id, token, finder = false, presentation =
     && !!rewardQuery.data?.reward && ['reserved', 'expired'].includes(rewardQuery.data.reward.status)
     && !rewardQuery.data.reward.operation && !rewardQuery.isError;
   const showReceivingWallet = finder && hasFinderMessage && (!!recipient || canEditReceivingWallet);
+  const reward = rewardQuery.data?.reward;
+  const showFinishReturn = !finder && report?.status === 'open' && !!recipient
+    && !!reward && ['reserved', 'expired'].includes(reward.status)
+    && (!reward.operation || reward.operation.kind === 'release');
+  const markResolved = () => queryClient.setQueryData<ConversationData>(apiQueryKey(token, path), previous => previous ? { ...previous, report: { ...previous.report, status: 'resolved' } } : previous);
   async function copyReceivingAddress() {
     if (!recipient) return;
     try {
@@ -65,7 +72,7 @@ export default function Conversation({ id, token, finder = false, presentation =
     mutationFn: (values: { path: string; token: string; body: string }) => api<{ message: Message }>(`${values.path}/messages`, values.token, { body: values.body }),
   });
   const busy = sendMutation.isPending;
-  const error = sendError || conversation.error?.message || (finder ? rewardQuery.error?.message : '') || '';
+  const error = sendError || conversation.error?.message || rewardQuery.error?.message || '';
   useEffect(() => {
     reset({ body: drafts?.get(draftKey) || '' }); nearEnd.current = true; setSendError('');
     generation.current++; sending.current = false;
@@ -97,8 +104,8 @@ export default function Conversation({ id, token, finder = false, presentation =
   // This page already fills the safe-area viewport. Size the conversation from
   // the keyboard inset directly: nested page headers need no frame measurement.
   const keyboardInset = useAnimatedStyle(() => ({
-    paddingBottom: !sheet && !covered && !details && !receivingWallet ? Math.max(0, -keyboard.height.value - insets.bottom) : 0,
-  }), [sheet, covered, details, receivingWallet, insets.bottom]);
+    paddingBottom: !sheet && !covered && !details && !receivingWallet && !finishReturn ? Math.max(0, -keyboard.height.value - insets.bottom) : 0,
+  }), [sheet, covered, details, receivingWallet, finishReturn, insets.bottom]);
   const ComposerInput = sheet ? BottomSheetTextInput : TextInput;
   return <Animated.View testID="conversation-keyboard-layout" style={[{ flex: 1 }, keyboardInset]}>
     <View style={{ flex: 1, gap: 14, minHeight: 0, ...(sheet ? {} : { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, width: '100%', maxWidth: 600, alignSelf: 'center' }) }}>
@@ -130,9 +137,15 @@ export default function Conversation({ id, token, finder = false, presentation =
         {!!recipient && <Pressable testID="conversation-copy-receiving-wallet" accessibilityRole="button" accessibilityLabel={t('Copiar endereço da carteira')}
           accessibilityHint={recipient} onPress={() => void copyReceivingAddress()}
           style={({ pressed }) => [s.row, { gap: 12, minHeight: 44, opacity: pressed ? 0.65 : 1 }]}>
-          <Text style={[s.body, { flex: 1 }]}>{recipient}</Text><Icon name="copy" color={C.muted} size={20} />
+          <Text style={[s.body, { flex: 1 }]} numberOfLines={1}>{recipient.slice(0, 8)}…{recipient.slice(-8)}</Text><Icon name="copy" color={C.muted} size={20} />
         </Pressable>}
       </View>}
+      {showFinishReturn && <Pressable testID="conversation-finish-return" accessibilityRole="button" accessibilityLabel={t('Finalizar devolução')}
+        disabled={rewardQuery.isError} onPress={() => { Keyboard.dismiss(); setFinishReturn(true); }}
+        style={({ pressed }) => ({ gap: 5, marginTop: 14, paddingTop: 30, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, opacity: pressed || rewardQuery.isError ? 0.65 : 1 })}>
+        <View style={[s.row, { gap: 12 }]}><Text style={[s.h3, { flex: 1 }]}>{t('Finalizar devolução')}</Text><Icon name="chevron-right" color={C.muted} size={22} /></View>
+        <Text style={s.body}>{t('Libere a recompensa após receber seu objeto.')}</Text>
+      </Pressable>}
       {historyFooter}
     </ScrollView>
     {report?.status === 'resolved' ? <Notice tone="success" text={t("Devolução confirmada. Obrigado por fazer parte deste reencontro!")} /> : report ? <>
@@ -154,11 +167,15 @@ export default function Conversation({ id, token, finder = false, presentation =
       </View>
       <ConversationReward key={id} id={id} token={token} finder open={report.status === 'open'} onLocked={() => {}}
         amount={item?.rewardAmount} currency={item?.rewardCurrency} showReceivingWalletAction={false}
-        onReleased={() => queryClient.setQueryData<ConversationData>(apiQueryKey(token, path), previous => previous ? { ...previous, report: { ...previous.report, status: 'resolved' } } : previous)} />
+        onReleased={markResolved} />
     </AccountActionSheet>}
     {finder && receivingWallet && <ReceivingWalletSheet id={id} token={token} recipient={recipient} onClose={() => setReceivingWallet(false)} onSaved={recipient => {
       queryClient.setQueryData<ConversationRewardData>(apiQueryKey(token, `${path}/reward`), previous => previous ? { ...previous, recipient } : previous);
       setReceivingWallet(false);
     }} />}
+    {!finder && finishReturn && rewardQuery.data && <RewardReleaseSheet tagId={rewardQuery.data.tagId} token={token} reportId={id} recipient={recipient || null}
+      onClose={() => { setFinishReturn(false); void rewardQuery.refetch(); }}
+      onChanged={reward => queryClient.setQueryData<ConversationRewardData>(apiQueryKey(token, `${path}/reward`), previous => previous ? { ...previous, reward } : previous)}
+      onReleased={markResolved} />}
   </View></Animated.View>;
 }

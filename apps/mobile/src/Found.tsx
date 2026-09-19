@@ -200,6 +200,6 @@ function AccountPrompt({ onPress, beforeMessage = false }: { onPress: () => void
   return <Pressable accessibilityRole="button" accessibilityLabel={t(beforeMessage ? 'Quer continuar em outro celular?' : 'Salve esta conversa')}
     onPress={onPress} style={({ pressed }) => [styles.accountPrompt, pressed && { opacity: 0.65 }]}>
     <View style={[s.row, { gap: 12 }]}><Text style={[s.h3, { flex: 1 }]}>{t(beforeMessage ? 'Quer continuar em outro celular?' : 'Salve esta conversa')}</Text><Icon name="chevron-right" color={C.muted} size={22} /></View>
-    <Text style={s.body}>{t(beforeMessage ? 'Crie uma conta antes de avisar o dono para salvar a conversa.' : 'Crie uma conta para continuar esta conversa em outro celular.')}</Text>
+    <Text style={s.body}>{t('Crie uma conta para guardar esta conversa.')}</Text>
   </Pressable>;
 }

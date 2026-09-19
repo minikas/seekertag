@@ -73,3 +73,28 @@ test('release confirmation returns to summary only before signing; submitted and
   wallet.operation = { status: 'prepared' }; wallet.busy = true;
   assert.equal(Sheet(props).props.onBack, undefined);
 });
+
+test('finish return warns about physical return and prepares a payment only after explicit confirmation', () => {
+  const reviews = [];
+  const wallet = { busy: false, loading: false, data: { reward: { status: 'reserved' } }, review: kind => reviews.push(kind) };
+  const Sheet = component('RewardReleaseSheet', { ...base,
+    './AccountActionSheet': { __esModule: true, default: 'AccountActionSheet' },
+    './useReward': { useReward: () => wallet },
+    './RewardReview': { __esModule: true, default: 'RewardReview', Address: 'Address', RewardReviewAction: 'RewardReviewAction' },
+    './RewardSummary': { __esModule: true, default: 'RewardSummary' },
+  });
+  let closed = 0;
+  const props = { tagId: 'item', token: 'session', reportId: 'report', recipient: 'wallet', onClose: () => closed++, onChanged: noop, onReleased: noop };
+  const tree = Sheet(props);
+  assert.equal(tree.props.title, 'Finalizar devolução');
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children.some(text => typeof text === 'string' && text.includes('objeto já estiver com você'))));
+  tree.props.onClose();
+  assert.equal(closed, 1);
+  assert.deepEqual(reviews, []);
+  const confirm = nodes(tree).find(node => node.type === 'Button');
+  assert.equal(confirm.props.disabled, false);
+  confirm.props.onPress();
+  assert.deepEqual(reviews, ['release']);
+  props.recipient = null;
+  assert.equal(nodes(Sheet(props)).find(node => node.type === 'Button').props.disabled, true);
+});

@@ -104,6 +104,7 @@ export const rewards: Record<string, readonly [string, string]> = {
   'Confirmar carteira de recebimento': ['Confirm receiving wallet', 'Confirmar cartera de recepción'],
   'O dono precisa confirmar a devolução e assinar o pagamento. Após o prazo, ele também pode cancelar e recuperar o depósito.': ['The owner must confirm the return and sign the payment. After expiry, they can also cancel and recover the deposit.', 'El dueño debe confirmar la devolución y firmar el pago. Tras el vencimiento, también puede cancelar y recuperar el depósito.'],
   'Devolução e recompensa': ['Return and reward', 'Devolución y recompensa'],
+  'Libere a recompensa após receber seu objeto.': ['Release the reward once your item is back.', 'Entrega la recompensa cuando recuperes tu objeto.'],
   'Assinatura cancelada.': ['Signature cancelled.', 'Firma cancelada.'],
   'Revisar depósito': ['Review deposit', 'Revisar depósito'],
   'Revisar renovação': ['Review renewal', 'Revisar renovación'],

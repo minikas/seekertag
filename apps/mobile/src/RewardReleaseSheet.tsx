@@ -17,13 +17,13 @@ export default function RewardReleaseSheet({ tagId, token, reportId, recipient, 
   const wallet = useReward({ tagId, token, currency: 'SOL', reportId, recipient, onChanged,
     onReleased: () => { released.current = true; }, onCompleted: () => sheet.current?.dismiss() });
   const editableReview = !wallet.busy && ['prepared', 'expired'].includes(wallet.operation?.status || '');
-  return <AccountActionSheet ref={sheet} title={t('Devolução e recompensa')} busy={wallet.busy}
+  return <AccountActionSheet ref={sheet} title={t('Finalizar devolução')} busy={wallet.busy}
     onBack={editableReview ? wallet.discardReview : undefined} onClose={() => { if (released.current) onReleased(); onClose(); }}>
     {!!wallet.error && <Notice error text={wallet.error} />}
     {wallet.operation ? <><RewardReview controller={wallet} /><RewardReviewAction controller={wallet} releaseAllowed={!!recipient} /></> : wallet.loading ? <RewardReleaseSkeleton /> : <View style={{ gap: 20 }}>
+      <Text style={s.body}>{t('Confirme somente se o objeto já estiver com você. O pagamento é definitivo e encerra as conversas deste objeto.')}</Text>
       <RewardSummary reward={wallet.data?.reward} />
       {recipient ? <Address label={t('Carteira de quem encontrou')} address={recipient} /> : <Notice text={t('Quem encontrou precisa confirmar a carteira de recebimento na conversa.')} />}
-      <Text style={s.small}>{t('Confirme somente se o objeto já estiver com você. O pagamento é definitivo e encerra as conversas deste objeto.')}</Text>
       <Button variant="success" icon="check-circle" busy={wallet.busy} disabled={!recipient || !['reserved', 'expired'].includes(wallet.data?.reward?.status || '')} onPress={() => void wallet.review('release')}>{t('Confirmar devolução e pagar')}</Button>
     </View>}
   </AccountActionSheet>;
