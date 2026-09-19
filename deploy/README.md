@@ -60,6 +60,27 @@ EXPO_PUBLIC_API_URL=https://api-seeker.viralizai.co/api npm run build:android
 Instale e valide essa compilação antes de emitir etiquetas definitivas. QRs e
 NFCs criados por ela apontarão para o domínio HTTPS estável acima.
 
+## Notificações de mensagens
+
+A API cria automaticamente as tabelas de leitura, dispositivos e fila de push
+ao iniciar. Publique o backend completo e suas dependências antes de instalar o
+aplicativo. A central inclui mensagens recebidas pelo dono e por quem salvou a
+conversa em sua conta, inclusive as anteriores à atualização. O estado de leitura
+fica na conta e independe da permissão de notificações do Android.
+
+O envio com o app fechado usa Firebase Cloud Messaging diretamente da API,
+por meio de `firebase-admin`. O APK recebe a configuração `google-services.json`;
+a chave privada fica somente no servidor. Não é necessário projeto EAS.
+
+Siga o [guia de configuração do Firebase](FIREBASE.md) para criar o projeto,
+validar os arquivos, configurar a API e recompilar o APK. Sem as credenciais,
+a central e os avisos de mensagens novas com o app aberto continuam funcionando.
+
+A fila persiste no SQLite e repete falhas temporárias. Tokens inválidos são
+removidos; logout, troca de conta e expiração da sessão revogam a associação.
+Mensagens lidas antes do envio são retiradas da fila. A aceitação pelo FCM não
+comprova que o aparelho exibiu o aviso; valide a entrega em um Android real.
+
 ## Verificação do domínio na carteira Android
 
 A carteira de referência do Solana Mobile verifica a associação entre o domínio,

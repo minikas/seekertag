@@ -188,3 +188,27 @@ Referências primárias de implementação: [SQLite no Node.js](https://nodejs.o
 ## Reservas de recompensa
 
 As rotas de depósito, renovação, pagamento, cancelamento e comprovação da carteira do visitante estão documentadas em [REWARDS.md](REWARDS.md#rotas). Objetos e prévias públicas incluem `reward` somente quando existe uma reserva/recibo; os campos legados `rewardAmount` e `rewardCurrency` continuam aceitos como valores anunciados. Alterar esses campos ou transferir uma etiqueta com reserva ativa retorna `409 REWARD_LOCKED`.
+# Notificações
+
+Rotas autenticadas com a sessão da conta:
+
+- `GET /api/notifications?before=<messageId>`: até 50 mensagens recebidas,
+  `unreadCount` global, `latestId` e `nextCursor`. Cada item contém `id`,
+  `reportId`, `tagName`, `senderName`, `finder`, `body`, `createdAt` e `read`.
+  `finder: true` abre `/finder/reports/:id`; caso contrário, `/reports/:id`.
+- `POST /api/notifications/read`: `{ throughId, reportId? }`. Marca apenas as
+  mensagens recebidas até o ID informado, em uma conversa ou em todas. Nunca
+  avança além de uma mensagem existente. Retorna a primeira página atualizada.
+- `POST /api/notifications/devices`: `{ token, language: 'pt' | 'en' | 'es', provider: 'fcm', projectId }`.
+  Registra o token Android de `getDevicePushTokenAsync` na sessão atual,
+  substituindo a associação anterior desse dispositivo. `projectId` é o ID do
+  projeto de `google-services.json`. Retorna `{ enabled, provider: 'fcm' }`;
+  `enabled: false` indica que o servidor ainda não tem credenciais Firebase e
+  o app deve manter os avisos locais. Um projeto diferente do servidor retorna
+  `409 PUSH_PROJECT_MISMATCH`.
+- `DELETE /api/notifications/devices`: `{ token }`. Revoga o dispositivo da conta.
+
+As próprias mensagens não geram notificações. As conversas de visitante só são
+incluídas após serem vinculadas à conta. A permissão Android e o cadastro do
+dispositivo não são necessários para consultar a central. Veja a configuração
+de entrega em segundo plano em [deploy/FIREBASE.md](../../deploy/FIREBASE.md).

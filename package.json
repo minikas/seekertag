@@ -32,7 +32,8 @@
     "test:escrow": "npm run build:escrow && npm run test:escrow --workspace=seekertag-api",
     "api:devnet": "node --env-file-if-exists=apps/api/.env scripts/start-devnet-api.mjs",
     "test:devnet": "node scripts/test-devnet-rewards.mjs",
-    "build": "turbo run build"
+    "build": "turbo run build",
+    "check:firebase": "node scripts/check-firebase.mjs"
   },
   "devDependencies": {
     "turbo": "2.10.13",

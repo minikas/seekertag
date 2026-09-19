@@ -51,6 +51,10 @@ playwright-report/
 .playwright/
 .playwright-cli/
 .env
+/apps/mobile/google-services.json
+/deploy/firebase/
+**/*firebase-adminsdk*.json
+**/*service-account*.json
 
 # Solana build output and deployment keys
 contracts/**/target/

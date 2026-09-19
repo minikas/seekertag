@@ -44,6 +44,6 @@ name: Home browsing preserves search through details and the object editor
 - tapOn: "Filtrar objetos"
 - back
 - assertVisible: "Buscar objetos"
-- tapOn: "Voltar para início"
+- tapOn: "Meus objetos"
 - assertVisible: "Adicionar objeto"
 - assertNotVisible: "Buscar objetos"

@@ -60,7 +60,14 @@
         }
       ],
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "messages",
+          "color": "#459B83"
+        }
+      ]
     ],
     "scheme": "seekertag",
     "backgroundColor": "#F5F8F7",

@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { FlatList, Keyboard, Modal, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, BackHandler, FlatList, Keyboard, Modal, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Tag } from './api';
@@ -18,9 +18,9 @@ const filters: { key: TagFilter; name: string; icon: IconName }[] = [
   { key: 'paused', name: 'Arquivados', icon: 'archive' },
 ];
 
-type Props = { tags: Tag[]; initialFilter: TagFilter; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean };
+type Props = { tags: Tag[]; initialFilter: TagFilter; onSelect: (tag: Tag) => void; onClose: () => void; refreshing: boolean; onRefresh: () => void; error: string; covered: boolean; suspended: boolean; embedded?: boolean; onAdd?: () => void; loading?: boolean };
 
-export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, refreshing, onRefresh, error, covered, suspended }: Props) {
+export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, refreshing, onRefresh, error, covered, suspended, embedded = false, onAdd, loading = false }: Props) {
   const { C, s, t, locale } = useUI();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<TagFilter>(initialFilter);
@@ -37,15 +37,17 @@ export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, 
     else close();
   };
 
-  // The editor's Gorhom portal lives in the root window. Hide this native
-  // window while editing, retaining the query, filter and list position here.
-  return <Modal visible={!suspended} animationType="slide" onRequestClose={requestClose}>
-    <GestureHandlerRootView style={styles.fill}>
-      <SafeAreaView style={[styles.fill, { backgroundColor: C.bg }]}>
+  useEffect(() => { setFilter(initialFilter); resetScroll(); }, [initialFilter]);
+  useEffect(() => {
+    if (!embedded || covered) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { requestClose(); return true; });
+    return () => sub.remove();
+  }, [embedded, covered, filterOpen, onClose]);
+  const content = <View style={[styles.fill, { backgroundColor: C.bg }]}>
         <View style={styles.fill} accessibilityElementsHidden={filterOpen || covered} importantForAccessibility={filterOpen || covered ? 'no-hide-descendants' : 'auto'}>
           <View style={s.screenHeader}>
-            <Button variant="ghost" icon="arrow-left" label={t('Voltar para início')} onPress={close} />
-            <Text accessibilityRole="header" style={s.screenTitle}>{t('Objetos')}</Text>
+            <Button variant="ghost" icon={embedded ? 'plus' : 'arrow-left'} label={t(embedded ? 'Adicionar objeto' : 'Voltar para início')} onPress={embedded && onAdd ? onAdd : close} />
+            <Text accessibilityRole="header" style={s.screenTitle}>{t(embedded ? 'Tags' : 'Objetos')}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={t('Filtrar objetos')} accessibilityState={{ selected: filter !== 'all' }}
               onPress={() => { Keyboard.dismiss(); setFilterOpen(true); }} style={({ pressed }) => [styles.filterButton, pressed && styles.pressed]}>
               <Icon name="sliders" size={26} />
@@ -72,7 +74,7 @@ export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, 
             keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" initialNumToRender={12}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} />}
             renderItem={({ item, index }) => <TagRow tag={item} last={index === filtered.length - 1} onPress={() => { Keyboard.dismiss(); onSelect(item); }} />}
-            ListEmptyComponent={<View style={s.empty}>
+            ListEmptyComponent={loading ? <ActivityIndicator color={C.accent} style={{ marginTop: 40 }} /> : <View style={s.empty}>
               <View style={s.circle}><Icon name="search" size={28} color={C.muted} /></View>
               <Text style={[s.h2, styles.center]}>{t('Nenhum objeto por aqui')}</Text>
               <Text style={[s.body, styles.center]}>{t('Tente outro nome ou filtro para encontrar seu objeto.')}</Text>
@@ -90,9 +92,10 @@ export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, 
             </View>
           </Pressable>)}</View>
         </ScreenBottomSheet>}
-      </SafeAreaView>
-    </GestureHandlerRootView>
-  </Modal>;
+  </View>;
+  if (embedded) return content;
+  // Retain native-modal support for callers outside the tab navigator.
+  return <Modal visible={!suspended} animationType="slide" onRequestClose={requestClose}><GestureHandlerRootView style={styles.fill}><SafeAreaView style={[styles.fill, { backgroundColor: C.bg }]}>{content}</SafeAreaView></GestureHandlerRootView></Modal>;
 }
 
 const styles = StyleSheet.create({

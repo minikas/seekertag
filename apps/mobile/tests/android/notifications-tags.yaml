@@ -1,0 +1,43 @@
+appId: ${QA_APP_ID}
+name: Tags and notifications open conversations and persist read state
+---
+# Use a dedicated English QA account with exactly one unread incoming message.
+# QA_APP_ID, QA_ITEM_NAME and QA_INCOMING_MESSAGE must describe that fixture.
+- extendedWaitUntil:
+    visible: "My items"
+    timeout: 20000
+- assertVisible: "Notifications, 1 unread"
+- tapOn: "Tags"
+- assertVisible: "Search items"
+- tapOn: "Search items"
+- inputText: "${QA_ITEM_NAME}"
+- hideKeyboard
+- tapOn: "Filter items"
+- tapOn: "Protected"
+- tapOn: "Open ${QA_ITEM_NAME}"
+- assertVisible: "Share link"
+- back
+- assertVisible: "Search items"
+- assertVisible: "Clear filter"
+- takeScreenshot: tags-tab
+- tapOn: "My items"
+- tapOn: "Notifications, 1 unread"
+- assertVisible: "Unread. ${QA_ITEM_NAME}. ${QA_INCOMING_MESSAGE}"
+- takeScreenshot: notifications-inbox
+- tapOn: "Unread. ${QA_ITEM_NAME}. ${QA_INCOMING_MESSAGE}"
+- extendedWaitUntil:
+    visible: "Message"
+    timeout: 15000
+- assertVisible: "${QA_INCOMING_MESSAGE}"
+- takeScreenshot: notifications-conversation
+- back
+- assertVisible: "You’re all caught up."
+- tapOn: "Back"
+- assertVisible: "Notifications"
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Notifications"
+    timeout: 15000
+- tapOn: "Notifications"
+- assertVisible: "You’re all caught up."

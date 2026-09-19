@@ -1,23 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { AppState, ScrollView, Text, TextInput, View } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { api, Message, Report } from './api';
 import { Button, Icon, Notice, useUI } from './ui';
 import { messageFormSchema, type MessageFormValues } from './form.model';
 import AccountActionSheet from './AccountActionSheet';
 import ConversationReward from './ConversationReward';
+import { useNotifications } from './NotificationsProvider';
 
 export default function Conversation({ id, token, finder = false, presentation = 'page' }: { id: string; token: string; finder?: boolean; presentation?: 'page' | 'sheet' }) {
   const { C, s, t, locale } = useUI();
+  const { markRead, setActiveReport } = useNotifications();
+  const readThrough = useRef(0);
+  useEffect(() => { setActiveReport(id); readThrough.current = 0; return () => setActiveReport(undefined); }, [id, setActiveReport]);
   const [report, setReport] = useState<Report>(); const [messages, setMessages] = useState<Message[]>([]); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [details, setDetails] = useState(false);
   const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<MessageFormValues>({ resolver: zodResolver(messageFormSchema), mode: 'onChange', defaultValues: { body: '' } });
   const body = watch('body');
   const scroll = useRef<ScrollView>(null); const generation = useRef(0);
   const path = finder ? `/finder/reports/${id}` : `/reports/${id}`;
-  useEffect(() => { let live = true; let fetching = false; setReport(undefined); setMessages([]); reset({ body: '' }); setBusy(false); setError(''); const current = ++generation.current; async function load() { if (fetching) return; fetching = true; try { const data = await api<{ report: Report; messages: Message[] }>(path, token); if (live && current === generation.current) { setReport(data.report); setMessages(data.messages); setError(''); } } catch(e) { if (live) setError((e as Error).message); } finally { fetching = false; } } load(); const timer = setInterval(load, 4000); return () => { live = false; clearInterval(timer); }; }, [path, token, reset]);
+  useEffect(() => { let live = true; let fetching = false; setReport(undefined); setMessages([]); reset({ body: '' }); setBusy(false); setError(''); const current = ++generation.current; async function load() { if (fetching || AppState.currentState !== 'active') return; fetching = true; try { const data = await api<{ report: Report; messages: Message[] }>(path, token); if (live && current === generation.current) { setReport(data.report); setMessages(data.messages); setError(''); } } catch(e) { if (live) setError((e as Error).message); } finally { fetching = false; } } load(); const timer = setInterval(load, 4000); return () => { live = false; clearInterval(timer); }; }, [path, token, reset]);
+  useEffect(() => {
+    const last = messages.filter(message => message.role !== (finder ? 'finder' : 'owner')).at(-1)?.id;
+    if (last && last > readThrough.current && AppState.currentState === 'active') {
+      readThrough.current = last;
+      void markRead(last, id).then(saved => { if (!saved && readThrough.current === last) readThrough.current = 0; });
+    }
+  }, [messages, finder, id, markRead]);
   async function send(values: MessageFormValues) { if (busy) return; setBusy(true); setError(''); const current = generation.current; try { const { message } = await api<{ message: Message }>(`${path}/messages`, token, { body: values.body }); if (current === generation.current) { setMessages(prev => prev.some(m => m.id === message.id) ? prev : [...prev, message]); reset({ body: '' }); } } catch(e) { if (current === generation.current) setError((e as Error).message); } finally { if (current === generation.current) setBusy(false); } }
   const sheet = presentation === 'sheet';
   const ComposerInput = sheet ? BottomSheetTextInput : TextInput;

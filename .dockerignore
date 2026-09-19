@@ -14,5 +14,10 @@ playwright-report
 qa
 *.log
 .env*
+deploy/firebase
+deploy/api.env
+deploy/reward-keys
+**/*firebase-adminsdk*.json
+**/*service-account*.json
 
 **/.turbo

@@ -1,4 +1,5 @@
 export const errors: Record<string, readonly [string, string]> = {
+  'Este aplicativo usa outro projeto de notificações.': ['This app uses a different notification project.', 'Esta app usa otro proyecto de notificaciones.'],
   'Use o ID da conta ou a carteira de quem vai receber.': ['Use the recipient’s account ID or wallet.', 'Usa el ID de la cuenta o la cartera de quien recibirá.'],
   'O conteúdo enviado é muito grande.': ['The submitted content is too large.', 'El contenido enviado es demasiado grande.'],
   'JSON inválido.': ['Invalid JSON.', 'JSON inválido.'],

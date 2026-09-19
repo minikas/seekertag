@@ -20,6 +20,7 @@ services:
     volumes:
       - seekertag_data:/data
       - ./deploy/reward-keys:/run/seekertag-keys:ro
+      - ./deploy/firebase:/run/seekertag-firebase:ro
 
   caddy:
     image: caddy:2.11.4-alpine

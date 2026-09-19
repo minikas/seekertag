@@ -9,6 +9,8 @@ import { renderLabelPdf } from './label-pdf.js';
 import { installAuth, migrateAuth } from './auth.js';
 import { createOAuthProviders } from './oauth.js';
 import { createCategories } from './categories.js';
+import { createNotifications } from './notifications.js';
+import { firebasePushFromEnv } from './firebase-push.js';
 import { createRewards } from './rewards/index.js';
 import { rewardChainFromEnv } from './rewards/chain.js';
 
@@ -47,7 +49,7 @@ async function passwordMatches(value, stored) {
   const actual = await scrypt(value, salt, 64, { N: 32768, maxmem: 64 * 1024 * 1024 });
   return timingSafeEqual(actual, Buffer.from(expected, 'hex'));
 }
-export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:4318', corsOrigins = [], rateLimits = true, trustedProxyHops = 0, oauthProviders = createOAuthProviders(), rewardChain = rewardChainFromEnv() } = {}) {
+export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'http://localhost:4318', corsOrigins = [], rateLimits = true, trustedProxyHops = 0, oauthProviders = createOAuthProviders(), rewardChain = rewardChainFromEnv(), pushSender = firebasePushFromEnv() } = {}) {
   if (![0, 1].includes(trustedProxyHops)) throw new Error('TRUST_PROXY_HOPS must be 0 (direct access) or 1 (one private reverse proxy).');
   const canonical = new URL(publicUrl);
   if (!['http:', 'https:'].includes(canonical.protocol) || canonical.username || canonical.password || canonical.search || canonical.hash || canonical.pathname !== '/') throw new Error('PUBLIC_URL must be an http(s) origin without credentials, query, or path.');
@@ -118,7 +120,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   // trust an arbitrary forwarding chain; direct/local deployments default to 0.
   app.set('trust proxy', trustedProxyHops);
   app.locals.db = db;
-  app.locals.close = () => db.close();
+  app.locals.close = () => { notifications.close(); db.close(); };
   const origins = new Set([publicOrigin, ...corsOrigins]);
   app.use((req, res, next) => {
     res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store', 'Cross-Origin-Resource-Policy': 'cross-origin' });
@@ -188,6 +190,9 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   const optionalOwner = (req, res, next) => req.headers.authorization !== undefined ? requireOwner(req, res, next) : next();
   const { consumeProof } = installAuth({ app, get, all, run, transaction, fail, requireOwner, authLimit, makeSession, userView, publicOrigin, oauthProviders });
   categories.install(app, requireOwner, ownerWriteLimit);
+  const notifications = createNotifications({ db, get, all, run, fail, publicOrigin, pushSender });
+  notifications.install(app, requireOwner, ownerWriteLimit);
+  app.locals.notifications = notifications;
   const ownerTag = (req) => {
     const tag = get('SELECT * FROM tags WHERE id=? AND owner_id=?', req.params.id, req.user.id);
     if (!tag) fail(404, 'Etiqueta não encontrada.', 'NOT_FOUND');
@@ -239,6 +244,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const id = transaction(() => {
       const result = run('INSERT INTO messages(report_id,role,body,created_at) VALUES(?,?,?,?)', report.id, role, body, at);
       run('UPDATE reports SET updated_at=? WHERE id=?', at, report.id);
+      notifications.enqueue(report, role, Number(result.lastInsertRowid));
       return Number(result.lastInsertRowid);
     });
     return { id, role, body, createdAt: at };
@@ -306,7 +312,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     res.json({ token, user: userView(user), recoveryCode });
   });
   app.get('/api/auth/me', requireOwner, (req, res) => res.json({ user: userView(req.user) }));
-  app.post('/api/auth/logout', requireOwner, (req, res) => { run('DELETE FROM sessions WHERE hash=?', req.sessionHash); res.sendStatus(204); });
+  app.post('/api/auth/logout', requireOwner, (req, res) => { run('DELETE FROM push_devices WHERE session_hash=?', req.sessionHash); run('DELETE FROM sessions WHERE hash=?', req.sessionHash); res.sendStatus(204); });
   app.get('/api/account/export', requireOwner, (req, res) => {
     const reports = all('SELECT * FROM reports WHERE owner_id=? ORDER BY created_at', req.user.id);
     res.set('Content-Disposition', 'attachment; filename="seekertag-backup.json"');
@@ -395,7 +401,8 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const id = randomUUID(); const token = secret(); const at = now();
     transaction(() => {
       run("INSERT INTO reports(id,tag_id,owner_id,tag_name,tag_code,finder_name,finder_user_id,capability_hash,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'open',?,?)", id, tag.id, tag.owner_id, tag.name, tag.code, finderName, req.user?.id || null, hash(token), at, at);
-      run("INSERT INTO messages(report_id,role,body,created_at) VALUES(?,'finder',?,?)", id, message, at);
+      const inserted = run("INSERT INTO messages(report_id,role,body,created_at) VALUES(?,'finder',?,?)", id, message, at);
+      notifications.enqueue(get('SELECT * FROM reports WHERE id=?', id), 'finder', Number(inserted.lastInsertRowid));
     });
     res.status(201).json({ report: reportView(get('SELECT * FROM reports WHERE id=?', id)), token, messages: messagesFor(id) });
   });
