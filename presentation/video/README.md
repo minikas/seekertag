@@ -1,8 +1,8 @@
 # SeekerTag app demo
 
-[Watch the demo](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4) · [Download MP4](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4) · [English SRT](seekertag-seeker-demo-en.srt) · [English WebVTT](seekertag-seeker-demo-en.vtt)
+[Watch the demo](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4) · [GitHub release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in) · [English SRT](seekertag-seeker-demo-en.srt) · [English WebVTT](seekertag-seeker-demo-en.vtt)
 
-[![Watch the SeekerTag app demo](preview.jpg)](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4)
+[![Watch the SeekerTag app demo](preview.jpg)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4)
 
 An actual app walkthrough for the Solana hackathon, with English narration and burned-in captions. The final release is 2:40, 1920×1080 at 30 fps, H.264 video and AAC audio.
 
@@ -53,7 +53,7 @@ The Seed Vault **Testuser** shot is a separately labeled receiving-wallet verifi
 
 ## Published master
 
-The MP4 is distributed through the linked GitHub release and public playback URL. The repository keeps the editable source assets; the generated MP4 is excluded from Git.
+The MP4 is distributed through the linked GitHub release. The repository keeps the editable source assets; the generated MP4 is excluded from Git.
 
 - Size: 25,402,344 bytes
 - SHA-256: `59e9650b6ae9a84a49621cfed27440a262df17068fc6ef1710ad114d7acf9e54`

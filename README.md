@@ -4,13 +4,13 @@
 
 Lost & found for Solana Seeker: QR/NFC tags, private owner–finder conversations, and on-chain return rewards.
 
-[Website](https://seekertag.vercel.app) · [App demo (2:40, English)](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4) · [Pitch deck (PDF)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-pitch.pdf) · [Download Android APK](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/SeekerTag-preview.apk) · [CLOCK IN release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in)
+[Website](https://seekertag.vercel.app) · [App demo (2:40, English)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4) · [Pitch deck (PDF)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-pitch.pdf) · [Download Android APK](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/SeekerTag-preview.apk) · [CLOCK IN release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in)
 
 ## Watch the app demo
 
-[![Watch SeekerTag in action — owner and finder chatting on two Android sessions](presentation/video/preview.jpg)](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4)
+[![Watch SeekerTag in action — owner and finder chatting on two Android sessions](presentation/video/preview.jpg)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4)
 
-**[▶ Watch the 2:40 demo](https://api-seeker.viralizai.co/demo/seekertag-seeker-demo-en.mp4)** · [Download MP4](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4) · [English subtitles](presentation/video/seekertag-seeker-demo-en.srt) · [Editable video project](presentation/video/README.md)
+**[▶ Watch the 2:40 demo](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4)** · [GitHub release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in) · [English subtitles](presentation/video/seekertag-seeker-demo-en.srt) · [Editable video project](presentation/video/README.md)
 
 Recorded app flows with English narration and captions: sign in with Seeker and Seed Vault, create a tag, reserve a 0.01 SOL reward, view the QR and printable PDF, open the NFC writing screen, chat between owner and finder, verify the receiving wallet, and confirm the return and reward payout on Solana devnet. The Seed Vault receiving-wallet shot is a labeled Testuser verification retake; the original payout is documented separately in the [recording evidence](presentation/video/README.md#recording-evidence).
 
