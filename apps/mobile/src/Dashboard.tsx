@@ -7,7 +7,7 @@ import ObjectsScreen from './ObjectsScreen';
 import NotificationsScreen from './NotificationsScreen';
 import { useNotifications } from './NotificationsProvider';
 import type { NotificationTarget } from './notifications.model';
-import { TagFilter } from './tag-search.model';
+import { matchesTagFilter, TagFilter } from './tag-search.model';
 import { conversationCount } from './i18n';
 import { AppState, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
@@ -69,9 +69,9 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   };
 
   const stats: { label: string; value: number; filter: TagFilter }[] = [
-    { label: t("Protegidos"), value: tags.filter(t => t.status === 'active').length, filter: 'active' },
-    { label: t("Perdidos"), value: tags.filter(t => t.status === 'lost').length, filter: 'lost' },
-    { label: t("Reencontrados"), value: tags.filter(t => t.recoveryCount > 0).length, filter: 'recovered' },
+    { label: t("Protegidos"), value: tags.filter(tag => matchesTagFilter(tag, 'active')).length, filter: 'active' },
+    { label: t("Perdidos"), value: tags.filter(tag => matchesTagFilter(tag, 'lost')).length, filter: 'lost' },
+    { label: t("Reencontrados"), value: tags.filter(tag => matchesTagFilter(tag, 'recovered')).length, filter: 'recovered' },
   ];
 
   return <View style={styles.page}>

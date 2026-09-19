@@ -143,6 +143,7 @@ export const catalog: Record<string, readonly [string, string]> = {
   'Objetos': ['Items', 'Objetos'], 'Ver todos': ['View all', 'Ver todos'],
   'Voltar': ['Back', 'Volver'],
   'Reencontrados': ['Recovered', 'Recuperados'],
+  'Reencontrado': ['Recovered', 'Recuperado'],
   'Esta etiqueta é sua': ['This is your tag', 'Esta etiqueta es tuya'],
   'Você está vendo como seu objeto aparece para quem o encontrar.': ['This is how your item appears to its finder.', 'Así ve tu objeto quien lo encuentre.'],
   'Você não pode enviar um aviso para seu próprio objeto.': ['You cannot report your own item as found.', 'No puedes enviar un aviso sobre tu propio objeto.'],

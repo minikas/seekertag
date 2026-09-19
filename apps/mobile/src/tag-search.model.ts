@@ -1,13 +1,12 @@
 import type { Tag } from './api.ts';
 import { tagCategoryLabel } from './category.model.ts';
 import type { Translate } from './i18n/index.ts';
+import { displayTagStatus, type TagStatus } from './tag-status.model.ts';
 
-export type TagFilter = 'all' | 'recovered' | Tag['status'];
+export type TagFilter = 'all' | TagStatus;
 export const matchesTagFilter = (tag: Tag, filter: TagFilter) => filter === 'all'
   ? tag.status !== 'paused'
-  : filter === 'recovered'
-    ? tag.status !== 'paused' && tag.recoveryCount > 0
-    : tag.status === filter;
+  : displayTagStatus(tag) === filter;
 const normalize = (value: string, locale: string) => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
 
 export function searchTags(tags: Tag[], query: string, filter: TagFilter, t: Translate, locale: string): Tag[] {

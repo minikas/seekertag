@@ -16,7 +16,7 @@ export default function TagRow({ tag, onPress, last = false }: { tag: Tag; onPre
       <Text style={s.small}>{tagCategoryLabel(tag, t)}</Text>
       {tag.openReportCount > 0 && <Text style={[s.small, { color: C.accent }]}>{conversationCount(t, tag.openReportCount, locale)}</Text>}
     </View>
-    <Pill status={tag.status} />
+    <Pill status={tag.status} recoveryCount={tag.recoveryCount} />
   </Pressable>;
 }
 

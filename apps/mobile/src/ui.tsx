@@ -6,6 +6,7 @@ import Pressable from './HapticPressable';
 import Screen from './Screen';
 import { PageLayer } from './Navigation';
 import { motion } from './motion';
+import { displayTagStatus } from './tag-status.model';
 import { useDismissFieldHelp, useDismissFieldHelpOnInteraction } from './FieldHelpInteractions';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Feather from '@expo/vector-icons/Feather';
@@ -133,9 +134,10 @@ export function Notice({ text, error = false, tone = 'info' }: { text: string; e
   return <View accessibilityRole={error ? 'alert' : undefined} style={[s.notice, { backgroundColor }]}><Icon name={error || tone === 'warning' ? 'alert-circle' : tone === 'success' ? 'check-circle' : 'info'} size={21} color={color} /><Text style={[s.small, { color: error || tone !== 'info' ? color : C.ink, flex: 1 }]}>{translateNotice(t, text)}</Text></View>;
 }
 
-export function Pill({ status }: { status: 'active' | 'lost' | 'paused' }) {
+export function Pill({ status, recoveryCount = 0 }: { status: 'active' | 'lost' | 'paused'; recoveryCount?: number }) {
   const { C, s, t, locale } = useUI();
-  const [label, color, backgroundColor] = status === 'lost' ? [t("Perdido"), C.amber, C.amberSoft] : status === 'paused' ? [t("Arquivado"), C.muted, C.surface] : [t("Protegido"), C.green, C.greenSoft];
+  const state = displayTagStatus({ status, recoveryCount });
+  const [label, color, backgroundColor] = state === 'lost' ? [t("Perdido"), C.orange, C.orangeSoft] : state === 'recovered' ? [t('Reencontrado'), C.blue, C.blueSoft] : state === 'paused' ? [t("Arquivado"), C.muted, C.surface] : [t("Protegido"), C.green, C.greenSoft];
   return <View style={[s.pill, { backgroundColor }]}><View style={{ height: 6, width: 6, borderRadius: 3, backgroundColor: color }} /><Text style={{ fontSize: 13, fontWeight: '500', color }}>{label}</Text></View>;
 }
 

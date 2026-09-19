@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { searchTags } from '../../src/tag-search.model.ts';
+import { matchesTagFilter, searchTags } from '../../src/tag-search.model.ts';
+import { displayTagStatus } from '../../src/tag-status.model.ts';
 import { createTranslator } from '../../src/i18n/index.ts';
 
 const tags = [
@@ -45,8 +46,32 @@ test('filtering retains the original order and objects without mutating the coll
   assert.equal(frozen.length, 3);
 });
 
-test('recovered items are identified by return history, not simply by active status', () => {
-  const items = tags.map((tag, index) => ({ ...tag, recoveryCount: index === 1 ? 2 : 0 }));
+test('protected and recovered items have separate badges, filters and counts', () => {
+  const items = [
+    { ...tags[0], recoveryCount: 0 },
+    { ...tags[1], status: 'active', recoveryCount: 2 },
+    { ...tags[2], recoveryCount: 1 },
+  ];
+  assert.deepEqual(items.map(displayTagStatus), ['active', 'recovered', 'paused']);
+  assert.deepEqual(ids(searchTags(items, '', 'active', pt, 'pt-BR')), ['a']);
   assert.deepEqual(ids(searchTags(items, '', 'recovered', pt, 'pt-BR')), ['b']);
   assert.deepEqual(ids(searchTags(items, 'camera', 'recovered', pt, 'pt-BR')), []);
+  assert.equal(items.filter(tag => matchesTagFilter(tag, 'active')).length, 1);
+  assert.equal(items.filter(tag => matchesTagFilter(tag, 'recovered')).length, 1);
+  for (const tag of items) {
+    assert.equal(['active', 'lost', 'recovered', 'paused'].filter(filter => matchesTagFilter(tag, filter)).length, 1);
+  }
+});
+
+test('a recovered item becomes lost when lost again and archived when archived', () => {
+  const item = { ...tags[0], status: 'active', recoveryCount: 1 };
+  for (const status of ['lost', 'paused']) {
+    const changed = { ...item, status };
+    assert.equal(displayTagStatus(changed), status);
+    assert.equal(matchesTagFilter(changed, 'recovered'), false);
+    assert.equal(matchesTagFilter(changed, 'active'), false);
+    assert.equal(matchesTagFilter(changed, status), true);
+  }
+  assert.equal(displayTagStatus({ ...item, recoveryCount: 2 }), 'recovered');
+  assert.equal(displayTagStatus({ ...item, recoveryCount: 0 }), 'active');
 });

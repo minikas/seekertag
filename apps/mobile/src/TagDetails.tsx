@@ -277,7 +277,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
       {overlay === 'actions' ? actions : overlay === 'nfc' ? nfc : null}
       {page === 'info' && <InfoFrame title={t('Detalhes do objeto')} onClose={() => setPage('overview')}
         headerRight={<Button variant="ghost" icon="edit-2" label={t('Editar objeto')} disabled={waiting || !!busy} onPress={() => onEdit(tag)} />}>
-      <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} /></View>
+      <View style={s.between}><Text style={[s.h2, { flex: 1 }]}>{tag.name}</Text><Pill status={tag.status} recoveryCount={tag.recoveryCount} /></View>
       <InfoBlock label={t("Categoria")} value={tagCategoryLabel(tag, t)} />
       <Text style={s.small}>{t("Criada em {date}", { date: formatDate(tag.createdAt, locale) })}</Text>
       {tag.description ? <InfoBlock label={t("Sua anotação particular")} value={tag.description} /> : null}
@@ -326,7 +326,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
     {waiting && <RewardPendingNotice />}
       <View style={styles.qrCard}>
         <Text accessibilityRole="header" style={[s.h2, styles.center]}>{tag.name}</Text>
-        <View style={styles.metadata}><Icon name={info.icon} color={C.muted} size={18} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text><Pill status={tag.status} /></View>
+        <View style={styles.metadata}><Icon name={info.icon} color={C.muted} size={18} /><Text style={s.small}>{tagCategoryLabel(tag, t)}</Text><Pill status={tag.status} recoveryCount={tag.recoveryCount} /></View>
         <View style={styles.qrPaper}><QRCode value={tag.publicUrl} size={qrSize} backgroundColor="white" color="#101918" ecl="M" quietZone={12} /></View>
         <Text style={[s.small, styles.center]}>{t("Escaneie para abrir a página deste objeto.")}</Text>
       </View>

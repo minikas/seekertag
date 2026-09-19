@@ -65,7 +65,7 @@ test('both palettes retain readable body text, controls and feedback', () => {
     return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
   }
   const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + .05) / (Math.min(luminance(a), luminance(b)) + .05);
-  for (const palette of [darkColors, lightColors]) for (const [fg, bg] of [['ink', 'bg'], ['muted', 'bg'], ['ink', 'input'], ['onPrimary', 'primary'], ['red', 'redSoft'], ['green', 'greenSoft']]) {
+  for (const palette of [darkColors, lightColors]) for (const [fg, bg] of [['ink', 'bg'], ['muted', 'bg'], ['ink', 'input'], ['onPrimary', 'primary'], ['red', 'redSoft'], ['green', 'greenSoft'], ['blue', 'blueSoft'], ['orange', 'orangeSoft']]) {
     assert.ok(contrast(palette[fg], palette[bg]) >= 4.5, `${fg}/${bg}`);
   }
   assert.equal(categoryInk('#304441'), '#FFFFFF');
