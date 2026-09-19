@@ -1,10 +1,12 @@
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiQueryOptions } from '../query';
 import { useThemedStyles } from '../PreferencesProvider';
 import { Colors } from '../theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Pressable from '../HapticPressable';
 import * as Clipboard from 'expo-clipboard';
-import { api, Provider, User } from '../api';
+import { Provider, User } from '../api';
 import ProviderButton, { ProviderMark } from '../ProviderButton';
 import { Icon, Notice, useUI } from '../ui';
 import { authenticate, AuthAvailability, providerNames } from './auth';
@@ -12,7 +14,8 @@ import { authenticate, AuthAvailability, providerNames } from './auth';
 export function WalletPanel({ token, user, onUserUpdated }: { token: string; user: User; onUserUpdated: (user: User) => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
-  const [availability, setAvailability] = useState<AuthAvailability>();
+  const availabilityQuery = useQuery(apiQueryOptions<AuthAvailability>('/auth/providers'));
+  const availability = availabilityQuery.data;
   const [busy, setBusy] = useState<Provider | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -20,12 +23,13 @@ export function WalletPanel({ token, user, onUserUpdated }: { token: string; use
   const copyReset = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (copyReset.current) clearTimeout(copyReset.current); }, []);
   useEffect(() => { setCopied(false); }, [user.walletAddress]);
-  useEffect(() => { let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) setError(t("Não foi possível carregar as formas de acesso.")); }); return () => { live = false; }; }, []);
+  useEffect(() => { if (availabilityQuery.error) setError(t("Não foi possível carregar as formas de acesso.")); }, [availabilityQuery.error]);
+  const linkMutation = useMutation({ mutationFn: (provider: Provider) => authenticate(provider, 'link', token, locale.slice(0, 2)) });
   async function link(provider: Provider) {
     if (active.current) return;
     active.current = true; setBusy(provider); setError('');
     try {
-      const result = await authenticate(provider, 'link', token, locale.slice(0, 2));
+      const result = await linkMutation.mutateAsync(provider);
       if (result?.user) onUserUpdated(result.user);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível vincular este acesso.'); }
     finally { active.current = false; setBusy(null); }

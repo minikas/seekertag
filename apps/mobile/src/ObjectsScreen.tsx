@@ -44,7 +44,7 @@ export default function ObjectsScreen({ tags, initialFilter, onSelect, onClose, 
         <View style={styles.fill} accessibilityElementsHidden={filterOpen || covered} importantForAccessibility={filterOpen || covered ? 'no-hide-descendants' : 'auto'}>
           <View style={s.screenHeader}>
             <Button variant="ghost" icon={embedded ? 'plus' : 'arrow-left'} label={t(embedded ? 'Adicionar objeto' : 'Voltar para início')} onPress={embedded && onAdd ? onAdd : close} />
-            <Text accessibilityRole="header" style={s.screenTitle}>{t('Objetos')}</Text>
+            <Text accessibilityRole="header" numberOfLines={2} style={s.screenTitle}>{t('Objetos')}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={t('Filtrar objetos')} accessibilityState={{ selected: filter !== 'all' }}
               onPress={() => { Keyboard.dismiss(); setFilterOpen(true); }} style={({ pressed }) => [styles.filterButton, pressed && styles.pressed]}>
               <Icon name="sliders" size={26} />

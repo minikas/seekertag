@@ -1,6 +1,7 @@
 // Portuguese source messages, followed by English and Spanish translations.
 import { rewards } from './rewards.ts';
 export const catalog: Record<string, readonly [string, string]> = {
+  'Indisponível': ['Unavailable', 'No disponible'],
   'Descartar alterações?': ['Discard changes?', '¿Descartar cambios?'],
   'As alterações não salvas serão perdidas.': ['Unsaved changes will be lost.', 'Se perderán los cambios sin guardar.'],
   'Continuar editando': ['Keep editing', 'Seguir editando'],

@@ -1,11 +1,13 @@
-import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking } from 'react-native';
+import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { apiQueryKey } from './query';
 import { api, API_URL, ApiError } from './api';
 import { usePreferences } from './PreferencesProvider';
 import { useUI } from './ui';
 import { Notifications, prepareNotifications, registerPush } from './platform/notifications';
 import { secureStorage } from './platform/storage';
-import { InboxNotification, newNotifications, NotificationInbox, notificationTarget, NotificationTarget } from './notifications.model';
+import { InboxNotification, newNotifications, NotificationInbox, notificationTarget, NotificationTarget, notificationInbox, updateReadNotifications } from './notifications.model';
 
 const empty: NotificationInbox = { notifications: [], unreadCount: 0, latestId: 0, nextCursor: null };
 type Value = NotificationInbox & { loading: boolean; error: string; permission: boolean; pushReady: boolean;
@@ -20,9 +22,8 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
 }>) {
   const { language } = usePreferences();
   const { t } = useUI();
-  const [inbox, setInbox] = useState(empty);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const queryClient = useQueryClient();
+  const [actionError, setError] = useState('');
   const [permission, setPermission] = useState(false);
   const [pushReady, setPushReady] = useState(false);
   const activeReport = useRef<string | undefined>(undefined);
@@ -30,44 +31,43 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
   const identity = `${apiOrigin}:${userId || ''}:${token || ''}`;
   const current = useRef(identity); current.current = identity;
   const latest = useRef({ onOpen, t, permission, pushReady }); latest.current = { onOpen, t, permission, pushReady };
-  const fetching = useRef(false);
   const revision = useRef(0);
-
-  const refresh = useCallback(async (showLoading = false) => {
-    if (!token || !userId || fetching.current) return;
-    if (showLoading) setLoading(true);
-    fetching.current = true;
-    const version = revision.current;
-    try {
-      const data = await api<NotificationInbox>('/notifications', token);
-      if (current.current !== identity || version !== revision.current) return;
-      setInbox(previous => ({ ...data,
-        notifications: [...data.notifications, ...previous.notifications.filter(item => item.id < (data.notifications.at(-1)?.id || 0))],
-        nextCursor: previous.latestId === data.latestId && previous.notifications.length > 50 ? previous.nextCursor : data.nextCursor,
-      })); setError('');
-      if (seen.current !== null && latest.current.permission && !latest.current.pushReady && AppState.currentState === 'active') {
-        // Old history belongs in the inbox, not in a burst of system alerts.
-        const arrivals = newNotifications(data.notifications, seen.current, activeReport.current).slice(0, 3).reverse();
-        for (const item of arrivals) {
-          if (current.current !== identity) return;
-          await Notifications.scheduleNotificationAsync({ identifier: `message-${userId}-${item.id}`,
-            content: { title: `${latest.current.t('Nova mensagem')} · ${item.tagName}`, body: item.body.slice(0, 240), sound: 'default',
-              data: { messageId: item.id, reportId: item.reportId, userId, finder: item.finder, apiOrigin } }, trigger: { channelId: 'messages' } });
-        }
-      }
-      if (current.current === identity) seen.current = Math.max(seen.current || 0, data.latestId);
-    } catch (cause) { if (current.current === identity) setError(cause instanceof ApiError && cause.status === 404 ? latest.current.t('As notificações ainda não estão disponíveis neste servidor.') : (cause as Error).message); }
-    finally { if (current.current === identity) { fetching.current = false; setLoading(false); } }
-  }, [token, userId, identity]);
-
+  const inboxQuery = useInfiniteQuery({
+    queryKey: apiQueryKey(token, '/notifications'),
+    enabled: !!token && !!userId,
+    initialPageParam: undefined as number | undefined,
+    queryFn: ({ pageParam, signal }) => api<NotificationInbox>(pageParam ? `/notifications?before=${pageParam}` : '/notifications', token, undefined, undefined, signal),
+    getNextPageParam: page => page.nextCursor ?? undefined,
+    refetchInterval: 5000,
+  });
+  const inbox = useMemo(() => token && userId && inboxQuery.data ? notificationInbox(inboxQuery.data.pages) : empty, [token, userId, inboxQuery.data]);
+  const loading = !!token && !!userId && (inboxQuery.isLoading || inboxQuery.isFetchingNextPage);
+  const error = actionError || (inboxQuery.error instanceof ApiError && inboxQuery.error.status === 404
+    ? t('As notificações ainda não estão disponíveis neste servidor.') : inboxQuery.error?.message || '');
+  const refresh = useCallback(async () => {
+    if (!token || !userId) return;
+    await inboxQuery.refetch({ cancelRefetch: false });
+  }, [token, userId, inboxQuery.refetch]);
   useEffect(() => {
-    setInbox(empty); setError(''); seen.current = null; fetching.current = false; activeReport.current = undefined;
-    setLoading(!!token && !!userId);
-    void refresh();
-    const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(); }, 5000);
-    const sub = AppState.addEventListener('change', state => { if (state === 'active') void refresh(); });
-    return () => { clearInterval(timer); sub.remove(); };
-  }, [refresh]);
+    setError(''); seen.current = null; activeReport.current = undefined; revision.current++;
+  }, [identity]);
+  useEffect(() => {
+    const first = inboxQuery.data?.pages[0];
+    if (!first || !token || !userId) return;
+    const after = seen.current;
+    // Advance before awaiting the OS so polling cannot schedule an alert twice.
+    seen.current = Math.max(after || 0, first.latestId);
+    if (after === null || !latest.current.permission || latest.current.pushReady || AppState.currentState !== 'active') return;
+    const arrivals = newNotifications(first.notifications, after, activeReport.current).slice(0, 3).reverse();
+    void (async () => {
+      for (const item of arrivals) {
+        if (current.current !== identity) return;
+        await Notifications.scheduleNotificationAsync({ identifier: `message-${userId}-${item.id}`,
+          content: { title: `${latest.current.t('Nova mensagem')} · ${item.tagName}`, body: item.body.slice(0, 240), sound: 'default',
+            data: { messageId: item.id, reportId: item.reportId, userId, finder: item.finder, apiOrigin } }, trigger: { channelId: 'messages' } });
+      }
+    })().catch(() => {});
+  }, [inboxQuery.data, identity, token, userId]);
 
   useEffect(() => {
     let live = true;
@@ -95,35 +95,50 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
     return () => { live = false; sub.remove(); pushSub.remove(); };
   }, [token, userId, language]);
 
+  const handledResponse = useRef<string | undefined>(undefined);
   useEffect(() => {
+    let live = true;
     Notifications.setNotificationHandler({ handleNotification: async notification => {
       const target = userId ? notificationTarget(notification.request.content.data || {}, userId, apiOrigin) : null;
-      const show = !!target && target.reportId !== activeReport.current;
+      const show = !!target && (AppState.currentState !== 'active' || target.reportId !== activeReport.current);
       return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: false };
     } });
     const receive = Notifications.addNotificationReceivedListener(() => { void refresh(); });
     const open = (response: Notifications.NotificationResponse) => {
-      if (!userId) return;
+      // A cold-start response can arrive before the account is restored. Leave
+      // it pending until this effect runs with the authenticated account.
+      if (!live || !token || !userId) return;
       const target = notificationTarget(response.notification.request.content.data || {}, userId, apiOrigin);
-      void Notifications.clearLastNotificationResponseAsync();
-      if (target) latest.current.onOpen(target);
+      if (!target) return;
+      const responseKey = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+      if (handledResponse.current === responseKey) return;
+      handledResponse.current = responseKey;
+      latest.current.onOpen(target);
+      void Notifications.clearLastNotificationResponseAsync().catch(() => {});
     };
-    const response = Notifications.getLastNotificationResponse();
-    if (response && userId) open(response);
     const tap = Notifications.addNotificationResponseReceivedListener(open);
-    return () => { receive.remove(); tap.remove(); Notifications.setNotificationHandler(null); };
-  }, [userId, refresh]);
+    const response = Notifications.getLastNotificationResponse();
+    if (response) open(response);
+    // Android may finish exposing its launch intent after the synchronous read.
+    void Notifications.getLastNotificationResponseAsync().then(response => { if (response) open(response); }).catch(() => {});
+    return () => { live = false; receive.remove(); tap.remove(); Notifications.setNotificationHandler(null); };
+  }, [token, userId, refresh]);
 
+  const readMutation = useMutation({
+    mutationFn: ({ token: session, throughId, reportId }: { token: string; throughId: number; reportId?: string }) => api<NotificationInbox>('/notifications/read', session, { throughId, ...(reportId ? { reportId } : {}) }),
+  });
   const markRead = useCallback(async (throughId: number, reportId?: string) => {
     if (!token || !userId || !throughId) return false;
     const version = ++revision.current;
     try {
-      const data = await api<NotificationInbox>('/notifications/read', token, { throughId, ...(reportId ? { reportId } : {}) });
+      // Do not let a poll started before the receipt restore an unread badge.
+      await queryClient.cancelQueries({ queryKey: apiQueryKey(token, '/notifications'), exact: true });
+      const data = await readMutation.mutateAsync({ token, throughId, reportId });
       if (current.current === identity && version === revision.current) {
-        setInbox(previous => ({ ...data, notifications: [...data.notifications,
-          ...previous.notifications.filter(item => item.id < (data.notifications.at(-1)?.id || 0)).map(item =>
-            item.id <= throughId && (!reportId || item.reportId === reportId) ? { ...item, read: true } : item)],
-          nextCursor: previous.notifications.length > 50 ? previous.nextCursor : data.nextCursor }));
+        queryClient.setQueryData<InfiniteData<NotificationInbox, number | undefined>>(apiQueryKey(token, '/notifications'), previous => ({
+          pageParams: previous?.pageParams || [undefined],
+          pages: updateReadNotifications(previous?.pages || [], data, throughId, reportId),
+        }));
         setError('');
         const presented = await Notifications.getPresentedNotificationsAsync();
         for (const item of presented) {
@@ -133,16 +148,10 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
       }
       return true;
     } catch (cause) { if (current.current === identity) setError((cause as Error).message); return false; }
-  }, [token, userId, identity]);
+  }, [token, userId, identity, queryClient, readMutation.mutateAsync]);
   async function loadMore() {
-    if (!token || !inbox.nextCursor || loading) return;
-    setLoading(true);
-    const version = revision.current;
-    try {
-      const data = await api<NotificationInbox>(`/notifications?before=${inbox.nextCursor}`, token);
-      if (current.current === identity && version === revision.current) setInbox(previous => ({ ...previous, nextCursor: data.nextCursor, notifications: [...previous.notifications, ...data.notifications.filter(item => !previous.notifications.some(existing => existing.id === item.id))] }));
-    } catch (cause) { if (current.current === identity) setError((cause as Error).message); }
-    finally { if (current.current === identity) setLoading(false); }
+    if (!token || !inboxQuery.hasNextPage || inboxQuery.isFetching) return;
+    await inboxQuery.fetchNextPage({ cancelRefetch: false });
   }
   async function enable() {
     try {
@@ -156,7 +165,7 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
   function open(item: InboxNotification) {
     if (userId) latest.current.onOpen({ messageId: item.id, reportId: item.reportId, userId, finder: item.finder, apiOrigin });
   }
-  return <Context.Provider value={{ ...inbox, loading, error, permission, pushReady, refresh: () => refresh(true), loadMore, enable, markRead,
+  return <Context.Provider value={{ ...inbox, loading, error, permission, pushReady, refresh, loadMore, enable, markRead,
     setActiveReport: useCallback((id?: string) => { activeReport.current = id; }, []), open }}>{children}</Context.Provider>;
 }
 export function useNotifications() {

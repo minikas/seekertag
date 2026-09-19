@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { QueryClient, QueryObserver, MutationObserver } from '@tanstack/react-query';
 import { ConversationDrafts } from '../../src/navigation.model.ts';
 
 const compiled = ts.transpileModule(readFileSync(new URL('../../src/Conversation.tsx', import.meta.url), 'utf8'), {
@@ -12,12 +13,13 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 // Exercise actual composer/load/send handlers, with opaque native hosts and
 // a controllable API. No credentials, device state or remote messages are used.
 function harness(drafts, options = {}) {
-  const slots = [], pending = [], requests = []; let cursor = 0, body = '', initialized = false;
+  const slots = [], pending = [], requests = [], clipboard = []; let cursor = 0, body = '', initialized = false;
   const reset = values => { body = values.body; };
   const setActiveReport = () => {};
   const markRead = async () => true;
   const props = { id: 'report-1', token: 'test-session', ...options };
   let failSend = false;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false, gcTime: 0 } } });
   const react = {
     createElement(type, props, ...children) {
       if (type === 'Controller') return props.render({ field: { value: body, onChange: value => { body = value; }, onBlur() {} } });
@@ -37,23 +39,49 @@ function harness(drafts, options = {}) {
   };
   const dependencies = {
     react,
-    'react-native': { View: 'View', Text: 'Text', TextInput: 'TextInput', ScrollView: 'ScrollView', AppState: { currentState: 'active' } },
+    'react-native': { StyleSheet: { hairlineWidth: 1 }, View: 'View', Text: 'Text', TextInput: 'TextInput', ScrollView: 'ScrollView', AppState: { currentState: 'active' }, Keyboard: { dismiss() {} }, ToastAndroid: { show() {}, SHORT: 0 } },
+    'expo-clipboard': { setStringAsync: async value => { clipboard.push(value); } },
     'react-hook-form': { Controller: 'Controller', useForm: config => {
       if (!initialized) { body = config.defaultValues.body; initialized = true; }
       return { control: {}, handleSubmit: action => () => action({ body }), reset, watch: () => body, formState: { errors: {} } };
     } },
     '@hookform/resolvers/zod': { zodResolver() {} },
     '@gorhom/bottom-sheet': { BottomSheetTextInput: 'SheetInput' },
-    'react-native-keyboard-controller': { KeyboardAvoidingView: 'KeyboardAvoidingView' },
+    'react-native-keyboard-controller': { useReanimatedKeyboardAnimation: () => ({ height: { value: options.keyboardHeight ?? 0 } }) },
+    'react-native-reanimated': { __esModule: true, default: { View: 'AnimatedView' }, useAnimatedStyle: fn => fn() },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 24 }) },
+    '@tanstack/react-query': {
+      useQueryClient: () => queryClient,
+      useQuery(config) {
+        const index = cursor++;
+        if (!slots[index]) { slots[index] = new QueryObserver(queryClient, { ...config, refetchInterval: false }); slots[index].subscribe(() => {}); }
+        slots[index].setOptions({ ...config, refetchInterval: false });
+        return slots[index].getCurrentResult();
+      },
+      useMutation(config) {
+        const index = cursor++;
+        if (!slots[index]) slots[index] = new MutationObserver(queryClient, config);
+        slots[index].setOptions(config);
+        return { ...slots[index].getCurrentResult(), mutateAsync: variables => slots[index].mutate(variables) };
+      },
+    },
+    './query': {
+      apiQueryKey: (token, path) => ['api', token, path],
+      apiQueryOptions: (path, token) => ({ queryKey: ['api', token, path], queryFn: () => dependencies['./api'].api(path, token), staleTime: 10000 }),
+    },
     './form.model': {},
-    './ui': { Button: 'Button', Icon: 'Icon', Notice: 'Notice', useUI: () => ({ C: {}, s: {}, t: value => value, locale: 'en-US' }) },
+    './ui': { Button: 'Button', Icon: 'Icon', Notice: 'Notice', Pill: 'Pill', useUI: () => ({ C: {}, s: {}, t: value => value, locale: 'en-US' }) },
     './Navigation': { useConversationDrafts: () => drafts },
     './NotificationsProvider': { useNotifications: () => ({ markRead, setActiveReport }) },
-    './ReceivingWalletSheet': { ReceivingWalletForm: 'ReceivingWalletForm' },
+    './ReceivingWalletSheet': { __esModule: true, default: 'ReceivingWalletSheet' },
+    './HapticPressable': { __esModule: true, default: 'Pressable' },
+    './category.model': { categoryInk: () => '#ffffff', tagCategoryLabel: tag => tag.category },
     './api': { api: async (path, _token, input) => {
       requests.push({ path, input });
       if (input) { if (failSend) throw new Error('Temporary network failure'); return { message: { id: 1, body: input.body, role: props.finder ? 'finder' : 'owner', createdAt: new Date().toISOString() } }; }
-      return { report: { id: props.id, tagName: 'Backpack', status: 'open', finderName: 'Alex' }, messages: [] };
+      if (path.endsWith('/reward')) return { reward: options.reward ?? null, recipient: options.recipient ?? null, tagId: 'item-1' };
+      return { report: { id: props.id, tagName: 'Backpack', status: options.status ?? 'open', finderName: 'Alex' }, messages: options.messages ?? [],
+        tag: { name: 'Backpack', category: 'Travel bags', color: '#112233', categoryIcon: 'briefcase', status: 'lost', publicMessage: 'Please leave it at the reception.', description: 'PRIVATE NOTE: door code 1234', rewardAmount: 3, rewardCurrency: 'SKR' } };
     } },
     './AccountActionSheet': { __esModule: true, default: 'AccountActionSheet' },
     './ConversationReward': { __esModule: true, default: 'ConversationReward' },
@@ -63,7 +91,7 @@ function harness(drafts, options = {}) {
     assert.ok(name in dependencies, `Unexpected dependency: ${name}`); return dependencies[name];
   }, module, module.exports, () => 1, () => {});
   return {
-    requests, props, failSend(value) { failSend = value; },
+    requests, clipboard, props, queryClient, failSend(value) { failSend = value; },
     render() { cursor = 0; const tree = module.exports.default(props); pending.splice(0).forEach(effect => effect()); return tree; },
   };
 }
@@ -106,4 +134,108 @@ test('finder chat exposes reward details through both presentation entry points'
     chat.render(); await tick(); button(chat.render(), 'Ver objeto').onPress();
     assert.ok(nodes(chat.render()).some(node => node.type === 'ConversationReward' && node.props.finder));
   }
+});
+
+
+test('conversation keyboard inset keeps the composer above a docked keyboard without double-counting the safe area', async () => {
+  const chat = harness(new ConversationDrafts(), { keyboardHeight: -320 });
+  let layout = nodes(chat.render()).find(node => node.props?.testID === 'conversation-keyboard-layout');
+  assert.equal(layout.props.style[1].paddingBottom, 296);
+  chat.props.covered = true;
+  layout = nodes(chat.render()).find(node => node.props?.testID === 'conversation-keyboard-layout');
+  assert.equal(layout.props.style[1].paddingBottom, 0);
+});
+
+test('conversation renders cached messages during refetch and isolates another report', async () => {
+  const chat = harness(new ConversationDrafts());
+  chat.render(); await tick();
+  const key = ['api', 'test-session', '/reports/report-1'];
+  chat.queryClient.setQueryData(key, previous => ({ ...previous, messages: [{ id: 8, role: 'finder', body: 'Meet at reception', createdAt: new Date().toISOString() }] }));
+  const request = chat.queryClient.invalidateQueries({ queryKey: key });
+  const cached = nodes(chat.render());
+  assert.ok(cached.some(node => node.props?.children?.includes('Meet at reception')));
+  assert.ok(!cached.some(node => node.props?.accessibilityLabel === 'Carregando conversa'));
+  await request;
+  chat.props.id = 'report-2';
+  assert.ok(!nodes(chat.render()).some(node => node.props?.children?.includes('Meet at reception')));
+});
+
+
+test('finder wallet action appears after messages and before account prompt only after a successful first message', async () => {
+  const chat = harness(new ConversationDrafts(), { finder: true, reward: { status: 'reserved' } });
+  chat.props.historyFooter = { type: 'AccountPrompt', props: {} };
+  const walletAction = tree => nodes(tree).find(node => node.props?.testID === 'conversation-receiving-wallet');
+  chat.render(); await tick();
+  assert.equal(walletAction(chat.render()), undefined);
+  input(chat.render()).onChangeText('I found this.');
+  chat.failSend(true); button(chat.render(), 'Enviar').onPress(); await tick();
+  assert.equal(walletAction(chat.render()), undefined, 'A failed send cannot unlock the wallet action');
+  chat.failSend(false); button(chat.render(), 'Enviar').onPress();
+  assert.equal(walletAction(chat.render()), undefined, 'Pending drafts do not qualify as sent messages');
+  await tick(); chat.render(); await tick();
+  const tree = chat.render(), flat = nodes(tree);
+  assert.ok(walletAction(tree));
+  assert.ok(flat.indexOf(walletAction(tree)) > flat.findIndex(node => node.type === 'Text' && node.props?.children?.includes('I found this.')));
+  assert.ok(flat.indexOf(walletAction(tree)) < flat.findIndex(node => node.type === 'AccountPrompt'));
+  walletAction(tree).props.onPress();
+  assert.ok(nodes(chat.render()).some(node => node.type === 'ReceivingWalletSheet'));
+  assert.ok(!nodes(chat.render()).some(node => node.type === 'AccountActionSheet'), 'Wallet opens directly, without item details underneath');
+  chat.queryClient.setQueryData(['api', 'test-session', '/finder/reports/report-1/reward'], { reward: { status: 'reserved' }, recipient: 'already-confirmed', tagId: 'item-1' });
+  const saved = chat.render();
+  assert.ok(walletAction(saved));
+  assert.ok(nodes(saved).some(node => node.props?.children?.includes('already-confirmed')));
+  walletAction(saved).props.onPress();
+  assert.equal(nodes(chat.render()).find(node => node.type === 'ReceivingWalletSheet').props.recipient, 'already-confirmed');
+});
+
+test('finder wallet action is hidden without an available reserved reward or after resolution', async () => {
+  for (const options of [{ reward: null }, { reward: { status: 'released' } }, { reward: { status: 'pending' } }, { reward: { status: 'reserved', operation: { status: 'submitted' } } }, { reward: { status: 'reserved' }, status: 'resolved' }]) {
+    const chat = harness(new ConversationDrafts(), { finder: true, messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }], ...options });
+    chat.render(); await tick(); chat.render(); await tick();
+    assert.ok(!nodes(chat.render()).some(node => node.props?.testID === 'conversation-receiving-wallet'));
+  }
+});
+
+test('confirmed receiving address stays visible and copies in full after resolution without opening the editor', async () => {
+  const recipient = 'ConfirmedPublicWalletAddress';
+  const chat = harness(new ConversationDrafts(), { finder: true, status: 'resolved', recipient,
+    reward: { status: 'released' }, messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }] });
+  chat.render(); await tick(); chat.render(); await tick();
+  const tree = chat.render();
+  assert.ok(nodes(tree).some(node => node.props?.children?.includes(recipient)));
+  assert.equal(nodes(tree).find(node => node.props?.testID === 'conversation-receiving-wallet').props.disabled, true);
+  nodes(tree).find(node => node.props?.testID === 'conversation-copy-receiving-wallet').props.onPress();
+  await tick();
+  assert.deepEqual(chat.clipboard, [recipient]);
+  assert.ok(!nodes(chat.render()).some(node => node.type === 'ReceivingWalletSheet'));
+});
+
+test('finder item details expose public item context and reward while keeping private notes out', async () => {
+  const chat = harness(new ConversationDrafts(), { finder: true });
+  chat.render(); await tick(); button(chat.render(), 'Ver objeto').onPress();
+  const tree = chat.render(), flat = nodes(tree), texts = flat.filter(node => node.type === 'Text').flatMap(node => node.props.children).join(' ');
+  assert.match(texts, /Backpack/); assert.match(texts, /Travel bags/); assert.match(texts, /Please leave it at the reception/);
+  assert.doesNotMatch(texts, /PRIVATE NOTE|1234/);
+  assert.ok(flat.some(node => node.type === 'Pill' && node.props.status === 'lost'));
+  assert.ok(flat.some(node => node.type === 'ConversationReward' && node.props.showReceivingWalletAction === false));
+  const send = button(tree, 'Enviar');
+  assert.equal(send.style.width, 58); assert.equal(send.style.height, 58);
+});
+
+test('owner and finder share the item icon, and owner navigation uses the loaded conversation', async () => {
+  const opened = [];
+  const owner = harness(new ConversationDrafts(), { onViewItem: report => opened.push(report) });
+  const finder = harness(new ConversationDrafts(), { finder: true });
+  owner.render(); finder.render(); await tick();
+  assert.equal(button(owner.render(), 'Ver objeto').icon, button(finder.render(), 'Ver objeto').icon);
+  button(owner.render(), 'Ver objeto').onPress();
+  assert.equal(opened[0].id, 'report-1');
+  assert.equal(opened[0].tagName, 'Backpack');
+});
+
+
+test('finder can still set a receiving wallet after the refund date while the escrow remains payable', async () => {
+  const chat = harness(new ConversationDrafts(), { finder: true, reward: { status: 'expired' }, messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }] });
+  chat.render(); await tick(); chat.render(); await tick();
+  assert.ok(nodes(chat.render()).some(node => node.props?.testID === 'conversation-receiving-wallet'));
 });

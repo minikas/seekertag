@@ -1,6 +1,8 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiQueryKey, apiQueryOptions, queryClient } from './query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ActivityIndicator, Alert, Keyboard, StyleSheet, Text, ToastAndroid, View } from 'react-native';
@@ -30,7 +32,7 @@ import { tagFormSchema, type TagFormValues } from './form.model';
 import { NavigationScope, useNavigationLayer } from './Navigation';
 import { authenticate } from './platform/auth';
 
-export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSaved, onCategoriesChanged, rewardOnly = false }: { token: string; user: User; onUserUpdated: (user: User) => void; tag?: Tag; rewardOnly?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged: () => void }) {
+export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSaved, onCategoriesChanged, rewardOnly = false }: { token: string; user: User; onUserUpdated: (user: User) => void; tag?: Tag; rewardOnly?: boolean; onClose: () => void; onSaved: (tag: Tag) => void; onCategoriesChanged?: () => void }) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const sheet = useRef<BottomSheetModal>(null);
@@ -48,16 +50,26 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     defaultValues: { name: tag?.name || '', description: tag?.description || '', publicMessage: tag?.publicMessage || t("Obrigado por cuidar do que é importante para mim. Me envie uma mensagem para combinarmos a devolução.") },
   });
   const name = watch('name');
-  const [categories, setCategories] = useState<Category[]>([]);
+  const categoriesQuery = useQuery({ ...apiQueryOptions<{ categories: Category[] }>('/categories', token), enabled: !rewardOnly });
+  const categories = categoriesQuery.data?.categories ?? [];
   const [category, setCategory] = useState(tag?.categoryId || '');
-  const [categoriesLoading, setCategoriesLoading] = useState(!rewardOnly);
-  const [categoriesError, setCategoriesError] = useState('');
-  const [categoriesRevision, setCategoriesRevision] = useState(0);
+  const categoriesLoading = !rewardOnly && categoriesQuery.isPending;
+  const categoriesError = categoriesQuery.error?.message || '';
   const [managingCategories, setManagingCategories] = useState(false);
   const initialCategory = useRef(tag?.categoryId);
   const guard = useRef({ dirty: false, t });
   const lastSheetIndex = useRef(0);
-  const [currentTag, setCurrentTag] = useState(tag);
+  const [currentTagId, setCurrentTagId] = useState(tag?.id);
+  const tagQuery = useQuery({
+    ...apiQueryOptions<{ tag: Tag }>(`/tags/${currentTagId}`, token),
+    enabled: !!currentTagId,
+    initialData: tag && tag.id === currentTagId ? { tag } : undefined,
+  });
+  const currentTag = tagQuery.data?.tag;
+  const setCurrentTag = (next: Tag) => {
+    queryClient.setQueryData(apiQueryKey(token, `/tags/${next.id}`), { tag: next });
+    setCurrentTagId(next.id);
+  };
   const currentTagRef = useRef(currentTag); currentTagRef.current = currentTag;
   const supported = !tag?.rewardCurrency || ['SOL', 'USDC', 'SKR'].includes(tag.rewardCurrency);
   const [reward, setReward] = useState(supported && tag?.rewardAmount ? rewardInput(String(tag.rewardAmount), locale) : '');
@@ -105,20 +117,27 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   }, [rewardOpen, needsWallet, t]);
   const [error, setError] = useState('');
   const [footerHeight, setFooterHeight] = useState(90 + insets.bottom);
-  const applyCategories = useCallback((next: Category[]) => {
-    if (initialCategory.current === undefined) initialCategory.current = next[0]?.id || '';
-    setCategories(next);
-    setCategoriesError('');
-    setCategory(current => next.some(c => c.id === current) ? current : next[0]?.id || '');
-  }, []);
   useEffect(() => {
-    if (rewardOnly) return;
-    let live = true;
-    setCategoriesLoading(true); setCategoriesError('');
-    void api<{ categories: Category[] }>('/categories', token).then(result => { if (live) applyCategories(result.categories); })
-      .catch(cause => { if (live) setCategoriesError(cause.message); }).finally(() => { if (live) setCategoriesLoading(false); });
-    return () => { live = false; };
-  }, [token, applyCategories, categoriesRevision, rewardOnly]);
+    if (!categoriesQuery.data) return;
+    const next = categoriesQuery.data.categories;
+    setCategory(current => {
+      const untouched = initialCategory.current === undefined || current === initialCategory.current;
+      const serverCategory = next.find(item => item.id === currentTag?.categoryId)?.id;
+      const selected = untouched && serverCategory ? serverCategory : next.some(item => item.id === current) ? current : serverCategory || next[0]?.id || '';
+      // A category replacement on the server updates an untouched selection;
+      // it never resets item text or a still-valid category draft.
+      if (untouched) initialCategory.current = selected;
+      return selected;
+    });
+  }, [categoriesQuery.data, currentTag?.categoryId]);
+  const saveMutation = useMutation({
+    mutationFn: ({ values, amount }: { values: TagFormValues; amount: number }) => api<{ tag: Tag }>(currentTag ? `/tags/${currentTag.id}` : '/tags', token, {
+      name: values.name, categoryId: category,
+      description: values.description, publicMessage: values.publicMessage,
+      ...(!lockedReward && !legacyReward ? { rewardAmount: amount, rewardCurrency: currency } : {}),
+    }, currentTag ? 'PATCH' : 'POST'),
+    retry: false,
+  });
 
   const dirty = isDirty || (initialCategory.current !== undefined && category !== initialCategory.current) || reward !== initialReward.current.reward || currency !== initialReward.current.currency || quantity !== initialReward.current.quantity || unit !== initialReward.current.unit;
   guard.current = { dirty, t };
@@ -141,7 +160,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
   function finishDismiss() {
     if (!mounted.current) return;
     Keyboard.dismiss();
-    if (savedTag.current) onSaved(savedTag.current);
+    if (savedTag.current) onSaved(currentTagRef.current ?? savedTag.current);
     else onClose();
   }
 
@@ -154,10 +173,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
     if (kind === 'fund' && !canReserve || kind === 'renew' && !durationValid) return;
     saving.current = true; setSavedBusy(true); setError(''); Keyboard.dismiss();
     try {
-      const { tag: saved } = await api<{ tag: Tag }>(currentTag ? `/tags/${currentTag.id}` : '/tags', token, {
-        name: values.name, categoryId: category,
-        description: values.description, publicMessage: values.publicMessage, ...(!lockedReward && !legacyReward ? { rewardAmount: amount, rewardCurrency: currency } : {}),
-      }, currentTag ? 'PATCH' : 'POST');
+      const { tag: saved } = await saveMutation.mutateAsync({ values, amount });
       if (!mounted.current) return;
       // Creation is durable before preparing a deposit. A retry edits this same
       // tag, so backing out of wallet review never creates a duplicate object.
@@ -267,13 +283,13 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
       keyboardDismissMode="none"
       enableFooterMarginAdjustment
     >
-      {waiting && <RewardPendingNotice />}
+      {waiting && !rewardOpen && <RewardPendingNotice />}
       <Controller control={control} name="name" render={({ field }) => <Field inSheet testID="object-name" label={t("Nome do objeto")} placeholder={t("Ex.: Minha mochila verde")} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.name?.message} maxLength={80} editable={!editingDisabled} />} />
       <View style={{ gap: 12 }}>
         <Text style={s.label}>{t("Categoria")}</Text>
         {categoriesLoading && <View style={s.row} accessibilityLiveRegion="polite"><ActivityIndicator color={C.accent} /><Text style={s.small}>{t('Carregando categorias…')}</Text></View>}
         <View style={styles.categories}>{categories.map(c => <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={categoryLabel(c, t)} accessibilityState={{ selected: c.id === category, disabled: categoriesDisabled }} disabled={categoriesDisabled} onPress={() => setCategory(c.id)} style={({ pressed }) => [styles.category, { backgroundColor: c.id === category ? C.primary : C.secondary, opacity: pressed || categoriesDisabled ? 0.65 : 1 }]}><Icon name={c.icon as IconName} size={20} color={c.id === category ? C.onPrimary : C.ink} /><Text style={{ color: c.id === category ? C.onPrimary : C.ink, fontSize: 15, fontWeight: '500' }}>{categoryLabel(c, t)}</Text></Pressable>)}</View>
-        {!!categoriesError && <><Notice error text={categoriesError} /><Button variant="secondary" disabled={categoriesLoading || categoriesDisabled} onPress={() => setCategoriesRevision(value => value + 1)}>{t('Tentar novamente')}</Button></>}
+        {!!categoriesError && <><Notice error text={categoriesError} /><Button variant="secondary" disabled={categoriesLoading || categoriesDisabled} onPress={() => void categoriesQuery.refetch()}>{t('Tentar novamente')}</Button></>}
         {!categoriesLoading && !categoriesError && !categories.length && <Text style={s.small}>{t('Crie sua primeira categoria.')}</Text>}
         <Button variant="ghost" icon="edit-2" onPress={() => { Keyboard.dismiss(); setManagingCategories(true); }} disabled={categoriesDisabled}>{t("Gerenciar categorias")}</Button>
       </View>
@@ -290,10 +306,10 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
       </Pressable>
     </KeyboardAwareSheetScrollView></NavigationScope>
   </BottomSheetModal>}
-    {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy} standalone={rewardOnly}
+    {rewardOpen && <RewardEditorSheet ref={rewardSheet} busy={busy}
       onRequestClose={rewardOnly ? close : undefined} preventDismiss={rewardOnly && dirty}
       titleAccessory={reviewing && wallet.data?.config && wallet.data.config.network !== 'mainnet' ? <RewardNetworkBadge network={wallet.data.config.network} /> : undefined}
-      title={renewing && !reviewing ? t('Renovar reserva') : waiting ? t('Confirmando na rede') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
+      title={renewing && !reviewing ? t('Renovar reserva') : waiting ? t('Recompensa') : reviewing && wallet.operation ? reviewTitle(wallet.operation.operation.spec.kind, t) : t('Recompensa')}
       contentKey={reviewing && operationId ? 'review' : 'reward'}
       onClose={() => {
         if (rewardOnly) { finishDismiss(); return; }
@@ -305,7 +321,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         }
         if (closing.current) sheet.current?.dismiss();
       }}
-      onBack={renewing && !reviewing ? () => setRenewing(false) : reviewing && !waiting ? () => { wallet.discardReview(); setReviewing(false); } : undefined}
+      onBack={!busy && !waiting ? renewing && !reviewing ? () => setRenewing(false) : reviewing && reviewPrepared ? () => { wallet.discardReview(); setReviewing(false); } : undefined : undefined}
       footer={<>
         {!!footerError && <Notice error text={footerError} />}
         {reviewing && operationId ? <Button variant={reviewPrepared ? reviewKind === 'refund' ? 'warning' : 'success' : 'secondary'} icon={reviewPrepared ? 'check' : 'refresh-cw'} busy={busy} disabled={reviewPrepared && reviewKind === 'release'} onPress={() => { if (reviewPrepared) void walletAction.current.approve(); else void walletAction.current.retry(); }}>{reviewPrepared ? t('Assinar na carteira') : t('Verificar transação')}</Button>
@@ -341,7 +357,7 @@ export default function TagForm({ token, user, onUserUpdated, tag, onClose, onSa
         </>}
       </>}
     </RewardEditorSheet>}
-    {managingCategories && <Categories presentation="sheet" token={token} onClose={() => { setManagingCategories(false); setCategoriesRevision(value => value + 1); }} onChanged={next => { applyCategories(next); onCategoriesChanged(); }} />}
+    {managingCategories && <Categories presentation="sheet" token={token} onClose={() => setManagingCategories(false)} onChanged={() => onCategoriesChanged?.()} />}
     {refundConfirm && <AccountActionSheet busy={busy} onClose={() => { if (!busy) setRefundConfirm(false); }}>
       <View style={{ gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 14 }}><View style={[s.settingsIcon, { backgroundColor: C.amberSoft }]}><Icon name="corner-up-left" color={C.amber} size={24} /></View><Text style={[s.h2, { textAlign: 'center' }]}>{t('Cancelar e recuperar?')}</Text><Text style={[s.body, { textAlign: 'center', color: C.muted }]}>{t('Confirme somente se o prazo da reserva terminou. O depósito será devolvido à carteira que financiou a recompensa.')}</Text></View>

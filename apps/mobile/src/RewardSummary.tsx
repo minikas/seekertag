@@ -24,12 +24,9 @@ export default function RewardSummary({ reward, amount = 0, currency = 'SOL', lo
 
 export function RewardPendingNotice() {
   const { C, s, t } = useUI();
-  return <View accessibilityLiveRegion="polite" style={{ gap: 8 }}>
-    <View style={[s.row, { alignSelf: 'flex-start', borderRadius: 20, backgroundColor: C.amberSoft, paddingHorizontal: 12, paddingVertical: 7 }]}>
-      <Icon name="clock" size={16} color={C.amber} />
-      <Text style={[s.small, { color: C.amber, fontWeight: '600', flexShrink: 1 }]}>{t('Aguardando confirmação')}</Text>
-    </View>
-    <Text style={s.small}>{t('Edição bloqueada até a rede confirmar o resultado. Você pode sair desta tela.')}</Text>
+  return <View accessibilityLiveRegion="polite" style={[s.row, { alignSelf: 'flex-start', borderRadius: 20, backgroundColor: C.amberSoft, paddingHorizontal: 12, paddingVertical: 7 }]}>
+    <Icon name="clock" size={16} color={C.amber} />
+    <Text style={[s.small, { color: C.amber, fontWeight: '600', flexShrink: 1 }]}>{t('Aguardando confirmação')}</Text>
   </View>;
 }
 

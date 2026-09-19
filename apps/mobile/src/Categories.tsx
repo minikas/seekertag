@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ActivityIndicator, Alert, Keyboard, Text, View } from 'react-native';
+import { Alert, Keyboard, Text, View } from 'react-native';
 import AccountActionSheet, { AccountActionSheetHandle } from './AccountActionSheet';
 import Screen from './Screen';
 import ScreenBottomSheet from './ScreenBottomSheet';
@@ -9,31 +10,23 @@ import Pressable from './HapticPressable';
 import { objectCount } from './i18n';
 import { categoryLabel, categoryInk } from './category.model';
 import { api, Category } from './api';
+import { apiQueryOptions, invalidateApiResources, queryClient } from './query';
 import { Button, Field, Icon, IconName, Notice, Sheet, useUI } from './ui';
 import { categoryFormSchema, type CategoryFormValues } from './form.model';
 
 const icons: IconName[] = ['shopping-bag', 'briefcase', 'key', 'heart', 'headphones', 'box', 'smartphone', 'watch', 'book', 'camera', 'credit-card', 'umbrella', 'truck', 'home', 'coffee', 'tag'];
 const colors = ['#304441', '#34434B', '#634457', '#5B4938', '#403D67', '#285569'];
 const iconNames: Record<string, string> = { 'shopping-bag': 'Mochila', briefcase: 'Mala', key: 'Chaves', heart: 'Pet', headphones: 'Eletrônico', box: 'Outro', smartphone: 'Telefone', watch: 'Relógio', book: 'Livro', camera: 'Câmera', 'credit-card': 'Cartão', umbrella: 'Guarda-chuva', truck: 'Veículo', home: 'Casa', coffee: 'Café', tag: 'Etiqueta' };
-export default function Categories({ token, onClose, onChanged, presentation = 'modal' }: { presentation?: 'screen' | 'modal' | 'sheet'; token: string; onClose: () => void; onChanged: (categories: Category[]) => void }) {
+export default function Categories({ token, onClose, onChanged, presentation = 'modal' }: { presentation?: 'screen' | 'modal' | 'sheet'; token: string; onClose: () => void; onChanged?: (categories: Category[]) => void }) {
   const { C, s, t, locale } = useUI();
   const Frame = presentation === 'screen' ? Screen : Sheet;
   const sheetRef = useRef<AccountActionSheetHandle>(null);
   const editingState = useRef({ dirty: false, busy: false });
-  const [categories, setCategories] = useState<Category[]>([]);
+  const categoriesQuery = useQuery(apiQueryOptions<{ categories: Category[] }>('/categories', token));
+  const categories = categoriesQuery.data?.categories ?? [];
   const [editing, setEditing] = useState<Category | 'new' | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const refresh = useCallback(async () => {
-    const result = await api<{ categories: Category[] }>('/categories', token);
-    setCategories(result.categories); onChanged(result.categories);
-  }, [token, onChanged]);
-  useEffect(() => {
-    let live = true;
-    void api<{ categories: Category[] }>('/categories', token).then(result => { if (live) setCategories(result.categories); })
-      .catch(cause => { if (live) setError((cause as Error).message); }).finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [token]);
+  const loading = categoriesQuery.isPending;
+  const error = categoriesQuery.error?.message;
   const guardEditor = (finish: () => void) => {
     if (editingState.current.busy) return;
     if (editing && editingState.current.dirty) Alert.alert(t('Descartar alterações?'), t('As alterações não salvas serão perdidas.'), [
@@ -41,7 +34,10 @@ export default function Categories({ token, onClose, onChanged, presentation = '
     ]); else finish();
   };
   const editor = editing ? <CategoryEditor key={editing === 'new' ? 'new' : editing.id} token={token} category={editing === 'new' ? undefined : editing} categories={categories} presentation={presentation === 'sheet' ? 'inline' : 'modal'}
-    stateRef={editingState} onClose={() => { editingState.current = { dirty: false, busy: false }; setEditing(null); }} onSaved={async () => { await refresh(); editingState.current = { dirty: false, busy: false }; setEditing(null); }} /> : null;
+    stateRef={editingState} onClose={() => { editingState.current = { dirty: false, busy: false }; setEditing(null); }} onSaved={async () => {
+      const result = await queryClient.ensureQueryData(apiQueryOptions<{ categories: Category[] }>('/categories', token));
+      onChanged?.(result.categories); editingState.current = { dirty: false, busy: false }; setEditing(null);
+    }} /> : null;
   const list = <>
       <Text style={s.body}>{t("Organize seus objetos do seu jeito.")}</Text>
       <Button icon="plus" onPress={() => setEditing('new')}>{t("Criar categoria")}</Button>
@@ -51,7 +47,7 @@ export default function Categories({ token, onClose, onChanged, presentation = '
         <View style={{ flex: 1, gap: 5 }}><Text style={s.h3}>{categoryLabel(category, t)}</Text><Text style={s.small}>{objectCount(t, category.tagCount, locale)}</Text></View><Icon name="edit-2" size={18} color={C.muted} />
       </Pressable>)}
       {!loading && !categories.length && <Text style={s.body}>{t("Crie sua primeira categoria.")}</Text>}
-      {!!error && <><Notice error text={error} /><Button variant="secondary" onPress={() => { setError(''); void refresh().catch(cause => setError(cause.message)); }}>{t("Tentar novamente")}</Button></>}
+      {!!error && <><Notice error text={error} /><Button variant="secondary" onPress={() => void categoriesQuery.refetch()}>{t("Tentar novamente")}</Button></>}
   </>;
   if (presentation === 'sheet') return <AccountActionSheet ref={sheetRef} title={editing ? t(editing === 'new' ? 'Nova categoria' : 'Editar categoria') : t('Categorias')} onClose={onClose}
     guardClose={guardEditor} onBack={editing ? () => guardEditor(() => { setEditing(null); editingState.current = { dirty: false, busy: false }; }) : undefined}>
@@ -81,32 +77,43 @@ function CategoryEditor({ token, category, categories, onSaved, onClose, present
   const [color, setColor] = useState(category?.color || colors[0]);
   const [deleting, setDeleting] = useState(false);
   const [replacement, setReplacement] = useState('');
-  const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [error, setError] = useState('');
+  const saveMutation = useMutation({
+    mutationFn: (values: CategoryFormValues) => api(category ? `/categories/${category.id}` : '/categories', token,
+      { name: category && values.name === categoryLabel(category, t) ? category.name : values.name, icon, color }, category ? 'PATCH' : 'POST'),
+    onSuccess: async () => { await invalidateApiResources(token, ['/categories', '/tags', '/reports', '/public/tags']); await onSaved(); },
+    retry: false,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () => api(`/categories/${category!.id}`, token, { replacementId: replacement || undefined }, 'DELETE'),
+    onSuccess: async () => { await invalidateApiResources(token, ['/categories', '/tags', '/reports', '/public/tags']); await onSaved(); },
+    retry: false,
+  });
+  const busy = saveMutation.isPending || deleteMutation.isPending;
   const dirty = isDirty || icon !== (category?.icon || 'tag') || color !== (category?.color || colors[0]);
   stateRef.current = { dirty, busy };
   const guardClose = (finish: () => void) => {
-    if (busy) return;
+    if (busy || submitting.current) return;
     if (dirty) Alert.alert(t('Descartar alterações?'), t('As alterações não salvas serão perdidas.'), [
       { text: t('Continuar editando'), style: 'cancel' }, { text: t('Descartar'), style: 'destructive', onPress: finish },
     ]); else finish();
   };
   async function submit(values: CategoryFormValues) {
-    if (busy) return;
-    setBusy(true); setError('');
+    if (busy || submitting.current) return;
+    submitting.current = true; stateRef.current.busy = true; setError('');
     try {
-      await api(category ? `/categories/${category.id}` : '/categories', token, { name: category && values.name === categoryLabel(category, t) ? category.name : values.name, icon, color }, category ? 'PATCH' : 'POST');
-      await onSaved();
+      await saveMutation.mutateAsync(values);
     } catch (cause) { setError((cause as Error).message); }
-    finally { setBusy(false); }
+    finally { submitting.current = false; stateRef.current.busy = false; }
   }
   function save() { void handleSubmit(submit)(); }
   async function remove() {
-    if (!category || busy) return;
-    setBusy(true); setError('');
-    try { await api(`/categories/${category.id}`, token, { replacementId: replacement || undefined }, 'DELETE'); await onSaved(); }
+    if (!category || busy || submitting.current) return;
+    submitting.current = true; stateRef.current.busy = true; setError('');
+    try { await deleteMutation.mutateAsync(); }
     catch (cause) { setError((cause as Error).message); }
-    finally { setBusy(false); }
+    finally { submitting.current = false; stateRef.current.busy = false; }
   }
   return <Frame guardClose={guardClose} title={category ? t('Editar categoria') : t('Nova categoria')} onClose={() => { if (busy) return; if (deleting) { setDeleting(false); setError(''); } else onClose(); }}
     dismissible={!busy} overlay={deleting && category ? <ScreenBottomSheet title={t('Excluir categoria?')} dismissible={!busy} onClose={() => { if (!busy) { setDeleting(false); setError(''); } }}>

@@ -1,8 +1,10 @@
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiQueryOptions } from './query';
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, ToastAndroid, View } from 'react-native';
-import { api, Provider, User } from './api';
+import { Provider, User } from './api';
 import { authenticate, AuthAvailability } from './platform/auth';
 import ProviderButton from './ProviderButton';
 import AccountActionSheet from './AccountActionSheet';
@@ -14,15 +16,17 @@ export default function Auth({ onAuth, onScan }: { onAuth: (token: string, user:
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
   const [methods, setMethods] = useState(false);
-  const [availability, setAvailability] = useState<AuthAvailability>();
+  const availabilityQuery = useQuery(apiQueryOptions<AuthAvailability>('/auth/providers'));
+  const availability = availabilityQuery.data;
   const [busy, setBusy] = useState<Provider | null>(null);
   const active = useRef(false);
-  useEffect(() => { let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) ToastAndroid.show(t("Não foi possível verificar os acessos disponíveis. Tente novamente."), ToastAndroid.LONG); }); return () => { live = false; }; }, []);
+  useEffect(() => { if (availabilityQuery.error) ToastAndroid.show(t("Não foi possível verificar os acessos disponíveis. Tente novamente."), ToastAndroid.LONG); }, [availabilityQuery.error]);
+  const loginMutation = useMutation({ mutationFn: (provider: Provider) => authenticate(provider, 'login', undefined, locale.slice(0, 2)) });
   async function login(provider: Provider) {
     if (active.current) return;
     active.current = true; setBusy(provider);
     try {
-      const result = await authenticate(provider, 'login', undefined, locale.slice(0, 2));
+      const result = await loginMutation.mutateAsync(provider);
       if (result?.token && result.user) await onAuth(result.token, result.user);
     } catch (cause) { ToastAndroid.show(translateNotice(t, cause instanceof Error ? cause.message : 'Não foi possível entrar. Tente novamente.'), ToastAndroid.LONG); }
     finally { active.current = false; setBusy(null); }

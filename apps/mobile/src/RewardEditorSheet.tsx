@@ -7,8 +7,8 @@ import KeyboardAwareSheetScrollView from './KeyboardAwareSheetScrollView';
 import { NavigationScope, useNavigationLayer } from './Navigation';
 import { Button, useUI } from './ui';
 
-type Props = PropsWithChildren<{ title: string; titleAccessory?: React.ReactNode; busy: boolean; onClose: () => void; onBack?: () => void; onRequestClose?: () => void; preventDismiss?: boolean; standalone?: boolean; footer: React.ReactNode; contentKey: string }>;
-export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ title, titleAccessory, busy, onClose, onBack, onRequestClose, preventDismiss = false, standalone = false, footer, contentKey, children }, forwardedRef) {
+type Props = PropsWithChildren<{ title: string; titleAccessory?: React.ReactNode; busy: boolean; onClose: () => void; onBack?: () => void; onRequestClose?: () => void; preventDismiss?: boolean; footer: React.ReactNode; contentKey: string }>;
+export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ title, titleAccessory, busy, onClose, onBack, onRequestClose, preventDismiss = false, footer, contentKey, children }, forwardedRef) {
   const { C, s, t } = useUI();
   const insets = useSafeAreaInsets();
   const sheet = useRef<BottomSheetModal>(null);
@@ -28,13 +28,13 @@ export default forwardRef<BottomSheetModal, Props>(function RewardEditorSheet({ 
   const handle = useCallback((props: BottomSheetHandleProps) => <View>
     <BottomSheetHandle {...props} indicatorStyle={{ backgroundColor: C.muted, width: 44, height: 5 }} />
     <View pointerEvents={layer.active ? 'auto' : 'none'} accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? 'auto' : 'no-hide-descendants'} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 }}>
-      {(!standalone || onBack) && <Button variant="ghost" icon="arrow-left" label={t(onBack ? 'Voltar à recompensa' : 'Voltar ao objeto')} disabled={busy} onPress={onBack || close} />}
-      <View style={{ flex: 1, flexDirection: titleAccessory ? 'row' : 'column', alignItems: titleAccessory ? 'center' : 'flex-start', justifyContent: titleAccessory ? 'center' : 'flex-start', gap: titleAccessory ? 10 : 0 }}>
-        <Text accessibilityRole="header" style={s.h2}>{title}</Text>{titleAccessory}
+      {onBack && <Button variant="ghost" icon="arrow-left" label={t('Voltar à recompensa')} disabled={busy} onPress={onBack} />}
+      <View style={{ flex: 1, minWidth: 0, flexDirection: titleAccessory ? 'row' : 'column', alignItems: titleAccessory ? 'center' : 'flex-start', justifyContent: titleAccessory ? 'center' : 'flex-start', gap: titleAccessory ? 10 : 0 }}>
+        <Text accessibilityRole="header" style={[s.h2, { flexShrink: 1 }]}>{title}</Text>{titleAccessory && <View style={{ flexShrink: 0 }}>{titleAccessory}</View>}
       </View>
-      {standalone && !onBack && <Button variant="ghost" icon="x" label={t('Fechar')} disabled={busy} onPress={close} />}
+      {!onBack && <Button variant="ghost" icon="x" label={t('Fechar')} disabled={busy} onPress={close} />}
     </View>
-  </View>, [C.muted, title, titleAccessory, onBack, close, standalone, busy, s, t, layer.active]);
+  </View>, [C.muted, title, titleAccessory, onBack, close, busy, s, t, layer.active]);
   return <NavigationScope path={layer.path}><BottomSheetModal ref={value => { sheet.current = value; if (typeof forwardedRef === 'function') forwardedRef(value); else if (forwardedRef) forwardedRef.current = value; }}
     name="object-reward" stackBehavior="push" snapPoints={snapPoints} index={0} enableDynamicSizing={false}
     enablePanDownToClose={!busy && !preventDismiss} enableHandlePanningGesture={!busy} enableContentPanningGesture={!busy}

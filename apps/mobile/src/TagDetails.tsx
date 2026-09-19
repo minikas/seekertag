@@ -1,7 +1,10 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, AppState, Linking, Share, StyleSheet, Text, ToastAndroid, useWindowDimensions, View } from 'react-native';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiQueryKey, apiQueryOptions, invalidateApiResources, queryClient } from './query';
+import { submitSignedRewardOperation } from './reward-submission';
+import { ActivityIndicator, Animated, Linking, Share, StyleSheet, Text, ToastAndroid, useWindowDimensions, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Pressable from './HapticPressable';
 import ScreenBottomSheet from './ScreenBottomSheet';
@@ -20,6 +23,7 @@ import ConversationReward from './ConversationReward';
 
 type Props = {
   tag: Tag;
+  covered?: boolean;
   token: string;
   user: User;
   onUserUpdated: (user: User) => void;
@@ -32,9 +36,16 @@ type Props = {
 };
 type Action = 'status' | 'download' | 'sharePdf' | 'share' | 'transfer' | 'nfc' | 'wallet' | null;
 
-export default function TagDetails({ tag, token, user, onUserUpdated, onClose, onUpdated, onEdit, onTransferred, onResolved, conversation }: Props) {
+export default function TagDetails({ tag: initialTag, covered = false, token, user, onUserUpdated, onClose, onUpdated, onEdit, onTransferred, onResolved, conversation }: Props) {
   const { C, s, t, locale } = useUI();
   const styles = useThemedStyles(makeStyles);
+  const tagQuery = useQuery({
+    ...apiQueryOptions<{ tag: Tag }>(`/tags/${initialTag.id}`, token),
+    initialData: { tag: initialTag },
+    initialDataUpdatedAt: 0,
+    refetchInterval: query => !covered && rewardAwaitingConfirmation(query.state.data?.tag.reward) ? 5000 : false,
+  });
+  const tag = tagQuery.data?.tag ?? initialTag;
   const { width } = useWindowDimensions();
   const qrSize = Math.max(160, Math.min(270, width - 104));
   const [busy, setBusy] = useState<Action>(null);
@@ -60,37 +71,39 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
   const needsWalletForReward = !user.walletAddress && !tag.reward && tag.rewardAmount === 0;
   const latest = useRef({ tag, onUpdated }); latest.current = { tag, onUpdated };
 
-  // The dashboard pauses its polling while details are open. Reconcile this
-  // object's pending operation here without refreshing the covered home screen.
+  const mutation = useMutation({ mutationFn: (task: () => Promise<unknown>) => task(), retry: false });
+  const recovery = useMutation({
+    mutationFn: ({ operationId, signed }: { operationId: string; signed: string }) => submitSignedRewardOperation(token, operationId, signed),
+    retry: false,
+  });
+  const recoveryRef = useRef(recovery); recoveryRef.current = recovery;
+  const recovering = useRef(false);
   useEffect(() => {
-    let live = true; let fetching = false;
-    async function refreshReward() {
-      if (fetching || AppState.currentState !== 'active') return;
-      fetching = true;
+    if (tagQuery.data) latest.current.onUpdated(tagQuery.data.tag);
+  }, [tagQuery.data]);
+  // Query functions only read. Interrupted signed submissions are recovered as
+  // mutations, deduplicated with the reward editor, using the exact saved bytes.
+  useEffect(() => {
+    const current = tagQuery.data?.tag;
+    const op = current?.reward?.operation;
+    if (covered || !current?.reward || op?.status !== 'prepared' || recovering.current) return;
+    let live = true;
+    const recover = async () => {
+      recovering.current = true;
       try {
-        const result = await api<{ tag: Tag }>(`/tags/${tag.id}`, token);
-        const op = result.tag.reward?.operation;
-        if (live && op?.status === 'prepared') {
-          const signed = await secureStorage.get(`reward-signed-${op.id}`);
-          if (live && signed && result.tag.reward) {
-            // Recover a submit interrupted before the API received it. Keep the
-            // object locked while retrying those same already-signed bytes.
-            latest.current.onUpdated({ ...result.tag, reward: { ...result.tag.reward, operation: { ...op, status: 'submitted' } } });
-            await api(`/reward-operations/${op.id}/submit`, token, { transaction: signed });
-            const updated = await api<{ tag: Tag }>(`/tags/${tag.id}`, token);
-            if (live) latest.current.onUpdated(updated.tag);
-            return;
-          }
-        }
-        if (live) latest.current.onUpdated(result.tag);
-      } catch { /* Keep the last known lock until the API verifies finality. */ }
-      finally { fetching = false; }
-    }
-    void refreshReward();
-    const timer = setInterval(() => { if (rewardAwaitingConfirmation(latest.current.tag.reward)) void refreshReward(); }, 5000);
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void refreshReward(); });
-    return () => { live = false; clearInterval(timer); subscription.remove(); };
-  }, [tag.id, token]);
+        const signed = await secureStorage.get(`reward-signed-${op.id}`);
+        if (!live || !signed) return;
+        const locked = { ...current, reward: { ...current.reward!, operation: { ...op, status: 'submitted' as const } } };
+        queryClient.setQueryData(apiQueryKey(token, `/tags/${current.id}`), { tag: locked });
+        latest.current.onUpdated(locked);
+        await recoveryRef.current.mutateAsync({ operationId: op.id, signed });
+        await invalidateApiResources(token, [`/tags/${current.id}`, '/tags']);
+      } catch { /* Retain the last known lock until the API verifies finality. */ }
+      finally { recovering.current = false; }
+    };
+    void recover();
+    return () => { live = false; };
+  }, [tagQuery.data, covered, token]);
 
   useEffect(() => {
     mounted.current = true;
@@ -135,18 +148,19 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
       if (returnLocked) return;
       void run('status', async () => {
         const reportId = conversation?.status === 'open' ? conversation.id :
-          (await api<{ reports: Report[] }>('/reports', token)).reports.find(report => report.tagId === tag.id && report.status === 'open')?.id;
+          (await queryClient.fetchQuery({ ...apiQueryOptions<{ reports: Report[] }>('/reports', token), staleTime: 0 })).reports.find(report => report.tagId === tag.id && report.status === 'open')?.id;
         if (!reportId) {
-          const { tag: updated } = await api<{ tag: Tag }>(`/tags/${tag.id}`, token);
+          const { tag: updated } = await queryClient.fetchQuery({ ...apiQueryOptions<{ tag: Tag }>(`/tags/${tag.id}`, token), staleTime: 0 });
           return () => { onUpdated(updated); if (updated.openReportCount === 0) onResolved(); };
         }
-        await api(`/reports/${reportId}/resolve`, token, {}, 'POST');
+        await mutation.mutateAsync(() => api(`/reports/${reportId}/resolve`, token, {}, 'POST'));
         return () => { finishReturn(); ToastAndroid.show(t('Devolução confirmada.'), ToastAndroid.SHORT); };
       });
       return;
     }
     void run('status', async () => {
-      const { tag: updated } = await api<{ tag: Tag }>(`/tags/${tag.id}`, token, { status }, 'PATCH');
+      const result = await mutation.mutateAsync(() => api<{ tag: Tag }>(`/tags/${tag.id}`, token, { status }, 'PATCH')) as { tag: Tag };
+      const updated = result.tag;
       return () => { onUpdated(updated); ToastAndroid.show(t(status === 'lost' ? 'Objeto marcado como perdido.' : status === 'paused' ? 'Objeto arquivado.' : 'Objeto restaurado.'), ToastAndroid.SHORT); };
     });
   }
@@ -154,7 +168,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
   function finishReturn() {
     setReturned(true); onResolved();
     const identity = currentIdentity.current;
-    void api<{ tag: Tag }>(`/tags/${tag.id}`, token).then(({ tag: updated }) => {
+    void queryClient.fetchQuery({ ...apiQueryOptions<{ tag: Tag }>(`/tags/${tag.id}`, token), staleTime: 0 }).then(({ tag: updated }) => {
       if (mounted.current && currentIdentity.current === identity) onUpdated(updated);
     }).catch(cause => { if (mounted.current && currentIdentity.current === identity) setError((cause as Error).message); });
   }
@@ -230,7 +244,7 @@ export default function TagDetails({ tag, token, user, onUserUpdated, onClose, o
         if (!result.proof) throw new Error('Não foi possível confirmar sua identidade.');
         proof = result.proof;
       }
-      await api<{ ok: true }>(`/tags/${tag.id}/transfer`, token, { recipient: recipient.trim(), ...(proof ? { proof } : { password }) });
+      await mutation.mutateAsync(() => api<{ ok: true }>(`/tags/${tag.id}/transfer`, token, { recipient: recipient.trim(), ...(proof ? { proof } : { password }) }));
       return () => { setPassword(''); onTransferred(); };
     });
   }

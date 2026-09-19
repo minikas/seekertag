@@ -159,7 +159,7 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   h1: { color: C.ink, fontSize: 36, fontWeight: '700', letterSpacing: -0.8, lineHeight: 43 }, h2: { color: C.ink, fontSize: 25, fontWeight: '600', letterSpacing: -0.3, lineHeight: 32 }, h3: { color: C.ink, fontSize: 20, fontWeight: '500', lineHeight: 27 }, body: { color: C.muted, fontSize: 17, lineHeight: 26 }, small: { color: C.muted, fontSize: 14, lineHeight: 21 },
   notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 16, borderRadius: 18 }, pill: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 20 },
   card: { backgroundColor: C.surface, borderRadius: 26, padding: 22 }, divider: { height: StyleSheet.hairlineWidth, backgroundColor: C.line }, overlay: { flex: 1, backgroundColor: '#000000B3', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 72, paddingHorizontal: 10, paddingVertical: 8 }, screenTitle: { flex: 1, textAlign: 'center', color: C.ink, fontSize: 21, fontWeight: '600', lineHeight: 28 },
+  screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 72, paddingHorizontal: 10, paddingVertical: 8 }, screenTitle: { flex: 1, flexShrink: 1, minWidth: 0, textAlign: 'left', color: C.ink, fontSize: 21, fontWeight: '600', lineHeight: 28 },
   empty: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 36, gap: 18, minHeight: 270 }, circle: { width: 58, height: 58, borderRadius: 20, backgroundColor: C.raised, alignItems: 'center', justifyContent: 'center' },
 });
 

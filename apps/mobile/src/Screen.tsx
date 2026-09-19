@@ -15,7 +15,7 @@ export default function Screen({ title, onClose, children, footer, headerRight, 
     <View style={{ flex: 1 }} pointerEvents={layer.active ? 'auto' : 'none'} accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? 'auto' : 'no-hide-descendants'}>
       <View style={s.screenHeader}>
         <Button variant="ghost" icon="arrow-left" label={t('Voltar')} disabled={!dismissible} onPress={() => { Keyboard.dismiss(); onClose(); }} />
-        <Text accessibilityRole="header" style={s.screenTitle}>{title}</Text>{headerRight || <View style={{ width: 48 }} />}
+        <Text accessibilityRole="header" numberOfLines={2} style={s.screenTitle}>{title}</Text>{headerRight}
       </View>
       {scrollable ? <KeyboardAwareScrollView key={contentKey} mode="layout" disableScrollOnKeyboardHide bottomOffset={24} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, paddingBottom: 36, gap: 24, width: '100%', maxWidth: 600, alignSelf: 'center' }}>

@@ -12,7 +12,7 @@ export default function NotificationsScreen({ onClose, covered = false }: { onCl
   return <NavigationScope path={layer.path}><View style={{ flex: 1, backgroundColor: C.bg }} accessibilityElementsHidden={covered || !layer.active} importantForAccessibility={covered || !layer.active ? 'no-hide-descendants' : 'auto'}>
     <View style={s.screenHeader}>
       <Button variant="ghost" icon="arrow-left" label={t('Voltar')} onPress={onClose} />
-      <Text accessibilityRole="header" style={s.screenTitle}>{t('Notificações')}</Text>
+      <Text accessibilityRole="header" numberOfLines={2} style={s.screenTitle}>{t('Notificações')}</Text>
       <Button variant="ghost" icon="check-circle" label={t('Marcar todas como lidas')} disabled={!inbox.unreadCount}
         onPress={() => void inbox.markRead(inbox.latestId)} />
     </View>

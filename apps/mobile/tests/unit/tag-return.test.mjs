@@ -47,6 +47,16 @@ function harness({ reward = null, reports = 0, resolveError } = {}) {
       useWindowDimensions: () => ({ width: 400 }), ToastAndroid: { show: noop }, StyleSheet: { create: identity } },
     './ui': ui, './PreferencesProvider': { useThemedStyles: () => ({}) },
     './api': { api, API_URL: 'https://example.test/api' },
+    '@tanstack/react-query': {
+      useQuery: options => ({ data: options.initialData }),
+      useMutation: options => ({ mutateAsync: options.mutationFn, isPending: false }),
+    },
+    './query': {
+      apiQueryOptions: (path, token) => ({ queryFn: () => api(path, token) }),
+      apiQueryKey: (token, path) => [token, path],
+      queryClient: { fetchQuery: options => options.queryFn() }, invalidateApiResources: async () => {},
+    },
+    './reward-submission': { submitSignedRewardOperation: noop },
     './reward.model': { rewardLocked, rewardAwaitingConfirmation },
     './category.model': { tagCategoryLabel: () => 'Keys' }, './platform/auth': { providerNames: {} },
     './links': {}, './platform/labels': {}, './platform/nfc': {}, './platform/storage': {},

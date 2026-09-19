@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import { PublicKey } from '@solana/web3.js';
+import { receivingWalletAddress } from '@seekertag/shared/wallet-address';
 import type { SignInPayload } from '@solana-mobile/mobile-wallet-adapter-protocol';
 import { verifyRewardTransaction } from '@seekertag/shared/escrow-wire';
 import type { RewardOperation, RewardNetwork } from '@seekertag/shared/reward';
@@ -41,7 +42,14 @@ export async function signReward(operation: RewardOperation): Promise<string | n
   }
 }
 
-export async function confirmFinderWallet(reportId: string, token: string, language: string): Promise<string | null> {
+export type FinderWalletApproval = {
+  recipient: string;
+  proof: { challengeId: string; address: string; signedMessage: string; signature: string };
+};
+
+// Connecting proves wallet ownership, but does not select a receiving address
+// for the conversation until the user confirms the in-app address review.
+export async function prepareFinderWallet(reportId: string, token: string, language: string): Promise<FinderWalletApproval | null> {
   const base = `/finder/reports/${reportId}/reward/wallet`;
   const { challengeId, payload } = await api<{ challengeId: string; payload: SignInPayload }>(`${base}/challenge`, token, { language });
   const { transact } = await import('@solana-mobile/mobile-wallet-adapter-protocol');
@@ -54,6 +62,12 @@ export async function confirmFinderWallet(reportId: string, token: string, langu
     });
   } catch (error) { if (cancelled(error)) return null; throw error; }
   await waitForWalletReturn();
-  const verified = await api<{ recipient: string }>(`${base}/verify`, token, { challengeId, address: result.address, signedMessage: result.signed_message, signature: result.signature });
+  const recipient = receivingWalletAddress(new PublicKey(Buffer.from(result.address, 'base64')).toBase58());
+  if (!recipient) throw new Error('Informe um endereço de carteira Solana válido.');
+  return { recipient, proof: { challengeId, address: result.address, signedMessage: result.signed_message, signature: result.signature } };
+}
+
+export async function confirmFinderWallet(reportId: string, token: string, approval: FinderWalletApproval): Promise<string> {
+  const verified = await api<{ recipient: string }>(`/finder/reports/${reportId}/reward/wallet/verify`, token, approval.proof);
   return verified.recipient;
 }

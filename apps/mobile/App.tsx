@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import QueryProvider from './src/QueryProvider';
+import { apiQueryKey, apiQueryOptions, queryClient, resetApiCache } from './src/query';
 import { ActivityIndicator, Linking, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -25,13 +28,22 @@ import { isAuthCallback } from './src/platform/auth';
 import { forgetWalletAuthorization } from './src/platform/wallet';
 
 function Content() {
-  const { C, s, t, locale } = useUI();
+  const { C, s, t } = useUI();
   const { dark } = usePreferences();
   const navigation = useNavigationState();
   const [pendingRoute, setPendingRoute] = useState<Route>();
   const [notification, setNotification] = useState<NotificationTarget>();
   const [route, setRoute] = useState<Route>({});
-  const [token, setToken] = useState<string | null>(null); const [user, setUser] = useState<User>(); const [loading, setLoading] = useState(true); const [scan, setScan] = useState(false); const [help, setHelp] = useState(false); const [helpDismissed, setHelpDismissed] = useState(false); const [recovery, setRecovery] = useState<string>(); const [error, setError] = useState('');
+  const [token, setToken] = useState<string | null>(null); const [restoring, setRestoring] = useState(true); const [scan, setScan] = useState(false); const [help, setHelp] = useState(false); const [helpDismissed, setHelpDismissed] = useState(false); const [recovery, setRecovery] = useState<string>(); const [error, setError] = useState('');
+  const profile = useQuery({ ...apiQueryOptions<{ user: User }>('/auth/me', token), enabled: !!token && !restoring });
+  const user = token ? profile.data?.user : undefined;
+  const loading = restoring || (!!token && profile.isPending && !profile.isPaused);
+  const setUser = (person: User) => queryClient.setQueryData(apiQueryKey(token, '/auth/me'), { user: person });
+  function expireSession() {
+    void tokenStorage.clear(); forgetWalletAuthorization(); resetApiCache();
+    setToken(null); setNotification(undefined); setRecovery(undefined);
+    setError(t("Sua sessão terminou. Entre novamente para continuar."));
+  }
   function navigate(destination: Route) { setRoute(destination); setError(''); }
   useEffect(() => {
     let live = true;
@@ -49,38 +61,45 @@ function Content() {
   useEffect(() => { void secureStorage.get('help-dismissed-v1').then(value => setHelpDismissed(value === '1')); }, []);
   async function dismissHelpForever() { await secureStorage.set('help-dismissed-v1', '1'); setHelpDismissed(true); setHelp(false); }
   useEffect(() => {
-    if (!pendingRoute || navigation.tasks || scan || help || recovery || route.code || route.chatId) return;
+    if (!pendingRoute || notification || navigation.tasks || scan || help || recovery || route.code || route.chatId) return;
     setRoute(pendingRoute); setPendingRoute(undefined);
-  }, [pendingRoute, navigation.tasks, scan, help, recovery, route.code, route.chatId]);
+  }, [pendingRoute, notification, navigation.tasks, scan, help, recovery, route.code, route.chatId]);
   useEffect(() => {
     let live = true;
-    void (async () => {
-      try {
-        const saved = await tokenStorage.get();
-        if (saved) {
-          // Retain the session on a transient profile-fetch failure. A cold QR
-          // link must not silently treat a signed-in owner as an anonymous finder.
-          if (live) setToken(saved);
-          const { user: person } = await api<{ user: User }>('/auth/me', saved);
-          if (live) setUser(person);
-        }
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 401) {
-          await tokenStorage.clear();
-          if (live) { setToken(null); setUser(undefined); }
-        } else if (live) setError((e as Error).message);
-      } finally { if (live) setLoading(false); }
-    })();
+    void tokenStorage.get().then(saved => { if (live) setToken(saved); })
+      .catch(cause => { if (live) setError((cause as Error).message); })
+      .finally(() => { if (live) setRestoring(false); });
     return () => { live = false; };
   }, []);
-  async function login(value: string, person: User, code?: string) { await tokenStorage.set(value); setToken(value); setUser(person); setError(''); setRecovery(code); }
-  async function logout() { try { await api('/auth/logout', token, {}); } catch(e) { if (!(e instanceof ApiError && e.status === 401)) throw e; } await tokenStorage.clear(); forgetWalletAuthorization(); await Notifications.dismissAllNotificationsAsync().catch(() => {}); setNotification(undefined); setRoute({}); setPendingRoute(undefined); setToken(null); setUser(undefined); }
+  useEffect(() => {
+    if (!token || !profile.error) return;
+    if (profile.error instanceof ApiError && profile.error.status === 401) expireSession();
+  }, [token, profile.error]);
+  // A deliberate notification tap takes precedence over passive link state.
+  // Leave recovery codes and a finder task with unsaved work mounted until closed.
+  useEffect(() => {
+    if (!notification || recovery || ((route.code || route.chatId) && navigation.tasks)) return;
+    setRoute({}); setPendingRoute(undefined); setScan(false); setHelp(false);
+  }, [notification, recovery, route.code, route.chatId, navigation.tasks]);
+  async function login(value: string, person: User, code?: string) {
+    await tokenStorage.set(value);
+    if (value !== token) resetApiCache();
+    queryClient.setQueryData(apiQueryKey(value, '/auth/me'), { user: person });
+    setToken(value); setError(''); setRecovery(code);
+  }
+  async function logout() {
+    try { await api('/auth/logout', token, {}); } catch (e) { if (!(e instanceof ApiError && e.status === 401)) throw e; }
+    await tokenStorage.clear(); forgetWalletAuthorization();
+    await Notifications.dismissAllNotificationsAsync().catch(() => {});
+    resetApiCache(); setNotification(undefined); setRoute({}); setPendingRoute(undefined); setToken(null); setRecovery(undefined);
+  }
+  const displayError = error || (token ? profile.error?.message : '') || (token && !user && profile.isPaused ? 'Não foi possível conectar. Verifique sua conexão e tente novamente.' : '');
   function scanResult(url: string) { setScan(false); const destination = readRoute(url, API_URL); if (destination?.code) navigate(destination); else setError('Este QR não é uma etiqueta desta instalação do SeekerTag. Confira se está usando o link correto.'); }
   return <NotificationsProvider token={token} userId={user?.id} onOpen={setNotification}><ConversationDraftProvider key={user?.id || "guest"}><BottomSheetModalProvider><SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}><StatusBar style={dark ? "light" : "dark"} />
     <View style={{ flex: 1 }}>
-    {!!error && <View style={{ padding: 12 }}><Notice error text={error} /></View>}
+    {!!displayError && <View style={{ padding: 12 }}><Notice error text={displayError} /></View>}
     <View style={{ flex: 1 }} pointerEvents={route.code || route.chatId || scan || help || recovery ? "none" : "auto"} accessibilityElementsHidden={!!(route.code || route.chatId || scan || help || recovery)} importantForAccessibility={route.code || route.chatId || scan || help || recovery ? "no-hide-descendants" : "auto"}>
-    {loading ? <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 24 }}><Brand /><ActivityIndicator color={C.accent} /></View> : token && user ? <Dashboard key={user.id} notification={route.code || route.chatId || scan || help || recovery ? undefined : notification} onNotificationOpened={() => setNotification(undefined)} token={token} user={user} onUserUpdated={setUser} onLogout={logout} onScan={() => setScan(true)} onHelp={() => setHelp(true)} helpDismissed={helpDismissed} onExpired={() => { void tokenStorage.clear(); setToken(null); setUser(undefined); setError(t("Sua sessão terminou. Entre novamente para continuar.")); }} /> : <Auth onAuth={login} onScan={() => setScan(true)} />}
+    {loading ? <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 24 }}><Brand /><ActivityIndicator color={C.accent} /></View> : token && user ? <Dashboard key={user.id} notification={route.code || route.chatId || scan || help || recovery ? undefined : notification} onNotificationOpened={() => setNotification(current => current === notification ? undefined : current)} token={token} user={user} onUserUpdated={setUser} onLogout={logout} onScan={() => setScan(true)} onHelp={() => setHelp(true)} helpDismissed={helpDismissed} onExpired={expireSession} /> : token ? <View style={{ padding: 24 }}><Button onPress={() => void profile.refetch()}>{t("Tentar novamente")}</Button></View> : <Auth onAuth={login} onScan={() => setScan(true)} />}
     </View>
     {!loading && (route.code || route.chatId) && <PageLayer><Found token={token} key={route.code || route.chatId} code={route.code} chatId={route.chatId} goHome={() => navigate({})} goChat={id => navigate({ ...route, chatId: id })} onAuth={login} /></PageLayer>}
     {scan && <QrScanner onScan={scanResult} onClose={() => setScan(false)} />}
@@ -97,5 +116,5 @@ function AppFrame() {
 }
 
 export default function App() {
-  return <PreferencesProvider><AppFrame /></PreferencesProvider>;
+  return <QueryProvider><PreferencesProvider><AppFrame /></PreferencesProvider></QueryProvider>;
 }

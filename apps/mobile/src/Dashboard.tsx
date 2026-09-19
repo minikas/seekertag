@@ -1,7 +1,9 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiQueryKey, apiQueryOptions, invalidateApiResources, queryClient } from './query';
 import TagRow from './TagRow';
 import ObjectsScreen from './ObjectsScreen';
 import NotificationsScreen from './NotificationsScreen';
@@ -9,9 +11,9 @@ import { useNotifications } from './NotificationsProvider';
 import type { NotificationTarget } from './notifications.model';
 import { homePreviewTags, matchesTagFilter, TagFilter } from './tag-search.model';
 import { conversationCount } from './i18n';
-import { AppState, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
-import { api, ApiError, Report, Tag, User } from './api';
+import { ApiError, Report, Tag, User } from './api';
 import { Button, formatDate, Icon, IconName, Notice, useUI } from './ui';
 import TagForm from './TagForm';
 import TagDetails from './TagDetails';
@@ -38,33 +40,60 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [finderChat, setFinderChat] = useState(false);
   const [browseRevision, setBrowseRevision] = useState(0);
-  const [tags, setTags] = useState<Tag[]>([]); const [reports, setReports] = useState<Report[]>([]); const [tab, setTab] = useState<Tab>('items'); const [error, setError] = useState(''); const [refreshing, setRefreshing] = useState(false); const [initialLoading, setInitialLoading] = useState(true); const [browsing, setBrowsing] = useState<TagFilter>('all'); const [form, setForm] = useState<Tag | 'new' | null>(null); const [selected, setSelected] = useState<Tag>(); const [conversationTag, setConversationTag] = useState<Report>(); const [chat, setChat] = useState<string>(); const [account, setAccount] = useState(false);
+  const [tab, setTab] = useState<Tab>('items');
+  const [refreshing, setRefreshing] = useState(false);
+  const [browsing, setBrowsing] = useState<TagFilter>('all');
+  const [form, setForm] = useState<string | 'new' | null>(null);
+  const [selectedId, setSelectedId] = useState<string>();
+  const [conversationTagId, setConversationTagId] = useState<string>();
+  const [chat, setChat] = useState<string>();
+  const [account, setAccount] = useState(false);
   const [rewardOnly, setRewardOnly] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(72);
   const itemHeader = useScrollHeader(headerHeight);
   const messageHeader = useScrollHeader(headerHeight);
-  const refresh = useCallback(async (silent = false) => { if (!silent) setRefreshing(true); try { const [items, inbox] = await Promise.all([api<{ tags: Tag[] }>('/tags', token), api<{ reports: Report[] }>('/reports', token)]); setTags(items.tags); setSelected(current => current ? items.tags.find(tag => tag.id === current.id) : current); setReports(inbox.reports); setError(''); } catch (e) { if (e instanceof ApiError && e.status === 401) onExpired(); else setError((e as Error).message); } finally { setRefreshing(false); setInitialLoading(false); } }, [token]);
-  useEffect(() => { void refresh(); }, [refresh]);
-  useEffect(() => {
-    // Do not refresh and rerender the covered dashboard while editing a form.
-    if (form || selected || account || chat || notificationsOpen) return;
-    const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(true); }, 6000);
-    return () => clearInterval(timer);
-  }, [refresh, form, selected, account, chat, notificationsOpen]);
+  const covered = !!(form || selectedId || account || chat || notificationsOpen);
+  // Covered screens remain subscribed to invalidations; only polling pauses.
+  const tagsQuery = useQuery({ ...apiQueryOptions<{ tags: Tag[] }>('/tags', token), refetchInterval: covered ? false : 6000 });
+  const reportsQuery = useQuery({ ...apiQueryOptions<{ reports: Report[] }>('/reports', token), refetchInterval: covered ? false : 6000 });
+  const tags = tagsQuery.data?.tags ?? [];
+  const reports = reportsQuery.data?.reports ?? [];
+  const selected = tags.find(tag => tag.id === selectedId);
+  const formTag = form && form !== 'new' ? tags.find(tag => tag.id === form) : undefined;
+  const conversationTag = reports.find(report => report.id === conversationTagId);
+  const queryError = tagsQuery.error || reportsQuery.error;
+  const error = queryError?.message || '';
+  const initialLoading = tagsQuery.isPending;
+  const setSelected = (tag?: Tag) => setSelectedId(tag?.id);
+  useEffect(() => { if (queryError instanceof ApiError && queryError.status === 401) onExpired(); }, [queryError, onExpired]);
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([tagsQuery.refetch({ cancelRefetch: false }), reportsQuery.refetch({ cancelRefetch: false })]); }
+    finally { setRefreshing(false); }
+  }, [tagsQuery.refetch, reportsQuery.refetch]);
   const homeTags = homePreviewTags(tags);
   const openReports = reports.filter(r => r.status === 'open');
-  const activeConversation = reports.find(report => report.id === chat);
   const switchTab = (key: Tab) => { setAccount(false); setNotificationsOpen(false); setTab(key); setChat(undefined); setFinderChat(false); };
   const browseTags = (filter: TagFilter) => { setBrowsing(filter); setBrowseRevision(value => value + 1); switchTab('tags'); };
   useEffect(() => {
-    if (!notification || form || selected || account || chat || navigation.tasks) return;
+    // A deliberate notification tap replaces pages, including another chat.
+    // Forms and modal tasks keep the target queued until their own guard permits exit.
+    if (!notification || form || navigation.tasks > 0) return;
+    setSelectedId(undefined); setConversationTagId(undefined); setAccount(false); setNotificationsOpen(false);
     setFinderChat(notification.finder); setChat(notification.reportId); onNotificationOpened();
-  }, [notification, form, selected, account, chat, navigation.tasks, onNotificationOpened]);
-  const saveTag = (tag: Tag) => { setTags(prev => prev.some(t => t.id === tag.id) ? prev.map(t => t.id === tag.id ? tag : t) : [tag, ...prev]); setSelected(tag); };
+  }, [notification, form, navigation.tasks, onNotificationOpened]);
+  const saveTag = (tag: Tag) => {
+    queryClient.setQueryData<{ tags: Tag[] }>(apiQueryKey(token, '/tags'), previous => ({
+      tags: previous?.tags.some(item => item.id === tag.id) ? previous.tags.map(item => item.id === tag.id ? tag : item) : [tag, ...(previous?.tags ?? [])],
+    }));
+    queryClient.setQueryData(apiQueryKey(token, `/tags/${tag.id}`), { tag });
+    setSelectedId(tag.id);
+  };
   const finishReturn = (tagId: string) => {
-    setReports(previous => previous.map(report => report.tagId === tagId ? { ...report, status: 'resolved' } : report));
-    setConversationTag(previous => previous?.tagId === tagId ? { ...previous, status: 'resolved' } : previous);
-    void refresh(true);
+    queryClient.setQueryData<{ reports: Report[] }>(apiQueryKey(token, '/reports'), previous => previous && ({
+      reports: previous.reports.map(report => report.tagId === tagId ? { ...report, status: 'resolved' } : report),
+    }));
+    void invalidateApiResources(token, ['/tags', '/reports']);
   };
 
   const stats: { label: string; value: number; filter: TagFilter }[] = [
@@ -137,12 +166,15 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
       <Text style={{ color: C.ink, fontSize: 12, fontWeight: tab === tabItem.key ? '600' : '400' }}>{t(tabItem.label)}</Text>
     </Pressable>)}</View>
     {notificationsOpen && <PageLayer><NotificationsScreen covered={!!chat || !!selected || !!form} onClose={() => setNotificationsOpen(false)} /></PageLayer>}
-    {account && <PageLayer><Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} onCategoriesChanged={() => void refresh(true)} /></PageLayer>}
-    {chat && <Sheet title={t('Conversa')} scrollable={false} onClose={() => setChat(undefined)} headerRight={!finderChat && activeConversation ? <Button variant="ghost" icon="external-link" label={t('Ver objeto')} onPress={() => { const tag = tags.find(item => item.id === activeConversation.tagId); if (!tag) return; setConversationTag(activeConversation); setSelected(tag); }} style={{ minHeight: 44, paddingHorizontal: 10 }}>{t('Ver objeto')}</Button> : undefined}>
-      <Conversation key={chat} id={chat} token={token} finder={finderChat} covered={!!selected} />
+    {account && <PageLayer><Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} /></PageLayer>}
+    {chat && <Sheet title={t('Conversa')} scrollable={false} onClose={() => setChat(undefined)}>
+      <Conversation key={chat} id={chat} token={token} finder={finderChat} covered={!!selected} onViewItem={!finderChat ? report => {
+        setConversationTagId(report.id); setSelectedId(report.tagId);
+        void invalidateApiResources(token, ['/tags', '/reports']);
+      } : undefined} />
     </Sheet>}
-    {selected && <TagDetails tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { setSelected(undefined); setConversationTag(undefined); }} onUpdated={saveTag} onResolved={() => finishReturn(selected.id)} onEdit={(tag, reward = false) => { setRewardOnly(reward); setForm(tag); }} onTransferred={() => { setSelected(undefined); setConversationTag(undefined); void refresh(); }} />}
-    {form && <TagForm rewardOnly={rewardOnly} onCategoriesChanged={() => void refresh(true)} token={token} user={user} onUserUpdated={onUserUpdated} tag={form === 'new' ? undefined : form} onClose={() => { setForm(null); setRewardOnly(false); }} onSaved={tag => { saveTag(tag); setForm(null); setRewardOnly(false); }} />}
+    {selected && <TagDetails covered={!!form} tag={selected} token={token} user={user} onUserUpdated={onUserUpdated} conversation={conversationTag?.tagId === selected.id ? conversationTag : undefined} onClose={() => { setSelected(undefined); setConversationTagId(undefined); }} onUpdated={saveTag} onResolved={() => finishReturn(selected.id)} onEdit={(tag, reward = false) => { setRewardOnly(reward); setForm(tag.id); }} onTransferred={() => { setSelected(undefined); setConversationTagId(undefined); void refresh(); }} />}
+    {form && <TagForm rewardOnly={rewardOnly} token={token} user={user} onUserUpdated={onUserUpdated} tag={formTag} onClose={() => { setForm(null); setRewardOnly(false); }} onSaved={tag => { saveTag(tag); setForm(null); setRewardOnly(false); }} />}
   </View>;
 }
 

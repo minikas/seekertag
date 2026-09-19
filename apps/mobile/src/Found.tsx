@@ -1,5 +1,7 @@
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiQueryOptions } from './query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ActivityIndicator, Alert, StyleSheet, Text, ToastAndroid, View } from 'react-native';
@@ -21,13 +23,39 @@ import Pressable from './HapticPressable';
 
 export default function Found({ code, chatId, token, goHome, goChat, onAuth }: { code?: string; chatId?: string; token: string | null; goHome: () => void; goChat: (id: string) => void; onAuth: (token: string, user: User) => Promise<void> }) {
   const { C, s, t, locale } = useUI();
-  const layer = useNavigationLayer(() => requestBack());
   const styles = useThemedStyles(makeStyles);
-  const [viewerIsOwner, setViewerIsOwner] = useState(false); const [account, setAccount] = useState(false); const [availability, setAvailability] = useState<AuthAvailability>(); const [provider, setProvider] = useState<Provider | null>(null);
-  const [tag, setTag] = useState<Tag>(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [chatToken, setChatToken] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [account, setAccount] = useState(false);
+  const [actionError, setError] = useState('');
+  const [resuming, setResuming] = useState(true);
+  const [chatToken, setChatToken] = useState<string | null>(null);
+  const callbacks = useRef({ goChat, onAuth, t }); callbacks.current = { goChat, onAuth, t };
+  const publicTag = useQuery({ ...apiQueryOptions<{ tag: Tag; viewerIsOwner: boolean }>(`/public/tags/${encodeURIComponent(code || '')}`, token), enabled: !!code && !chatId });
+  const tag = publicTag.data?.tag;
+  const viewerIsOwner = publicTag.data?.viewerIsOwner || false;
+  const providers = useQuery({ ...apiQueryOptions<AuthAvailability>('/auth/providers'), enabled: account });
+  const availability = providers.data;
+  const loading = resuming || (!chatId && publicTag.isPending);
+  const error = actionError || publicTag.error?.message || '';
+  const submitMutation = useMutation({ mutationFn: async (values: FinderFormValues) => {
+    const result = await api<{ report: Report; token: string }>(`/public/tags/${code}/reports`, token, { finderName: values.finderName || callbacks.current.t('Uma pessoa que quer ajudar'), message: values.message });
+    await secureStorage.set(`finder-${result.report.id}`, result.token);
+    await secureStorage.set(`tag-chat-${code}`, result.report.id);
+    return result;
+  } });
+  const busy = submitMutation.isPending;
+  const loginMutation = useMutation({ mutationFn: async (providerName: Provider) => {
+    const result = await authenticate(providerName, 'login', undefined, locale.slice(0, 2));
+    if (!result?.token || !result.user) return false;
+    await callbacks.current.onAuth(result.token, result.user);
+    if (chatId && chatToken) await api(`/finder/reports/${chatId}/account`, result.token, { token: chatToken });
+    return true;
+  } });
+  const provider = loginMutation.isPending ? loginMutation.variables : null;
   const { control, handleSubmit, watch, formState: { errors, isDirty } } = useForm<FinderFormValues>({ resolver: zodResolver(finderFormSchema), mode: 'onChange', defaultValues: { finderName: '', message: '' } });
+  const layer = useNavigationLayer(() => requestBack(), (!chatId && (isDirty || busy)) || loginMutation.isPending);
   function requestBack() {
-    if (busy) return;
+    if (busy || loginMutation.isPending) return;
     if (!chatId && isDirty) Alert.alert(t('Descartar alterações?'), t('As alterações não salvas serão perdidas.'), [
       { text: t('Continuar editando'), style: 'cancel' },
       { text: t('Descartar'), style: 'destructive', onPress: goHome },
@@ -36,62 +64,62 @@ export default function Found({ code, chatId, token, goHome, goChat, onAuth }: {
   const message = watch('message');
   useEffect(() => {
     let live = true;
-    setLoading(true); setError(''); setTag(undefined); setChatToken(null); setViewerIsOwner(false);
+    setResuming(true); setError(''); setChatToken(null);
     async function load() {
       try {
         if (chatId) {
           const saved = await secureStorage.get(`finder-${chatId}`);
           if (saved) { if (live) setChatToken(saved); }
-          else if (token) { await api<{ report: Report }>(`/finder/reports/${chatId}`, token); if (live) setChatToken(token); }
+          else if (token) { await queryClient.fetchQuery(apiQueryOptions<{ report: Report }>(`/finder/reports/${chatId}`, token)); if (live) setChatToken(token); }
           else throw new Error('Entre na conta em que você salvou esta conversa ou abra-a no aparelho em que enviou o aviso.');
         } else if (code) {
           // Determine ownership before resuming any finder thread from this phone.
-          const result = await api<{ tag: Tag; viewerIsOwner: boolean }>(`/public/tags/${encodeURIComponent(code)}`, token);
-          if (!live) return;
-          setTag(result.tag); setViewerIsOwner(result.viewerIsOwner);
+          const result = publicTag.data;
+          if (!result || !live) return;
           if (result.viewerIsOwner) return;
           if (token) {
-            const savedAccountReport = await api<{ report: Report | null }>(`/finder/tags/${encodeURIComponent(code)}/report`, token);
-            if (savedAccountReport.report) { if (live) goChat(savedAccountReport.report.id); return; }
+            const savedAccountReport = await queryClient.fetchQuery(apiQueryOptions<{ report: Report | null }>(`/finder/tags/${encodeURIComponent(code)}/report`, token));
+            if (savedAccountReport.report) { if (live) callbacks.current.goChat(savedAccountReport.report.id); return; }
           }
           const previous = await secureStorage.get(`tag-chat-${code}`);
           if (previous) {
             const saved = await secureStorage.get(`finder-${previous}`);
             if (saved) {
-              const existing = await api<{ report: Report }>(`/finder/reports/${previous}`, saved);
-              if (existing.report.status === 'open') { if (live) goChat(previous); return; }
+              const existing = await queryClient.fetchQuery(apiQueryOptions<{ report: Report }>(`/finder/reports/${previous}`, saved));
+              if (existing.report.status === 'open') { if (live) callbacks.current.goChat(previous); return; }
               await secureStorage.remove(`tag-chat-${code}`);
             }
           }
         }
       } catch (e) { if (live) setError((e as Error).message); }
-      finally { if (live) setLoading(false); }
+      finally { if (live) setResuming(false); }
     }
     void load();
     return () => { live = false; };
-  }, [code, chatId, token]);
-  useEffect(() => { if (!account) return; let live = true; api<AuthAvailability>('/auth/providers').then(value => { if (live) setAvailability(value); }).catch(() => { if (live) ToastAndroid.show(t('Não foi possível verificar os acessos disponíveis. Tente novamente.'), ToastAndroid.LONG); }); return () => { live = false; }; }, [account, t]);
-  async function submit(values: FinderFormValues) { if (busy || loading || viewerIsOwner || !tag) return; setError(''); setBusy(true); try { const result = await api<{ report: Report; token: string }>(`/public/tags/${code}/reports`, token, { finderName: values.finderName || t('Uma pessoa que quer ajudar'), message: values.message }); await secureStorage.set(`finder-${result.report.id}`, result.token); await secureStorage.set(`tag-chat-${code}`, result.report.id); goChat(result.report.id); } catch(e) { setError((e as Error).message); } finally { setBusy(false); } }
+  }, [code, chatId, token, publicTag.data, queryClient]);
+  useEffect(() => {
+    if (account && providers.error) ToastAndroid.show(callbacks.current.t('Não foi possível verificar os acessos disponíveis. Tente novamente.'), ToastAndroid.LONG);
+  }, [account, providers.error]);
+  async function submit(values: FinderFormValues) {
+    if (busy || loading || viewerIsOwner || !tag) return;
+    setError('');
+    try { const result = await submitMutation.mutateAsync(values); callbacks.current.goChat(result.report.id); }
+    catch (cause) { setError((cause as Error).message); }
+  }
   async function login(providerName: Provider) {
     if (provider) return;
-    setProvider(providerName);
     try {
-      const result = await authenticate(providerName, 'login', undefined, locale.slice(0, 2));
-      if (!result?.token || !result.user) return;
-      await onAuth(result.token, result.user);
-      if (chatId && chatToken) await api(`/finder/reports/${chatId}/account`, result.token, { token: chatToken });
+      if (!await loginMutation.mutateAsync(providerName)) return;
       setAccount(false);
       ToastAndroid.show(t(chatId ? 'Conversa salva na sua conta.' : 'Conta pronta. Esta conversa será salva nela.'), ToastAndroid.LONG);
     } catch (cause) { ToastAndroid.show(translateNotice(t, cause instanceof Error ? cause.message : 'Não foi possível entrar. Tente novamente.'), ToastAndroid.LONG); }
-    finally { setProvider(null); }
   }
   const cat = { color: tag?.color || C.raised, icon: (tag?.categoryIcon || 'box') as IconName };
   return <NavigationScope path={layer.path}><View style={{ flex: 1, backgroundColor: C.bg }}>
     <View style={{ flex: 1 }} accessibilityElementsHidden={!layer.active} importantForAccessibility={layer.active ? "auto" : "no-hide-descendants"}>
     <View style={s.screenHeader}>
-      <Button variant="ghost" icon="arrow-left" onPress={requestBack} disabled={busy} label={t("Voltar")} />
-      <Text accessibilityRole="header" style={s.screenTitle}>{chatId ? t("Conversa") : t("Devolver objeto")}</Text>
-      <View style={{ width: 48 }} />
+      <Button variant="ghost" icon="arrow-left" onPress={requestBack} disabled={busy || loginMutation.isPending} label={t("Voltar")} />
+      <Text accessibilityRole="header" numberOfLines={2} style={s.screenTitle}>{chatId ? t("Conversa") : t("Devolver objeto")}</Text>
     </View>
     {chatId && chatToken ? <Conversation id={chatId} token={chatToken} finder historyFooter={!token ? <AccountPrompt onPress={() => setAccount(true)} /> : undefined} /> : <KeyboardAwareScrollView mode="layout" bottomOffset={24} disableScrollOnKeyboardHide keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={styles.content}>
       {loading && <View style={styles.loadingState} accessibilityLabel={t('Carregando etiqueta')}>
@@ -163,17 +191,15 @@ const makeStyles = (C: Colors) => StyleSheet.create({
   itemIcon: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   message: { padding: 18, borderRadius: 22, backgroundColor: C.surface, gap: 8 },
   methods: { gap: 14 }, divider: { flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 9 }, line: { flex: 1, height: 1, backgroundColor: C.line },
-  accountPrompt: { marginTop: 14, paddingTop: 30, gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line },
-  accountAction: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  accountPrompt: { marginTop: 14, paddingTop: 30, gap: 5, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line },
 });
 
 function AccountPrompt({ onPress, beforeMessage = false }: { onPress: () => void; beforeMessage?: boolean }) {
   const { C, s, t } = useUI();
   const styles = useThemedStyles(makeStyles);
-  return <View style={styles.accountPrompt}>
-    <View style={{ gap: 5 }}><Text style={s.h3}>{t(beforeMessage ? 'Quer continuar em outro celular?' : 'Salve esta conversa')}</Text><Text style={s.body}>{t(beforeMessage ? 'Crie uma conta antes de avisar o dono para salvar a conversa.' : 'Crie uma conta para continuar esta conversa em outro celular.')}</Text></View>
-    <Pressable accessibilityRole="button" accessibilityLabel={t('Criar conta ou entrar')} onPress={onPress} style={({ pressed }) => [styles.accountAction, pressed && { opacity: 0.65 }]}>
-      <View style={[s.circle, { width: 42, height: 42, borderRadius: 14, backgroundColor: C.raised }]}><Icon name="user" size={20} color={C.accent} /></View><Text style={[s.body, { flex: 1, color: C.ink, fontWeight: '500' }]}>{t('Criar conta ou entrar')}</Text><Icon name="chevron-right" color={C.muted} size={22} />
-    </Pressable>
-  </View>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={t(beforeMessage ? 'Quer continuar em outro celular?' : 'Salve esta conversa')}
+    onPress={onPress} style={({ pressed }) => [styles.accountPrompt, pressed && { opacity: 0.65 }]}>
+    <View style={[s.row, { gap: 12 }]}><Text style={[s.h3, { flex: 1 }]}>{t(beforeMessage ? 'Quer continuar em outro celular?' : 'Salve esta conversa')}</Text><Icon name="chevron-right" color={C.muted} size={22} /></View>
+    <Text style={s.body}>{t(beforeMessage ? 'Crie uma conta antes de avisar o dono para salvar a conversa.' : 'Crie uma conta para continuar esta conversa em outro celular.')}</Text>
+  </Pressable>;
 }
