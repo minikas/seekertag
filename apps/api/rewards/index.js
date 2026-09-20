@@ -165,9 +165,11 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
         } else run('UPDATE rewards SET status=?,refund_after=MAX(COALESCE(refund_after,0),?),checked_at=? WHERE id=?', state.status === 3 ? 'refunded' : 'reserved', state.refundAfter, now(), live.id);
       }
       if (operation && operationStatus) {
-        const changed = run("UPDATE reward_operations SET status=? WHERE id=? AND status IN ('prepared','submitted')", operationStatus, operation.id).changes;
+        // A status read can overlap a refreshed unsigned review. Its old
+        // blockhash deadline must never expire the replacement transaction.
+        const changed = run("UPDATE reward_operations SET status=? WHERE id=? AND unsigned_tx=? AND status IN ('prepared','submitted')", operationStatus, operation.id, operation.unsigned_tx).changes;
         if (changed && operationStatus === 'confirmed' && operation.signature) run(`UPDATE rewards SET ${operation.kind === 'fund' ? 'deposit_signature' : 'settlement_signature'}=? WHERE id=?`, operation.signature, live.id);
-        if (!state && live.status === 'pending' && ['failed', 'expired'].includes(operationStatus)) run("UPDATE rewards SET status='abandoned' WHERE id=?", live.id);
+        if (changed && !state && live.status === 'pending' && ['failed', 'expired'].includes(operationStatus)) run("UPDATE rewards SET status='abandoned' WHERE id=?", live.id);
       }
       if (state && [2, 3].includes(state.status)) {
         // A permanent terminal receipt also proves that obsolete preparations
@@ -307,13 +309,35 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
       const fresh = get('SELECT * FROM reward_operations WHERE id=?', op.id);
       res.json({ operation: operationView(fresh), status: fresh.status, reward: view(reward, true) });
     }));
+    app.post('/api/reward-operations/:operationId/refresh', requireOwner, writeLimit, route(async (req, res) => {
+      const owned = ownerOperation(req); configured();
+      const reward = await refresh(get('SELECT * FROM rewards WHERE id=?', owned.reward_id));
+      const op = get('SELECT * FROM reward_operations WHERE id=?', owned.id);
+      // Once signed bytes reach the API, only reconcile/rebroadcast those exact
+      // bytes. A fresh blockhash is for an unsigned review, never a second debit.
+      if (op.status !== 'prepared' || op.signed_tx || op.signature) {
+        res.json({ operation: operationView(op), status: op.status, reward: view(reward, true) }); return;
+      }
+      const spec = JSON.parse(op.spec);
+      const [prepared, balance] = await Promise.all([chain.prepare(spec), chain.balance(reward.payer, reward.currency)]);
+      const needed = BigInt(prepared.feeLamports) + BigInt(prepared.rentLamports) + (op.kind === 'fund' && !reward.mint ? BigInt(reward.amount_units) : 0n);
+      if (BigInt(balance.solLamports) < needed || op.kind === 'fund' && BigInt(balance.availableUnits) < BigInt(reward.amount_units)) fail(409, 'Saldo insuficiente para a recompensa e as taxas da rede.', 'INSUFFICIENT_BALANCE');
+      transaction(() => {
+        assertSession(req); assertTagOwner({ id: reward.tag_id, owner_id: reward.owner_id });
+        const changed = run("UPDATE reward_operations SET spec=?,unsigned_tx=?,fee_lamports=?,rent_lamports=?,last_valid_height=? WHERE id=? AND status='prepared' AND signed_tx IS NULL AND signature IS NULL AND unsigned_tx=?",
+          JSON.stringify(prepared.spec), prepared.transaction, prepared.feeLamports, prepared.rentLamports, prepared.lastValidBlockHeight, op.id, op.unsigned_tx).changes;
+        if (!changed) fail(409, 'A aprovação mudou. Confira a transação e tente novamente.', 'REWARD_OPERATION_CHANGED');
+      });
+      res.json({ operation: operationView(get('SELECT * FROM reward_operations WHERE id=?', op.id)), status: 'prepared', reward: view(get('SELECT * FROM rewards WHERE id=?', reward.id), true) });
+    }));
     app.post('/api/reward-operations/:operationId/submit', requireOwner, writeLimit, route(async (req, res) => {
       const op = ownerOperation(req); configured();
       const reward = await refresh(get('SELECT * FROM rewards WHERE id=?', op.reward_id));
       const fresh = get('SELECT * FROM reward_operations WHERE id=?', op.id);
       if (fresh.status === 'confirmed') { res.json({ reward: view(reward, true), status: 'confirmed' }); return; }
-      if (!['prepared', 'submitted'].includes(fresh.status)) fail(409, 'Esta transação expirou ou falhou. Prepare um novo pedido.', 'REWARD_OPERATION_EXPIRED');
-      const signed = chain.signedPayload(req.body.transaction, op.unsigned_tx, JSON.parse(op.spec));
+      if (fresh.status === 'expired') fail(409, 'A aprovação expirou antes da confirmação. Revise e assine novamente.', 'REWARD_OPERATION_EXPIRED');
+      if (fresh.status === 'failed') fail(409, 'A rede rejeitou esta transação. Revise o pedido antes de tentar novamente.', 'REWARD_OPERATION_FAILED');
+      const signed = chain.signedPayload(req.body.transaction, fresh.unsigned_tx, JSON.parse(fresh.spec));
       if (fresh.signature && fresh.signature !== signed.signature) fail(409, 'A assinatura não corresponde à transação solicitada.');
       transaction(() => {
         assertSession(req);

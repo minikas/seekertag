@@ -63,13 +63,13 @@ test('signed submissions remain isolated between authentication scopes', async (
 
 // Hook effects are exercised with real Query/Mutation observers. Only native
 // wallet/storage APIs and React's small render scheduler are replaced.
-function controllerHarness({ signed, status = 'prepared', expiresAt = Date.now() + 60_000, submitError, stateGate, storageGate } = {}) {
+function controllerHarness({ signed, status = 'prepared', expiresAt = Date.now() + 60_000, submitError, stateGate, storageGate, refreshFee, walletGate } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity }, mutations: { retry: false, networkMode: 'always' } } });
   const slots = [], observers = [], requests = [], invalidations = [], signatures = [], changes = [], completions = [];
   let cursor = 0, effects = [], dirty = true, rendered, clock = 1;
   let props = { token: 'session-a', tagId: 'item', currency: 'SKR', onChanged: reward => changes.push(reward), onCompleted: () => completions.push(true) };
   const reward = { id: 'reserve', currency: 'SKR', amount: '1', status: 'reserved', operation: { id: 'operation', kind: 'fund', status } };
-  const op = { id: 'operation', rewardId: 'reserve', currency: 'SKR', feeLamports: '1', rentLamports: '2', spec: { kind: 'fund', amountUnits: '1000000', durationSeconds: 3600 } };
+  const op = { id: 'operation', rewardId: 'reserve', currency: 'SKR', transaction: 'old-blockhash', feeLamports: '1', rentLamports: '2', spec: { kind: 'fund', amountUnits: '1000000', durationSeconds: 3600 } };
   const server = { state: { reward, payer: 'payer', config: { currencies: ['SKR'], network: 'devnet' } }, operation: { operation: op, status, reward } };
   const key = (token, path) => ['api', token, path];
   const api = async (path, token, body, method = body ? 'POST' : 'GET') => {
@@ -78,13 +78,17 @@ function controllerHarness({ signed, status = 'prepared', expiresAt = Date.now()
     if (path === '/rewards/prices') return { expiresAt, fetchedAt: Date.now(), quotes: {} };
     if (path.startsWith('/rewards/balance')) return { currency: 'SKR', availableUnits: '10', network: 'devnet' };
     if (path === '/reward-operations/operation') return structuredClone(server.operation);
+    if (path.endsWith('/refresh')) {
+      if (server.operation.status === 'prepared') server.operation = { ...server.operation, operation: { ...server.operation.operation, transaction: 'fresh-blockhash', ...(refreshFee ? { feeLamports: refreshFee } : {}) } };
+      return structuredClone(server.operation);
+    }
     if (path.endsWith('/submit')) {
       if (submitError) throw new Error(submitError);
       server.operation = { ...server.operation, status: 'submitted' };
       server.state.reward = { ...server.state.reward, operation: { ...server.state.reward.operation, status: 'submitted' } };
       return { status: 'submitted', reward: structuredClone(server.state.reward) };
     }
-    if (path.endsWith('/prepare')) return { operation: op };
+    if (path.endsWith('/prepare')) { server.operation = { ...server.operation, status: 'prepared', operation: { ...op, transaction: 'new-preparation' } }; return { operation: server.operation.operation }; }
     assert.fail(`Unexpected API path ${path}`);
   };
   const react = {
@@ -136,7 +140,12 @@ function controllerHarness({ signed, status = 'prepared', expiresAt = Date.now()
     '@seekertag/shared/reward': { REWARD_DECIMALS: { SKR: 6 }, unitsToAmount: () => '1' },
     './api': { api }, './query': { queryClient: client, apiQueryKey: key, apiQueryOptions: (path, token) => ({ queryKey: key(token, path), queryFn: ({ signal }) => api(path, token, undefined, 'GET', signal) }), invalidateApiResources: async (token, paths) => { invalidations.push({ token, paths }); } },
     './ui': { useUI: () => ({ t: identity }) }, './reward.model': { validateRewardIntent() {} },
-    './platform/reward-wallet': { signReward: async operation => { signatures.push(operation); return 'newly-signed'; } },
+    './platform/reward-wallet': { signReward: async (operation, beforeSign) => {
+      if (walletGate) await walletGate.promise;
+      const ready = beforeSign ? await beforeSign() : operation;
+      if (!ready) return null;
+      signatures.push(ready); return 'newly-signed';
+    } },
     './platform/storage': { secureStorage: { get: async () => { if (storageGate) await storageGate.promise; return signed; }, set: async (_, value) => { signed = value; }, remove: async () => { signed = undefined; } } },
     './reward-submission': { submitSignedRewardOperation: submit }, './i18n': { translateNotice: (_, value) => value },
   });
@@ -144,6 +153,7 @@ function controllerHarness({ signed, status = 'prepared', expiresAt = Date.now()
   return {
     client, server, requests, invalidations, signatures, changes, completions,
     get current() { return rendered; },
+    get storedSignature() { return signed; },
     render,
     setProps(next) { props = { ...props, ...next }; dirty = true; },
     setOperation(next) { server.operation = next; client.setQueryData(key(props.token, '/reward-operations/operation'), next, { updatedAt: Date.now() + ++clock }); },
@@ -178,8 +188,53 @@ test('prepared unsigned reviews only sign on explicit approval and block a dupli
   await Promise.all([h.current.approve(), h.current.approve()]);
   await h.settle();
   assert.equal(h.signatures.length, 1);
+  assert.equal(h.signatures[0].transaction, 'fresh-blockhash');
+  assert.equal(h.requests.filter(request => request.path.endsWith('/refresh')).length, 1);
   assert.equal(h.requests.filter(request => request.path.endsWith('/submit')).length, 1);
   assert.equal(h.current.operation.status, 'submitted');
+});
+
+test('wallet authorization finishes before renewing the blockhash, including expiry during authorization', async t => {
+  const walletGate = deferred();
+  const h = controllerHarness({ walletGate }); t.after(() => h.dispose());
+  await h.settle();
+  const pending = h.current.approve();
+  for (let i = 0; i < 10; i++) await tick();
+  assert.equal(h.requests.filter(request => request.path.endsWith('/refresh')).length, 0);
+  assert.equal(h.signatures.length, 0);
+  h.server.operation.status = 'expired';
+  walletGate.resolve();
+  await pending; await h.settle();
+  assert.equal(h.signatures.length, 1);
+  assert.equal(h.signatures[0].transaction, 'new-preparation');
+  assert.equal(h.requests.filter(request => request.path.endsWith('/prepare')).length, 1);
+  assert.equal(h.current.operation.status, 'submitted');
+});
+
+test('a fee change after wallet authorization requires another explicit review before signing', async t => {
+  const h = controllerHarness({ refreshFee: '9' }); t.after(() => h.dispose());
+  await h.settle(); await h.current.approve(); await h.settle();
+  assert.equal(h.signatures.length, 0);
+  assert.equal(h.requests.filter(request => request.path.endsWith('/submit')).length, 0);
+  assert.equal(h.current.operation.operation.feeLamports, '9');
+  assert.match(h.current.error, /As taxas mudaram/);
+  await h.current.approve(); await h.settle();
+  assert.equal(h.signatures.length, 1);
+  assert.equal(h.current.operation.status, 'submitted');
+});
+
+test('expiry after signing preserves a retryable review and removes obsolete signed bytes', async t => {
+  const message = 'A aprovação expirou antes da confirmação. Revise e assine novamente.';
+  const h = controllerHarness({ submitError: message }); t.after(() => h.dispose());
+  await h.settle(); await h.current.approve(); await h.settle();
+  assert.equal(h.storedSignature, 'newly-signed');
+  assert.equal(h.current.error, message);
+  h.setOperation({ ...h.server.operation, status: 'expired' });
+  await h.settle();
+  assert.equal(h.current.operation.status, 'expired');
+  assert.equal(h.storedSignature, undefined);
+  assert.equal(h.signatures.length, 1, 'No automatic second signature');
+  assert.equal(h.requests.filter(request => request.path.endsWith('/submit')).length, 1);
 });
 
 test('confirmation clears pending state, completes once and invalidates other reward views', async t => {

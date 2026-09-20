@@ -97,8 +97,82 @@ test('tampered transactions, foreign sessions, and overlapping deposits cannot d
   assert.equal((await h.prepare(owner, tag)).status, 409);
   h.rpc.height += 151;
   assert.equal((await h.state(owner, tag)).data.reward, null);
-  assert.equal((await h.submit(owner, op)).status, 409);
+  const expired = await h.submit(owner, op);
+  assert.equal(expired.status, 409);
+  assert.equal(expired.data.code, 'REWARD_OPERATION_EXPIRED');
+  assert.match(expired.data.error, /expirou antes da confirmação/);
   assert.equal((await h.prepare(owner, tag)).status, 201);
+});
+
+test('refresh extends only unsigned reviews, keeps intent, and rejects an obsolete signature', async t => {
+  const h = await harness(t); const owner = await h.account(); const other = await h.account(); const tag = await h.tag(owner);
+  const op = (await h.prepare(owner, tag)).data.operation;
+  const before = h.rpc.svm.getBalance(owner.wallet.publicKey.toBase58());
+  assert.equal((await h.request(`/reward-operations/${op.id}/refresh`, other.token, {})).status, 404);
+  h.rpc.height += 100;
+  const result = await h.request(`/reward-operations/${op.id}/refresh`, owner.token, {});
+  assert.equal(result.status, 200, JSON.stringify(result));
+  const fresh = result.data.operation;
+  assert.equal(fresh.id, op.id); assert.deepEqual(fresh.spec, op.spec);
+  assert.equal(fresh.lastValidBlockHeight, op.lastValidBlockHeight + 100);
+  assert.notEqual(fresh.transaction, op.transaction);
+  assert.equal(h.rpc.sends, 0); assert.equal(h.rpc.svm.getBalance(owner.wallet.publicKey.toBase58()), before);
+  assert.equal((await h.submit(owner, op)).status, 409);
+  assert.equal(h.rpc.sends, 0);
+  h.rpc.holdFinality = true;
+  assert.equal((await h.submit(owner, fresh)).status, 202);
+  h.rpc.chain.prepare = () => { assert.fail('Must never re-sign a submitted/confirmed payment'); };
+  const submitted = await h.request(`/reward-operations/${op.id}/refresh`, owner.token, {});
+  assert.equal(submitted.data.status, 'submitted'); assert.equal(submitted.data.operation.transaction, fresh.transaction);
+  h.rpc.finalize();
+  const confirmed = await h.request(`/reward-operations/${op.id}/refresh`, owner.token, {});
+  assert.equal(confirmed.data.status, 'confirmed'); assert.equal(h.rpc.sends, 1);
+});
+
+test('an overlapping submission prevents refresh from replacing accepted signed bytes', async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const op = (await h.prepare(owner, tag)).data.operation;
+  const prepare = h.rpc.chain.prepare;
+  let resume, entered;
+  const gate = new Promise(resolve => { resume = resolve; });
+  const started = new Promise(resolve => { entered = resolve; });
+  h.rpc.chain.prepare = async spec => { entered(); await gate; return prepare(spec); };
+  const refreshing = h.request(`/reward-operations/${op.id}/refresh`, owner.token, {});
+  await started;
+  h.rpc.holdFinality = true;
+  await h.submit(owner, op);
+  const accepted = h.app.locals.db.prepare('SELECT signed_tx,signature FROM reward_operations WHERE id=?').get(op.id);
+  resume();
+  const refreshed = await refreshing;
+  assert.equal(refreshed.status, 409); assert.equal(refreshed.data.code, 'REWARD_OPERATION_CHANGED');
+  assert.deepEqual(h.app.locals.db.prepare('SELECT signed_tx,signature FROM reward_operations WHERE id=?').get(op.id), accepted);
+  assert.equal(h.rpc.sends, 1);
+});
+
+test('a stale expiry read cannot expire a concurrently refreshed transaction or abandon its deposit', async t => {
+  const h = await harness(t); const owner = await h.account(); const tag = await h.tag(owner);
+  const op = (await h.prepare(owner, tag)).data.operation;
+  const prepare = h.rpc.chain.prepare, read = h.rpc.chain.read;
+  let resumePrepare, preparing, resumeRead, reading;
+  const prepareGate = new Promise(resolve => { resumePrepare = resolve; });
+  const prepareStarted = new Promise(resolve => { preparing = resolve; });
+  h.rpc.chain.prepare = async spec => { preparing(); await prepareGate; return prepare(spec); };
+  const refreshing = h.request(`/reward-operations/${op.id}/refresh`, owner.token, {});
+  await prepareStarted;
+  const readGate = new Promise(resolve => { resumeRead = resolve; });
+  const readStarted = new Promise(resolve => { reading = resolve; });
+  h.rpc.chain.read = async (...args) => { reading(); await readGate; return read(...args); };
+  h.rpc.height = op.lastValidBlockHeight + 1;
+  const polling = h.state(owner, tag);
+  await readStarted;
+  resumePrepare();
+  const fresh = await refreshing;
+  assert.equal(fresh.status, 200);
+  resumeRead(); await polling;
+  assert.equal((await h.request(`/reward-operations/${op.id}`, owner.token)).data.status, 'prepared');
+  assert.equal((await h.state(owner, tag)).data.reward.status, 'pending');
+  assert.equal((await h.submit(owner, fresh.data.operation)).status, 202);
+  assert.equal((await h.state(owner, tag)).data.reward.status, 'reserved');
 });
 
 test('submitted deposits and renewals lock every object edit until finality, including RPC outages', async t => {
@@ -231,7 +305,13 @@ test('finder wallet proof is report-bound; confirmed payout resolves exactly one
   assert.equal((await h.request(`${base}/verify`, report.token, identity)).status, 401);
   const payout = await h.prepare(owner, tag, { kind: 'release', reportId: report.report.id }); assert.equal(payout.status, 201, JSON.stringify(payout));
   assert.equal(payout.data.operation.spec.recipient, finder.wallet.publicKey.toBase58());
-  h.rpc.holdFinality = true; await h.submit(owner, payout.data.operation);
+  const renewed = await h.request(`/reward-operations/${payout.data.operation.id}/refresh`, owner.token, {});
+  assert.equal(renewed.status, 200);
+  assert.deepEqual(renewed.data.operation.spec, payout.data.operation.spec);
+  assert.notEqual(renewed.data.operation.transaction, payout.data.operation.transaction);
+  const partial = Transaction.from(Buffer.from(renewed.data.operation.transaction, 'base64'));
+  assert.ok(partial.signatures.find(s => s.publicKey.equals(h.rpc.verifier.publicKey)).signature);
+  h.rpc.holdFinality = true; await h.submit(owner, renewed.data.operation);
   assert.equal((await h.request(`/reports/${report.report.id}`, owner.token)).data.report.status, 'open');
   h.rpc.finalize();
   assert.equal((await h.state(owner, tag)).data.reward.status, 'released');

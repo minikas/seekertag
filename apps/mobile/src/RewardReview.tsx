@@ -23,6 +23,7 @@ export default function RewardReview({ controller }: { controller: RewardControl
   const date = timed ? reservationDeadline(rewardDuration(op.spec), op.spec.kind === 'renew' && op.spec.previousRefundAfter ? new Date(op.spec.previousRefundAfter * 1_000).toISOString() : null) : null;
   return <View style={{ gap: 20 }}>
     {controller.operation?.status === 'submitted' && <RewardPendingNotice />}
+    {controller.operation?.status === 'expired' && <Notice tone="warning" text={t('A aprovação expirou antes da confirmação. Revise e assine novamente.')} />}
     <View style={{ gap: 6 }}><Text style={s.small}>{t('Valor da recompensa')}</Text><Text style={s.h1}>{unitsToAmount(op.spec.amountUnits, REWARD_DECIMALS[op.currency]).replace('.', locale.startsWith('en') ? '.' : ',')} {op.currency}</Text></View>
     {op.network !== 'mainnet' && op.spec.kind !== 'fund' && op.spec.kind !== 'refund' && <Notice tone="warning" text={t('Devnet: apenas tokens de teste. Nenhum saldo real será movimentado.')} />}
     {date && <Text style={s.small}>{t('Cancelamento a partir de {date}', { date: date.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) })}</Text>}
@@ -48,7 +49,7 @@ export function RewardReviewAction({ controller, releaseAllowed = true }: { cont
   const { t } = useUI(); const op = controller.operation;
   if (!op) return null;
   return op.status === 'prepared' || op.status === 'expired' ? <Button variant={op.operation.spec.kind === 'refund' ? 'warning' : 'success'} icon="check" onPress={() => void controller.approve()} busy={controller.busy}
-    disabled={op.operation.spec.kind === 'release' && !releaseAllowed}>{t('Assinar na carteira')}</Button>
+    disabled={op.operation.spec.kind === 'release' && !releaseAllowed}>{t(op.status === 'expired' ? 'Assinar novamente' : 'Assinar na carteira')}</Button>
     : <Button variant="secondary" onPress={() => void controller.retry()} busy={controller.busy} icon="refresh-cw">{t('Verificar transação')}</Button>;
 }
 export function Detail({ label, value }: { label: string; value: string }) {

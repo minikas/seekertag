@@ -146,7 +146,12 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
       if (op && dismissedReviews.current.has(op.operation.id)) op = undefined;
       if (op && data!.reward && data!.reward.id !== op.operation.rewardId) op = undefined;
       const reward = op ? op.reward : data!.reward;
-      if (op && (['prepared', 'submitted'].includes(op.status) || op.status === 'expired' && ['prepared', 'expired'].includes(currentOperation.current?.status || ''))) {
+      if (op && (['prepared', 'submitted'].includes(op.status) || op.status === 'expired' && ['prepared', 'expired', 'submitted'].includes(currentOperation.current?.status || ''))) {
+        if (op.status === 'expired') {
+          await secureStorage.remove(storageKey(op.operation.id));
+          if (current()) { setError(''); setRecoveryError(''); }
+        }
+        if (!current()) return;
         setOperation({ ...op, reward: op.reward || currentOperation.current?.reward || null });
       } else {
         const previous = currentOperation.current;
@@ -162,8 +167,6 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
             ToastAndroid.show(kind === 'fund' ? t('Depósito confirmado.') : kind === 'renew' ? t('Reserva renovada.') : kind === 'refund' ? t('Depósito recuperado.') : t('Recompensa entregue.'), ToastAndroid.LONG);
             if (kind === 'release') callbacks.current.onReleased?.();
             callbacks.current.onCompleted?.();
-          } else if (op?.status === 'expired' && previous.status === 'submitted' && previous.operation.spec.kind === 'fund') {
-            ToastAndroid.show(t('A transação expirou sem confirmação. Nenhum depósito foi confirmado.'), ToastAndroid.LONG);
           }
         }
       }
@@ -180,6 +183,7 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
     try { await action.mutateAsync(async () => { if (allowed()) await task(); }); return allowed(); } catch (cause) {
       if (allowed()) {
         const message = cause instanceof Error ? cause.message : 'Não foi possível concluir. Tente novamente.';
+        setError(message);
         ToastAndroid.show(translateNotice(t, message), ToastAndroid.LONG);
       }
       return false;
@@ -231,20 +235,39 @@ export function useReward({ tagId, token, currency, reportId, recipient, onChang
         if (isCurrent()) storeOperation(current);
       }
       if (current.status !== 'prepared') { if (isCurrent()) storeOperation(current); return; }
-      const op = current.operation;
-      validateRewardIntent(op, intent, data.config!, data.payer!);
-      // Fees or required accounts may have changed since an expired review.
-      // Show their updated cost before asking for a signature.
-      if (op.feeLamports !== reviewed.feeLamports || op.rentLamports !== reviewed.rentLamports
-        || (op.spec.solAccountTopUps?.recipientLamports || '0') !== (reviewed.spec.solAccountTopUps?.recipientLamports || '0')
-        || (op.spec.solAccountTopUps?.treasuryLamports || '0') !== (reviewed.spec.solAccountTopUps?.treasuryLamports || '0')) {
-        if (isCurrent()) { storeOperation(current); setError('As taxas mudaram. Revise os valores atualizados e toque em Assinar novamente.'); }
-        return;
-      }
-      let signed = await secureStorage.get(storageKey(op.id));
+      let signed = await secureStorage.get(storageKey(current.operation.id));
       if (!isCurrent()) return;
-      if (!signed) signed = await signReward(op);
+      function matchesReview(op: RewardOperation) {
+        validateRewardIntent(op, intent, data!.config!, data!.payer!);
+        // Changed costs require a new review before requesting a signature.
+        if (op.feeLamports !== reviewed.feeLamports || op.rentLamports !== reviewed.rentLamports
+          || (op.spec.solAccountTopUps?.recipientLamports || '0') !== (reviewed.spec.solAccountTopUps?.recipientLamports || '0')
+          || (op.spec.solAccountTopUps?.treasuryLamports || '0') !== (reviewed.spec.solAccountTopUps?.treasuryLamports || '0')) {
+          if (isCurrent()) { storeOperation(current); setError('As taxas mudaram. Revise os valores atualizados e toque em Assinar novamente.'); }
+          return false;
+        }
+        return true;
+      }
+      if (!matchesReview(current.operation)) return;
+      let reviewChanged = false;
+      if (!signed) signed = await signReward(current.operation, async () => {
+        if (!isCurrent()) return null;
+        current = await api<OperationState>(`/reward-operations/${current.operation.id}/refresh`, token, {});
+        if (!isCurrent()) return null;
+        if (current.status === 'expired') {
+          // Authorization itself may have outlasted the unsigned preparation.
+          // The API proved expiry; recreate only the same reviewed intent.
+          const fresh = await api<{ operation: RewardOperation }>(`${base}/prepare`, token, { ...intent, reportId });
+          current = { ...fresh, status: 'prepared', reward: current.reward };
+        }
+        if (!isCurrent()) return null;
+        storeOperation(current);
+        reviewChanged = current.status !== 'prepared' || !matchesReview(current.operation);
+        return reviewChanged ? null : current.operation;
+      });
+      if (reviewChanged) return;
       if (!signed) { if (isCurrent()) ToastAndroid.show(t('Assinatura cancelada.'), ToastAndroid.SHORT); return; }
+      const op = current.operation;
       // Save before sending: if the API times out or Android closes the app, the
       // same signed transaction can be submitted again without another debit.
       await secureStorage.set(storageKey(op.id), signed);

@@ -14,9 +14,9 @@ function cancelled(error: unknown) {
   return code === -1 || code === -3 || code === 'ERROR_ASSOCIATION_CANCELLED';
 }
 
-export async function signReward(operation: RewardOperation): Promise<string | null> {
+export async function signReward(operation: RewardOperation, beforeSign?: () => Promise<RewardOperation | null>): Promise<string | null> {
   // Inspect the complete transaction before requesting any wallet interaction.
-  const original = verifyRewardTransaction(operation.transaction, operation.spec);
+  verifyRewardTransaction(operation.transaction, operation.spec);
   if (operation.network === 'localnet') throw new Error('Use a rede devnet para assinar no Seeker.');
   const { transact } = await import('@solana-mobile/mobile-wallet-adapter-protocol');
   try {
@@ -25,6 +25,13 @@ export async function signReward(operation: RewardOperation): Promise<string | n
       const payer = authorization.accounts.find(account => new PublicKey(Buffer.from(account.address, 'base64')).toBase58() === operation.spec.payer);
       if (!payer) throw new Error('Use a carteira que fez o depósito.');
       authorizations.set(operation.network, authorization.auth_token);
+      // Connection and authorization may include a lengthy first-use prompt.
+      // Start the blockhash window only when the wallet is ready to sign.
+      const refreshed = beforeSign ? await beforeSign() : operation;
+      if (!refreshed) return null;
+      if (refreshed.network !== operation.network || refreshed.spec.payer !== operation.spec.payer) throw new Error('A assinatura não corresponde à transação solicitada.');
+      operation = refreshed;
+      const original = verifyRewardTransaction(operation.transaction, operation.spec);
       const result = await wallet.signTransactions({ payloads: [operation.transaction] });
       if (result.signed_payloads.length !== 1) throw new Error('A carteira retornou uma transação inválida.');
       const signed = verifyRewardTransaction(result.signed_payloads[0], operation.spec);
