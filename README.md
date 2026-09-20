@@ -26,7 +26,7 @@ The project includes an Android app, a Node.js API with SQLite, and a separate m
 
 Updated September 20, 2026 with current app captures, SKR as the default reward currency, receiving-address review, and the completed devnet payout shown in the demo. The deck includes refund terms, dated market sources, and clickable links to the website, video, APK, repository, and [finalized transaction](https://explorer.solana.com/tx/3heFKF88UY3XhVxc5xbYtTT9jmLgTdMRmXmXMJPCnuaJZd5jtpD2quCUYdPyKp6ohp6YtSt835R9fVSXeyEGpPY6?cluster=devnet).
 
-To present locally, open the HTML and use the arrow keys. To regenerate the PDF in Chrome, print with background graphics enabled, no headers or footers, and the CSS-defined 1280 × 720 page size. Keep the HTML, PDF, and `presentation/screens/` captures together when updating the deck.
+To present locally, open the HTML and use the arrow keys. To regenerate the PDF in Chrome, print with background graphics enabled, no headers or footers, and the CSS-defined 1280 × 720 page size. The cover shares the website’s current Home capture at `apps/landing/public/app-screen-en.png`; the conversation capture lives in `presentation/screens/`. Regenerate the PDF after changing either image.
 
 ## Landing page
 
@@ -34,7 +34,7 @@ To present locally, open the HTML and use the arrow keys. To regenerate the PDF 
 
 `npm run build:landing` generates `apps/landing/dist`, ready for static hosting. To preview the output, run `npm run preview --workspace=@seekertag/landing`. The local server listens on loopback only and is not a production server.
 
-The buttons show the app's development status. No public store link is configured. The phone displays a real Android app screenshot for the selected language (`app-screen-pt.png`, `app-screen-en.png`, or `app-screen-es.png`). The tag follows the app's PDF design, with a demo QR code that opens `seekertag:///` without linking to a real item. The landing page does not change the API's `/found` flow.
+The buttons show the app's development status. No public store link is configured. The phone displays the current app Home in English, with the notifications bell and Home, Conversations, and Items tabs fully visible. The same real Seeker capture (`app-screen-en.png`, from the September 20 demo’s `my-items.mp4` at 2.5 seconds) is shared by all three website languages and the pitch cover. The README hero is a fresh capture of the English website. The tag follows the app's PDF design, with a demo QR code that opens `seekertag:///` without linking to a real item. The landing page does not change the API's `/found` flow.
 
 ## Monorepo (Turborepo + npm workspaces)
 

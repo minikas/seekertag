@@ -3,11 +3,7 @@ const dialog = document.querySelector("#download-dialog");
 const SUPPORTED_LANGUAGES = ["pt", "en", "es"];
 const STORAGE_KEY = "seekertag-language";
 const HTML_LANG = { pt: "pt-BR", en: "en", es: "es" };
-const SCREEN_SRC = {
-  pt: "/app-screen-pt.png",
-  en: "/app-screen-en.png",
-  es: "/app-screen-es.png",
-};
+const APP_SCREEN_SRC = "/app-screen-en.png";
 
 const normalizeLanguage = (language) =>
   SUPPORTED_LANGUAGES.includes(language) ? language : "pt";
@@ -50,8 +46,9 @@ function applyTranslations() {
   });
   const screen = document.querySelector(".app-screen");
   if (screen) {
-    const src = SCREEN_SRC[i18next.language] || SCREEN_SRC.pt;
-    if (screen.getAttribute("src") !== src) screen.setAttribute("src", src);
+    if (screen.getAttribute("src") !== APP_SCREEN_SRC) {
+      screen.setAttribute("src", APP_SCREEN_SRC);
+    }
   }
 }
 

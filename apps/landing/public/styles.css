@@ -87,3 +87,16 @@ dialog{max-width:470px;width:calc(100% - 40px);padding:42px;border:1px solid var
   .header.is-scrolled{top:10px;width:calc(100% - 20px);padding-left:12px}
   .header.is-scrolled .brand{font-size:18px}
 }
+
+/* Keep the real Home screen, including its bottom navigation, unobstructed. */
+.hero-art .phone{left:auto;right:26px;width:52%;max-width:270px;height:auto;aspect-ratio:270/588;transform:rotate(5deg)}
+.hero-art .physical-tag{left:3%;width:30%;max-width:180px;padding:14px 10px 12px}
+.hero-art .tag-qr{width:min(100%,90px);height:auto}
+.hero-art .found-toast{left:3%;width:34%;max-width:190px;padding:12px;gap:8px}
+@media (max-width:760px){
+  .hero-art{min-height:780px}
+  .hero-art .phone{top:38px;left:50%;right:auto;width:226px;transform:translateX(-50%) rotate(5deg)}
+  .hero-art .physical-tag{top:558px;bottom:auto;left:12px;width:42%;max-width:142px}
+  .hero-art .found-toast{top:568px;left:auto;right:8px;width:46%;max-width:160px}
+  .art-index{bottom:10px}
+}
