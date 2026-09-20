@@ -319,7 +319,7 @@ To change the treasury, update `REWARD_TREASURY` and restart the API. To rotate 
 ## Current limitations
 
 - SOL/USDC/SKR deposits are prepared for devnet. Mainnet requires separate deployment and activation; test tokens have no real value. Verified `.skr` aliases and SGT verification are not implemented.
-- No push notifications or email delivery. Conversations refresh periodically while the app is open.
+- Push notifications use FCM and require Firebase configuration and notification permission on the device. Email delivery is not implemented. Conversations also refresh periodically while the app is open.
 - Tags are passive and do not track location.
 - Messages are private through API authorization, without end-to-end encryption. The server operator controls the database.
 - Sessions and visitor credentials use SecureStore. Clearing app data may remove conversation access.
