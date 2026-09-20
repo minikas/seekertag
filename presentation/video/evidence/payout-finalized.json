@@ -1,45 +1,52 @@
 {
   "network": "devnet",
   "commitment": "finalized",
-  "signature": "4QhzSZSrsbSixw1D7X3957DF943guXGCksf7CvbHXTK7e1dUYK4ZEsWWvyVfrywR7JsZxDSmExNEXgdkorYCUHB4",
-  "slot": 500526100,
-  "blockTime": 1789765913,
+  "tagCode": "UZyz7_JaSuLG0BMu",
+  "rewardId": "63d15c23-062e-4359-b5b8-b02c76e6286a",
+  "currency": "SKR",
+  "tokenDescription": "Devnet test token; no real funds",
+  "mint": "Ad5TWhSRvLSHoJNgAb2R7Hy3e2C35Ce8AVFhAYbEKJSu",
+  "signature": "3heFKF88UY3XhVxc5xbYtTT9jmLgTdMRmXmXMJPCnuaJZd5jtpD2quCUYdPyKp6ohp6YtSt835R9fVSXeyEGpPY6",
+  "slot": 501598937,
+  "blockTime": 1789943454,
+  "error": null,
   "feeLamports": 30000,
-  "balances": [
+  "tokenBalances": [
     {
-      "address": "4KKA5DRfjDTLgkrqVMw1wZsRSwqDFo3hPJ5tXBvvGe9i",
-      "signer": true,
-      "changeLamports": -30000
+      "account": "2YYZE8xzLZNZMmT5T8qJ5n4BKyG1UdLpMibT8XEgMrpE",
+      "owner": "4KKA5DRfjDTLgkrqVMw1wZsRSwqDFo3hPJ5tXBvvGe9i",
+      "mint": "Ad5TWhSRvLSHoJNgAb2R7Hy3e2C35Ce8AVFhAYbEKJSu",
+      "decimals": 6,
+      "preAmountUnits": "46000000",
+      "postAmountUnits": "46000000",
+      "changeAmountUnits": "0"
     },
     {
-      "address": "F3fhCb37iXT74TyNzGJYzGwsqM2p1bpukLxqacERrqWL",
-      "signer": true,
-      "changeLamports": 0
+      "account": "37yDaBrGpLDX43X6DisRpybR3xLCNkvdhq7t8ktiBVAC",
+      "owner": "8E5uestVQxEXGqZryCyMzQhcdPannurf2CpEqBtkkajU",
+      "mint": "Ad5TWhSRvLSHoJNgAb2R7Hy3e2C35Ce8AVFhAYbEKJSu",
+      "decimals": 6,
+      "preAmountUnits": "1900000",
+      "postAmountUnits": "2850000",
+      "changeAmountUnits": "950000"
     },
     {
-      "address": "C2LWNDXdnh3X8fSgJ8iCe8YueMrHie8vpo4n3d7xA9SJ",
-      "signer": false,
-      "changeLamports": 500000
+      "account": "AohCw4od7HSP8TDJoMgK6ipMFMsPdgKnKUQoGPDbbXYL",
+      "owner": "4hurU5wjjM7CRmRaCi6NYAtjLZNU3uxsaMkHTLit9vRh",
+      "mint": "Ad5TWhSRvLSHoJNgAb2R7Hy3e2C35Ce8AVFhAYbEKJSu",
+      "decimals": 6,
+      "preAmountUnits": "1000000",
+      "postAmountUnits": "0",
+      "changeAmountUnits": "-1000000"
     },
     {
-      "address": "EaFD92Df7Rx6xFW4SE3kYtmHbUTxUuxy8uhtNjty6B3B",
-      "signer": false,
-      "changeLamports": 9500000
-    },
-    {
-      "address": "Gs2B5aPu9gXCVcARzMN8MnY8ehpKUK91tsMWskzqiaAP",
-      "signer": false,
-      "changeLamports": -10000000
-    },
-    {
-      "address": "4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB",
-      "signer": false,
-      "changeLamports": 0
-    },
-    {
-      "address": "ComputeBudget111111111111111111111111111111",
-      "signer": false,
-      "changeLamports": 0
+      "account": "ydptNQwPT4EZdzBhPnPyJ5LzTxo2AymfxQmNTup3ScD",
+      "owner": "C2LWNDXdnh3X8fSgJ8iCe8YueMrHie8vpo4n3d7xA9SJ",
+      "mint": "Ad5TWhSRvLSHoJNgAb2R7Hy3e2C35Ce8AVFhAYbEKJSu",
+      "decimals": 6,
+      "preAmountUnits": "50100000",
+      "postAmountUnits": "50150000",
+      "changeAmountUnits": "50000"
     }
   ],
   "logs": [
@@ -47,10 +54,31 @@
     "Program ComputeBudget111111111111111111111111111111 success",
     "Program ComputeBudget111111111111111111111111111111 invoke [1]",
     "Program ComputeBudget111111111111111111111111111111 success",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+    "Program log: CreateIdempotent",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 4437 of 199700 compute units",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+    "Program log: CreateIdempotent",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 4437 of 195263 compute units",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+    "Program log: CreateIdempotent",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 7338 of 190826 compute units",
+    "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
     "Program 4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB invoke [1]",
-    "Program log: Instruction: ReleaseSol",
-    "Program 4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB consumed 6050 of 199700 compute units",
+    "Program log: Instruction: ReleaseToken",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 105 of 169037 compute units",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 105 of 166954 compute units",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 118 of 165083 compute units",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+    "Program 4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB consumed 20381 of 183488 compute units",
     "Program 4vUZidqPqRNfVvagWxzZL4xBXeyJLrkuwKfKicVniQWB success"
   ],
-  "explorer": "https://explorer.solana.com/tx/4QhzSZSrsbSixw1D7X3957DF943guXGCksf7CvbHXTK7e1dUYK4ZEsWWvyVfrywR7JsZxDSmExNEXgdkorYCUHB4?cluster=devnet"
+  "explorer": "https://explorer.solana.com/tx/3heFKF88UY3XhVxc5xbYtTT9jmLgTdMRmXmXMJPCnuaJZd5jtpD2quCUYdPyKp6ohp6YtSt835R9fVSXeyEGpPY6?cluster=devnet"
 }

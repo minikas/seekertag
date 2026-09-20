@@ -1,64 +1,69 @@
 {
-  "duration": 160,
+  "duration": 166,
   "scenes": [
     {
       "id": "login",
       "title": "Sign in with Seeker",
       "sentences": [
-        "Losing a bag should not mean losing the way to get it back. This is Seeker Tag, running on a real Solana Seeker.",
-        "I choose Continue with Seeker, select my wallet, and approve Sign In With Solana in Seed Vault.",
-        "The app opens my items. My wallet is my identity."
+        "Losing a bag should not mean losing the way to get it back. This is Seeker Tag on a real Solana Seeker.",
+        "I continue with Seeker, select my wallet, and approve Sign In With Solana in Seed Vault.",
+        "My wallet is my identity. Here are my items."
       ],
       "start": 0,
-      "duration": 20
+      "duration": 18
     },
     {
       "id": "create",
       "title": "Create a tag and reserve a reward",
       "sentences": [
-        "I add a new item, Seeker Backpack, choose its category, and add a private note.",
-        "The public message tells whoever finds it how to contact me, without exposing my phone number.",
-        "I add a reward of zero point zero one SOL and set a one hour reservation.",
-        "Before signing, the app shows the devnet network, wallet, transaction fee, and account creation cost.",
+        "I add Travel Backpack and keep Backpack as its category.",
+        "A private note describes the bag, so I can recognize it.",
+        "The public message explains how to arrange a return, without exposing my phone number.",
+        "I add one S K R in test tokens.",
+        "And reserve it for seven days.",
+        "Before signing, I review the devnet network, depositing wallet, network fee, and account creation cost.",
         "I approve the deposit in Seed Vault. After network confirmation, the reward is reserved on chain."
       ],
-      "start": 20,
-      "duration": 35
+      "start": 18,
+      "duration": 37
     },
     {
       "id": "tag",
       "title": "QR, printable PDF and NFC",
       "sentences": [
         "Here is the unique Q R code for this backpack.",
-        "I download the P D F and open its preview: six printable formats, with actual sizes and a scale check.",
-        "The same item link can also be written to an N F C tag. This screen is ready for a physical tag."
+        "I download and open its P D F: six printable formats, with actual sizes and a scale check.",
+        "The same link can be written to an N F C tag. This screen is ready for a physical tag.",
+        "If my bag goes missing, I mark the item as lost."
       ],
       "start": 55,
-      "duration": 23
+      "duration": 25
     },
     {
       "id": "conversation",
       "title": "Two people. One private conversation.",
       "sentences": [
-        "On a separate Android session, Alex opens that same tag as the finder. The reserved reward is visible.",
-        "No account is required to notify the owner. Alex enters a name and sends a message.",
-        "Now both sides are on screen. I reply from the Seeker, and Alex receives it and answers from the second session.",
+        "On a separate Android session, Alex opens that same tag. The reserved reward is visible.",
+        "No account is required. Alex enters a name and a message, then notifies the owner.",
+        "The notification arrives on my Seeker and opens our conversation.",
+        "I reply from the Seeker, and Alex receives my message in the second session.",
         "We arrange the return inside the app, keeping personal contact details private."
       ],
-      "start": 78,
-      "duration": 31
+      "start": 80,
+      "duration": 36
     },
     {
       "id": "release",
       "title": "Confirm the recipient and release the reward",
       "sentences": [
-        "To receive the reward, Alex opens item details and confirms a receiving wallet.",
-        "With Seed Vault, I sign a message proving ownership of the receiving address. It does not authorize a transfer.",
-        "Back on the Seeker, I open the item from our conversation and choose Finish return.",
-        "The review shows the finder receiving zero point zero zero nine five SOL, and the five percent service fee.",
+        "To receive the reward, Alex opens Set receiving wallet directly from the conversation.",
+        "Alex enters a Solana address. Connecting a wallet is optional.",
+        "After reviewing the address, Alex confirms it.",
+        "Back on the Seeker, I choose Finish return directly in our conversation.",
+        "I review the payout: the finder gets zero point nine five S K R, after the five percent service fee.",
         "After confirming the simulated handover, I sign the payout with the owner wallet."
       ],
-      "start": 109,
+      "start": 116,
       "duration": 34
     },
     {
@@ -68,119 +73,144 @@
         "The transaction is confirmed on Solana devnet. The reward is released, and both conversations show the completed return.",
         "One tag, private coordination, and a verifiable reward. That is Seeker Tag."
       ],
-      "start": 143,
-      "duration": 17
+      "start": 150,
+      "duration": 16
     }
   ],
   "captions": [
     {
-      "start": 0.333,
-      "duration": 7.206,
-      "text": "Losing a bag should not mean losing the way to get it back. This is SeekerTag, running on a real Solana Seeker."
+      "start": 0.33,
+      "duration": 6.08,
+      "text": "Losing a bag should not mean losing the way to get it back. This is SeekerTag on a real Solana Seeker."
     },
     {
-      "start": 7.817,
-      "duration": 6.234,
-      "text": "I choose Continue with Seeker, select my wallet, and approve Sign In With Solana in Seed Vault."
+      "start": 7.7,
+      "duration": 5.163,
+      "text": "I continue with Seeker, select my wallet, and approve Sign In With Solana in Seed Vault."
     },
     {
-      "start": 14.329,
-      "duration": 3.769,
-      "text": "The app opens my items. My wallet is my identity."
+      "start": 14,
+      "duration": 2.816,
+      "text": "My wallet is my identity. Here are my items."
     },
     {
-      "start": 20.333,
-      "duration": 4.883,
-      "text": "I add a new item, Seeker Backpack, choose its category, and add a private note."
+      "start": 18.33,
+      "duration": 3.179,
+      "text": "I add Travel Backpack and keep Backpack as its category."
     },
     {
-      "start": 25.494,
-      "duration": 5.594,
-      "text": "The public message tells whoever finds it how to contact me, without exposing my phone number."
+      "start": 23,
+      "duration": 3.285,
+      "text": "A private note describes the bag, so I can recognize it."
     },
     {
-      "start": 31.366,
-      "duration": 5.523,
-      "text": "I add a reward of zero point zero one SOL and set a one hour reservation."
+      "start": 27,
+      "duration": 4.864,
+      "text": "The public message explains how to arrange a return, without exposing my phone number."
     },
     {
-      "start": 37.167,
-      "duration": 6.494,
-      "text": "Before signing, the app shows the devnet network, wallet, transaction fee, and account creation cost."
+      "start": 33,
+      "duration": 2.24,
+      "text": "I add one SKR in test tokens."
     },
     {
-      "start": 43.939,
-      "duration": 6.85,
+      "start": 36,
+      "duration": 1.643,
+      "text": "And reserve it for seven days."
+    },
+    {
+      "start": 39,
+      "duration": 6.037,
+      "text": "Before signing, I review the devnet network, depositing wallet, network fee, and account creation cost."
+    },
+    {
+      "start": 46.5,
+      "duration": 6.165,
       "text": "I approve the deposit in Seed Vault. After network confirmation, the reward is reserved on chain."
     },
     {
-      "start": 55.333,
-      "duration": 2.916,
+      "start": 55.33,
+      "duration": 2.624,
       "text": "Here is the unique QR code for this backpack."
     },
     {
-      "start": 58.527,
-      "duration": 7.372,
-      "text": "I download the PDF and open its preview: six printable formats, with actual sizes and a scale check."
+      "start": 58.5,
+      "duration": 5.995,
+      "text": "I download and open its PDF: six printable formats, with actual sizes and a scale check."
     },
     {
-      "start": 66.176,
-      "duration": 6.827,
-      "text": "The same item link can also be written to an NFC tag. This screen is ready for a physical tag."
+      "start": 66,
+      "duration": 5.163,
+      "text": "The same link can be written to an NFC tag. This screen is ready for a physical tag."
     },
     {
-      "start": 78.333,
-      "duration": 7.04,
-      "text": "On a separate Android session, Alex opens that same tag as the finder. The reserved reward is visible."
+      "start": 74,
+      "duration": 2.944,
+      "text": "If my bag goes missing, I mark the item as lost."
     },
     {
-      "start": 85.651,
-      "duration": 5.95,
-      "text": "No account is required to notify the owner. Alex enters a name and sends a message."
+      "start": 80.33,
+      "duration": 5.483,
+      "text": "On a separate Android session, Alex opens that same tag. The reserved reward is visible."
     },
     {
-      "start": 91.879,
-      "duration": 7.253,
-      "text": "Now both sides are on screen. I reply from the Seeker, and Alex receives it and answers from the second session."
+      "start": 86.5,
+      "duration": 5.312,
+      "text": "No account is required. Alex enters a name and a message, then notifies the owner."
     },
     {
-      "start": 99.41,
-      "duration": 5.239,
+      "start": 92.5,
+      "duration": 4.075,
+      "text": "The notification arrives on my Seeker and opens our conversation."
+    },
+    {
+      "start": 97.5,
+      "duration": 4.395,
+      "text": "I reply from the Seeker, and Alex receives my message in the second session."
+    },
+    {
+      "start": 106,
+      "duration": 4.715,
       "text": "We arrange the return inside the app, keeping personal contact details private."
     },
     {
-      "start": 109.333,
-      "duration": 5.712,
-      "text": "To receive the reward, Alex opens item details and confirms a receiving wallet."
+      "start": 116.33,
+      "duration": 5.205,
+      "text": "To receive the reward, Alex opens Set receiving wallet directly from the conversation."
     },
     {
-      "start": 115.323,
-      "duration": 7.134,
-      "text": "With Seed Vault, I sign a message proving ownership of the receiving address. It does not authorize a transfer."
+      "start": 122.5,
+      "duration": 3.733,
+      "text": "Alex enters a Solana address. Connecting a wallet is optional."
     },
     {
-      "start": 122.736,
-      "duration": 5.286,
-      "text": "Back on the Seeker, I open the item from our conversation and choose Finish return."
+      "start": 128,
+      "duration": 2.496,
+      "text": "After reviewing the address, Alex confirms it."
     },
     {
-      "start": 128.3,
-      "duration": 7.561,
-      "text": "The review shows the finder receiving zero point zero zero nine five SOL, and the five percent service fee."
+      "start": 131,
+      "duration": 3.968,
+      "text": "Back on the Seeker, I choose Finish return directly in our conversation."
     },
     {
-      "start": 136.139,
-      "duration": 4.883,
+      "start": 136,
+      "duration": 6.592,
+      "text": "I review the payout: the finder gets zero point nine five SKR, after the five percent service fee."
+    },
+    {
+      "start": 145,
+      "duration": 4.395,
       "text": "After confirming the simulated handover, I sign the payout with the owner wallet."
     },
     {
-      "start": 143.333,
-      "duration": 8.32,
+      "start": 150.33,
+      "duration": 7.488,
       "text": "The transaction is confirmed on Solana devnet. The reward is released, and both conversations show the completed return."
     },
     {
-      "start": 151.931,
-      "duration": 5.404,
+      "start": 160,
+      "duration": 4.864,
       "text": "One tag, private coordination, and a verifiable reward. That is SeekerTag."
     }
   ]

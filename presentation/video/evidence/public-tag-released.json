@@ -1,1 +1,26 @@
-{"tag":{"code":"uHSgieUJDQAQwpe3","name":"Seeker Backpack","category":"Mochila","categoryIcon":"shopping-bag","color":"#304441","publicMessage":"Thank you for looking after something important to me. Send me a message so we can arrange its return.","status":"active","rewardAmount":0.01,"rewardCurrency":"SOL","reward":{"id":"d220245c-b2e5-4da1-a5cf-070ff811e49f","status":"released","currency":"SOL","amount":"0.01","amountUnits":"10000000","network":"devnet","escrow":"Gs2B5aPu9gXCVcARzMN8MnY8ehpKUK91tsMWskzqiaAP","refundAfter":"2026-09-18T21:26:53.000Z","checkedAt":"2026-09-18T21:12:00.637Z","signature":"4QhzSZSrsbSixw1D7X3957DF943guXGCksf7CvbHXTK7e1dUYK4ZEsWWvyVfrywR7JsZxDSmExNEXgdkorYCUHB4"}},"viewerIsOwner":false}
+{
+  "tag": {
+    "code": "UZyz7_JaSuLG0BMu",
+    "name": "Travel Backpack",
+    "category": "Mochila",
+    "categoryIcon": "shopping-bag",
+    "color": "#304441",
+    "publicMessage": "Thank you for looking after something important to me. Send me a message so we can arrange its return.",
+    "status": "active",
+    "rewardAmount": 1,
+    "rewardCurrency": "SKR",
+    "reward": {
+      "id": "63d15c23-062e-4359-b5b8-b02c76e6286a",
+      "status": "released",
+      "currency": "SKR",
+      "amount": "1",
+      "amountUnits": "1000000",
+      "network": "devnet",
+      "escrow": "4hurU5wjjM7CRmRaCi6NYAtjLZNU3uxsaMkHTLit9vRh",
+      "refundAfter": "2026-09-27T21:21:04.000Z",
+      "checkedAt": "2026-09-20T22:31:00.054Z",
+      "signature": "3heFKF88UY3XhVxc5xbYtTT9jmLgTdMRmXmXMJPCnuaJZd5jtpD2quCUYdPyKp6ohp6YtSt835R9fVSXeyEGpPY6"
+    }
+  },
+  "viewerIsOwner": false
+}

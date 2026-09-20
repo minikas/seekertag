@@ -1,9 +1,0 @@
-{
-  "purpose": "Genuine receiving-wallet verification retake on physical Seeker using Testuser in Seed Vault",
-  "network": "devnet",
-  "tagCode": "9qcHZq2arNbx9vmv",
-  "reportId": "48b45d4e-ab13-4dc7-b29a-0d9cf378904a",
-  "recipient": "8E5uestVQxEXGqZryCyMzQhcdPannurf2CpEqBtkkajU",
-  "biometricConfirmedByUser": true,
-  "originalPayoutIsSeparate": true
-}

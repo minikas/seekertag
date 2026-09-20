@@ -10,6 +10,17 @@ root = Path(__file__).resolve().parent
 video = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else root / 'renders/seekertag-seeker-demo-en.mp4'
 qa = root / 'qa'
 qa.mkdir(exist_ok=True)
+timing = json.loads((root / 'edit-timing.json').read_text())
+expected_duration = timing['duration']
+expected_frames = round(expected_duration * 30)
+cuts = json.loads((root / 'cuts.json').read_text())
+for scene in timing['scenes']:
+    intervals = sorted((c['start'], c['start'] + c['duration']) for c in cuts if c['scene'] == scene['id'])
+    covered = 0
+    for start, end in intervals:
+        assert start <= covered + 1 / 30, f"Uncovered footage in {scene['id']} at {covered:g}s"
+        covered = max(covered, end)
+    assert abs(covered - scene['duration']) < 1 / 30, f"Incomplete footage in {scene['id']}: {covered:g}/{scene['duration']:g}s"
 probe = json.loads(subprocess.check_output([
     'ffprobe', '-v', 'error', '-show_streams', '-show_format', '-of', 'json', str(video)
 ]))
@@ -17,16 +28,14 @@ v = next(s for s in probe['streams'] if s['codec_type'] == 'video')
 a = next(s for s in probe['streams'] if s['codec_type'] == 'audio')
 assert (v['width'], v['height'], v['r_frame_rate']) == (1920, 1080, '30/1')
 assert v['codec_name'] == 'h264' and a['codec_name'] == 'aac'
-assert abs(float(probe['format']['duration']) - 160) < 0.1
-assert int(v['nb_frames']) == 4800 and abs(float(v['duration']) - 160) < 0.1
+assert abs(float(probe['format']['duration']) - expected_duration) < 0.1
+assert int(v['nb_frames']) == expected_frames and abs(float(v['duration']) - expected_duration) < 0.1
 decoded = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(video), '-f', 'null', '-'], capture_output=True, text=True)
 assert decoded.returncode == 0 and not decoded.stderr, decoded.stderr
 
-timing = json.loads((root / 'edit-timing.json').read_text())
-cuts = json.loads((root / 'cuts.json').read_text())
 starts = {s['id']: s['start'] for s in timing['scenes']}
 samples = {round(starts[c['scene']] + c['start'] + min(1.5, c['duration'] / 2), 3): c['id'] for c in cuts}
-samples[159.5] = 'last-frame'
+samples[expected_duration - 0.5] = 'last-frame'
 frames = []
 for i, (time, label) in enumerate(sorted(samples.items())):
     path = qa / f'frame-{i:02}-{time:g}s.jpg'

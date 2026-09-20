@@ -22,8 +22,8 @@ and motion work. Read the relevant installed `SKILL.md` before editing:
 - `hyperframes-animation`: motion rules, scene transitions and GSAP animation.
 - `hyperframes-keyframes`: camera moves, phone focus, zoom and reframing.
 - `hyperframes-registry`: find reusable components before hand-building a
-  named effect; this demo adapts `device-frame-stage`, `ui-focus-zoom` and
-  `coordinate-target-zoom`.
+  named effect; this demo adapts `device-frame-stage` and `touch-indicator`.
+  Camera patterns were reviewed, but the current edit uses no editorial zooms.
 - `media-use`: narration, captions and preparation of recorded media.
 - `hyperframes-cli`: checks, previews, snapshots and rendering.
 
@@ -31,10 +31,12 @@ The canonical project is `presentation/video/`; follow its `README.md`,
 `edit/BRIEF.md` and `edit/design.md`. Keep one current project rather than
 creating `demo-v2`, `demo-v3` or other duplicate production directories.
 
-Use real application recordings, English narration/captions, and one smartphone
-frame per participant. Preserve the distinction between the Testuser wallet
-verification retake and the original devnet payout. Show the NFC writing screen
-without claiming a physical tag was written.
+Use recordings of the current app, English narration/captions, and one smartphone
+frame per participant. Keep one coherent item and SKR reward from deposit through
+payout. Show the current receiving-address review and finish the return directly
+from the owner conversation. Match touch indicators to recorded actions. Show
+the NFC writing screen without claiming a physical tag was written. Never fill
+a missing current payment confirmation with footage from an older return.
 
 After composition changes, run `python3 presentation/video/author-edit.py` and
 `npm run check --prefix presentation/video/edit`, then inspect affected scenes.

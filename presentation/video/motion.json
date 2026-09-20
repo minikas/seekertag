@@ -1,0 +1,220 @@
+{
+  "camera": {
+    "login": [],
+    "create": [],
+    "tag": [],
+    "conversation": [],
+    "release": [],
+    "result": []
+  },
+  "touches": [
+    {
+      "clip": "welcome",
+      "at": 2.942,
+      "x": 540.0,
+      "y": 2040.45,
+      "action": "Recorded tap",
+      "source": "current-login.mp4"
+    },
+    {
+      "clip": "sign-options",
+      "at": 3.988,
+      "x": 540.0,
+      "y": 1582.02,
+      "action": "Recorded tap",
+      "source": "current-login.mp4"
+    },
+    {
+      "clip": "item-name",
+      "at": 0.448,
+      "x": 378.0,
+      "y": 1114.61,
+      "action": "Recorded tap",
+      "source": "current-create.mp4"
+    },
+    {
+      "clip": "private-note",
+      "at": 0.332,
+      "x": 369.0,
+      "y": 1671.91,
+      "action": "Recorded tap",
+      "source": "current-create.mp4"
+    },
+    {
+      "clip": "public-message",
+      "at": 5.452,
+      "x": 540.0,
+      "y": 1896.63,
+      "action": "Recorded tap",
+      "source": "current-create.mp4"
+    },
+    {
+      "clip": "reward-period",
+      "at": 2.07,
+      "x": 540.0,
+      "y": 2211.24,
+      "action": "Recorded tap",
+      "source": "current-deposit.mp4"
+    },
+    {
+      "clip": "save-item",
+      "at": 0.358,
+      "x": 540.0,
+      "y": 2211.24,
+      "action": "Recorded tap",
+      "source": "current-deposit.mp4"
+    },
+    {
+      "clip": "deposit-review",
+      "at": 6.171,
+      "x": 540.0,
+      "y": 2211.24,
+      "action": "Recorded tap",
+      "source": "current-deposit.mp4"
+    },
+    {
+      "clip": "unique-qr",
+      "at": 2.941,
+      "x": 207.0,
+      "y": 1761.8,
+      "action": "Recorded tap",
+      "source": "current-qr-pdf.mp4"
+    },
+    {
+      "clip": "download-pdf",
+      "at": 1.106,
+      "x": 909.0,
+      "y": 2265.17,
+      "action": "Recorded tap",
+      "source": "current-qr-pdf.mp4"
+    },
+    {
+      "clip": "nfc-ready",
+      "at": 1.037,
+      "x": 540.0,
+      "y": 1761.8,
+      "action": "Recorded tap",
+      "source": "current-qr-pdf.mp4"
+    },
+    {
+      "clip": "mark-lost",
+      "at": 1.018,
+      "x": 450.0,
+      "y": 1752.81,
+      "action": "Recorded tap",
+      "source": "current-qr-pdf.mp4"
+    },
+    {
+      "clip": "mark-lost",
+      "at": 3.82,
+      "x": 540.0,
+      "y": 1941.57,
+      "action": "Recorded tap",
+      "source": "current-qr-pdf.mp4"
+    },
+    {
+      "clip": "finder-tag",
+      "at": 3.939,
+      "x": 400,
+      "y": 1660,
+      "action": "Recorded tap",
+      "source": "current-finder.mp4"
+    },
+    {
+      "clip": "finder-notify",
+      "at": 4.481,
+      "x": 540,
+      "y": 1650,
+      "action": "Recorded tap",
+      "source": "current-finder.mp4"
+    },
+    {
+      "clip": "owner-notification",
+      "at": 2.398,
+      "x": 830.7,
+      "y": 195.96,
+      "action": "Recorded tap",
+      "source": "current-notification.mp4"
+    },
+    {
+      "clip": "owner-notification",
+      "at": 4.377,
+      "x": 450.0,
+      "y": 602.25,
+      "action": "Recorded tap",
+      "source": "current-notification.mp4"
+    },
+    {
+      "clip": "chat-owner-send",
+      "at": 1.303,
+      "x": 360.0,
+      "y": 2211.24,
+      "action": "Recorded tap",
+      "source": "current-chat-owner.mp4"
+    },
+    {
+      "clip": "chat-owner-send",
+      "at": 5.569,
+      "x": 936.0,
+      "y": 2211.24,
+      "action": "Recorded tap",
+      "source": "current-chat-owner.mp4"
+    },
+    {
+      "clip": "chat-finder-send",
+      "at": 0.153,
+      "x": 400,
+      "y": 2210,
+      "action": "Recorded tap",
+      "source": "current-chat-finder.mp4"
+    },
+    {
+      "clip": "chat-finder-send",
+      "at": 4.92,
+      "x": 950,
+      "y": 2210,
+      "action": "Recorded tap",
+      "source": "current-chat-finder.mp4"
+    },
+    {
+      "clip": "finder-connect",
+      "at": 2.511,
+      "x": 540,
+      "y": 1490,
+      "action": "Recorded tap",
+      "source": "current-recipient.mp4"
+    },
+    {
+      "clip": "finder-address",
+      "at": 4.528,
+      "x": 540,
+      "y": 1970,
+      "action": "Recorded tap",
+      "source": "current-recipient.mp4"
+    },
+    {
+      "clip": "finder-wallet-review",
+      "at": 2.864,
+      "x": 540,
+      "y": 2150,
+      "action": "Recorded tap",
+      "source": "current-recipient.mp4"
+    },
+    {
+      "clip": "finish-return",
+      "at": 1.72,
+      "x": 495.0,
+      "y": 1474.16,
+      "action": "Recorded tap",
+      "source": "current-payout.mp4"
+    },
+    {
+      "clip": "finish-return",
+      "at": 4.024,
+      "x": 540.0,
+      "y": 2130.34,
+      "action": "Recorded tap",
+      "source": "current-payout.mp4"
+    }
+  ]
+}

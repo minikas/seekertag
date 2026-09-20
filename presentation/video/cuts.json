@@ -3,218 +3,585 @@
     "id": "welcome",
     "scene": "login",
     "start": 0,
-    "duration": 3,
-    "label": "Owner · physical Solana Seeker"
+    "duration": 3.8,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-login.mp4",
+        "start": 0,
+        "duration": 3.8
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "sign-options",
     "scene": "login",
-    "start": 3,
-    "duration": 5,
-    "label": "Owner · physical Solana Seeker"
+    "start": 3.8,
+    "duration": 5.2,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-login.mp4",
+        "start": 20.5,
+        "duration": 5.2
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "seed-vault-login",
     "scene": "login",
-    "start": 8,
-    "duration": 6,
-    "label": "Owner · physical Solana Seeker"
+    "start": 9,
+    "duration": 5.2,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-login.mp4",
+        "start": 59,
+        "duration": 5.2
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "my-items",
     "scene": "login",
-    "start": 14,
-    "duration": 6,
-    "label": "Owner · physical Solana Seeker"
+    "start": 14.2,
+    "duration": 3.8,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-login.mp4",
+        "start": 71,
+        "duration": 3.8
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "item-name",
     "scene": "create",
     "start": 0,
-    "duration": 3,
-    "label": "Owner · physical Solana Seeker"
+    "duration": 5,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-create.mp4",
+        "start": 26.3,
+        "duration": 5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "private-note",
     "scene": "create",
-    "start": 3,
-    "duration": 3,
-    "label": "Owner · physical Solana Seeker"
+    "start": 5,
+    "duration": 4,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-create.mp4",
+        "start": 44.8,
+        "duration": 4
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "public-message",
     "scene": "create",
-    "start": 6,
-    "duration": 5,
-    "label": "Owner · physical Solana Seeker"
+    "start": 9,
+    "duration": 6,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-create.mp4",
+        "start": 59.5,
+        "duration": 6
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
+  },
+  {
+    "id": "reward-amount",
+    "scene": "create",
+    "start": 15,
+    "duration": 3,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-create.mp4",
+        "start": 80.8,
+        "duration": 3
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "reward-period",
     "scene": "create",
-    "start": 11,
-    "duration": 6,
-    "label": "Owner · physical Solana Seeker"
+    "start": 18,
+    "duration": 3,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-deposit.mp4",
+        "start": 15.3,
+        "duration": 3
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
+  },
+  {
+    "id": "save-item",
+    "scene": "create",
+    "start": 21,
+    "duration": 1,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-deposit.mp4",
+        "start": 26.9,
+        "duration": 1
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "deposit-review",
     "scene": "create",
-    "start": 17,
-    "duration": 7,
-    "label": "Owner · physical Solana Seeker"
+    "start": 22,
+    "duration": 6.5,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-deposit.mp4",
+        "start": 35.5,
+        "duration": 6.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "deposit-sign",
     "scene": "create",
-    "start": 24,
-    "duration": 3,
-    "label": "Owner · physical Solana Seeker"
+    "start": 28.5,
+    "duration": 3.7,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-deposit.mp4",
+        "start": 49.5,
+        "duration": 3.7
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "deposit-confirm",
     "scene": "create",
-    "start": 27,
-    "duration": 2,
-    "label": "Owner · physical Solana Seeker"
+    "start": 32.2,
+    "duration": 2.3,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-deposit.mp4",
+        "start": 61,
+        "duration": 2.3
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "reward-reserved",
     "scene": "create",
-    "start": 29,
-    "duration": 6,
-    "label": "Owner · physical Solana Seeker"
+    "start": 34.5,
+    "duration": 2.5,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-deposit.mp4",
+        "start": 65,
+        "duration": 2.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "unique-qr",
     "scene": "tag",
     "start": 0,
     "duration": 3.5,
-    "label": "Owner · physical Solana Seeker"
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-qr-pdf.mp4",
+        "start": 0,
+        "duration": 3.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "download-pdf",
     "scene": "tag",
     "start": 3.5,
-    "duration": 2.5,
-    "label": "Owner · physical Solana Seeker"
+    "duration": 2,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-qr-pdf.mp4",
+        "start": 13.4,
+        "duration": 2
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "pdf-preview",
     "scene": "tag",
-    "start": 6,
+    "start": 5.5,
     "duration": 6,
-    "label": "Owner · physical Solana Seeker"
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-qr-pdf.mp4",
+        "start": 46,
+        "duration": 6
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "nfc-ready",
     "scene": "tag",
-    "start": 12,
-    "duration": 11,
-    "label": "Owner · physical Solana Seeker"
+    "start": 11.5,
+    "duration": 7.5,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-qr-pdf.mp4",
+        "start": 57,
+        "duration": 7.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
+  },
+  {
+    "id": "mark-lost",
+    "scene": "tag",
+    "start": 19,
+    "duration": 6.0,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-qr-pdf.mp4",
+        "start": 77.5,
+        "duration": 2.5
+      },
+      {
+        "source": "current-qr-pdf.mp4",
+        "start": 91,
+        "duration": 3.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "finder-tag",
     "scene": "conversation",
     "start": 0,
-    "duration": 7.5,
-    "label": "Finder · separate Android emulator"
+    "duration": 6.5,
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-finder.mp4",
+        "start": 0,
+        "duration": 6.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
   },
   {
     "id": "finder-notify",
     "scene": "conversation",
-    "start": 7.5,
+    "start": 6.5,
     "duration": 6,
-    "label": "Finder · separate Android emulator"
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-finder.mp4",
+        "start": 67.3,
+        "duration": 6
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
+  },
+  {
+    "id": "owner-notification",
+    "scene": "conversation",
+    "start": 12.5,
+    "duration": 5.0,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-notification.mp4",
+        "start": 49.2,
+        "duration": 2
+      },
+      {
+        "source": "current-notification.mp4",
+        "start": 59.9,
+        "duration": 1.2
+      },
+      {
+        "source": "current-notification.mp4",
+        "start": 67.8,
+        "duration": 1.8
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "chat-owner-send",
     "scene": "conversation",
-    "start": 13.5,
-    "duration": 8,
-    "label": "Owner · physical Solana Seeker"
+    "start": 17.5,
+    "duration": 9,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-chat-owner.mp4",
+        "start": 0.7,
+        "duration": 9
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "chat-finder-receive",
     "scene": "conversation",
-    "start": 13.5,
-    "duration": 8,
-    "label": "Finder · separate Android emulator"
+    "start": 17.5,
+    "duration": 9,
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-chat-finder.mp4",
+        "start": 0.65,
+        "duration": 9
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
   },
   {
     "id": "chat-owner-receive",
     "scene": "conversation",
-    "start": 21.5,
+    "start": 26.5,
     "duration": 9.5,
-    "label": "Owner · physical Solana Seeker"
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-chat-owner.mp4",
+        "start": 18.9,
+        "duration": 9.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "chat-finder-send",
     "scene": "conversation",
-    "start": 21.5,
+    "start": 26.5,
     "duration": 9.5,
-    "label": "Finder · separate Android emulator"
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-chat-finder.mp4",
+        "start": 18.85,
+        "duration": 9.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
   },
   {
     "id": "finder-connect",
     "scene": "release",
     "start": 0,
-    "duration": 6,
-    "label": "Finder · receiving wallet confirmation"
+    "duration": 6.5,
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-recipient.mp4",
+        "start": 3.5,
+        "duration": 6.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
   },
   {
-    "id": "finder-wallet-sign",
+    "id": "finder-address",
     "scene": "release",
-    "start": 6,
-    "duration": 5,
-    "label": "Verification retake · Seeker / Testuser",
-    "provenance": "Physical Seeker; Testuser selected in Seed Vault. User confirmed biometrics; receiving wallet verified via API. Separate retake from the preserved original payout."
+    "start": 6.5,
+    "duration": 5.5,
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-recipient.mp4",
+        "start": 17.5,
+        "duration": 5.5
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
   },
   {
-    "id": "recipient-verified",
+    "id": "finder-wallet-review",
     "scene": "release",
-    "start": 11,
+    "start": 12,
     "duration": 3,
-    "label": "Original return · confirmed receiving wallet"
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-recipient.mp4",
+        "start": 27.033333333333335,
+        "duration": 3
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
   },
   {
     "id": "finish-return",
     "scene": "release",
-    "start": 14,
+    "start": 15,
     "duration": 5,
-    "label": "Owner · physical Solana Seeker"
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-payout.mp4",
+        "start": 1.2,
+        "duration": 3
+      },
+      {
+        "source": "current-payout.mp4",
+        "start": 9.2,
+        "duration": 2
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "payout-review",
     "scene": "release",
-    "start": 19,
-    "duration": 8,
-    "label": "Owner · physical Solana Seeker"
+    "start": 20,
+    "duration": 9,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-payout.mp4",
+        "start": 17,
+        "duration": 9
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "payout-sign",
     "scene": "release",
-    "start": 27,
-    "duration": 7,
-    "label": "Owner · physical Solana Seeker"
+    "start": 29,
+    "duration": 5.0,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-payout-final.mp4",
+        "start": 3.4,
+        "duration": 4.1
+      },
+      {
+        "source": "current-payout-final.mp4",
+        "start": 16.1,
+        "duration": 0.9
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "reward-paid",
     "scene": "result",
     "start": 0,
     "duration": 6,
-    "label": "Owner · physical Solana Seeker"
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-payout-final.mp4",
+        "start": 17,
+        "duration": 6
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "result-chat-owner",
     "scene": "result",
     "start": 6,
-    "duration": 11,
-    "label": "Owner · return confirmed"
+    "duration": 10,
+    "label": "Owner \u00b7 physical Solana Seeker",
+    "sourceParts": [
+      {
+        "source": "current-result-owner.mp4",
+        "start": 52,
+        "duration": 10
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "owner"
   },
   {
     "id": "result-chat-finder",
     "scene": "result",
     "start": 6,
-    "duration": 11,
-    "label": "Finder · return confirmed"
+    "duration": 10,
+    "label": "Finder \u00b7 separate Android emulator",
+    "sourceParts": [
+      {
+        "source": "current-result-finder.mp4",
+        "start": 52,
+        "duration": 10
+      }
+    ],
+    "recorded": "2026-09-20",
+    "role": "finder"
   }
 ]
