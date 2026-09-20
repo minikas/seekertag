@@ -20,6 +20,14 @@ An **Android-only app focused on Solana Seeker**, built with Expo SDK 57 and Rea
 
 The project includes an Android app, a Node.js API with SQLite, and a separate marketing landing page. There is no iOS project or web version of the app. The API is required for two devices to share items, reports, and messages.
 
+## Pitch deck
+
+**[Read the 9-slide pitch (PDF)](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-pitch.pdf)** · [Editable HTML](presentation/seekertag-pitch.html)
+
+Updated September 20, 2026 with current app captures, SKR as the default reward currency, receiving-address review, and the completed devnet payout shown in the demo. The deck includes refund terms, dated market sources, and clickable links to the website, video, APK, repository, and [finalized transaction](https://explorer.solana.com/tx/3heFKF88UY3XhVxc5xbYtTT9jmLgTdMRmXmXMJPCnuaJZd5jtpD2quCUYdPyKp6ohp6YtSt835R9fVSXeyEGpPY6?cluster=devnet).
+
+To present locally, open the HTML and use the arrow keys. To regenerate the PDF in Chrome, print with background graphics enabled, no headers or footers, and the CSS-defined 1280 × 720 page size. Keep the HTML, PDF, and `presentation/screens/` captures together when updating the deck.
+
 ## Landing page
 
 `npm run dev:landing` starts the server at http://localhost:4320. The landing page lives in `apps/landing/public`, supports Portuguese, English, and Spanish, and uses a locally bundled i18next library without external fonts or API integration. Set `LANDING_PORT` to change the port.
@@ -63,8 +71,8 @@ Docker builds still run from the repository root.
 2. The owner registers an item, generates its QR code, and shares/prints the PDF or writes an NFC tag.
 3. The finder scans the tag using the installed SeekerTag app. **No account is required**, but the app must be installed.
 4. The finder sends a report and chats with the owner. Conversation access is saved in the device's secure storage.
-   To receive a reserved reward, the finder opens **View item → Set receiving wallet** and pastes a Solana wallet address. No Seeker phone, wallet connection, signature, or SeekerTag account is required for this step. Connecting a compatible wallet remains optional. The address is fixed to that conversation after confirmation.
-5. The owner confirms the return. Conversations for that item close and its history is updated.
+   To receive a reserved reward, the finder sets a receiving wallet directly in the conversation, pastes a Solana address, and reviews it before confirming. No Seeker phone, wallet connection, signature, or SeekerTag account is required for address entry. Connecting a compatible wallet remains optional. The address is fixed to that conversation after confirmation.
+5. After receiving the item, the owner chooses **Finish return** in the conversation. For a reserved reward, the owner reviews the recipient and fee and signs with the deposit wallet. Conversations close and the item's history updates after the API confirms payment on the network.
 
 The app also supports search, filters, editing, archiving/restoring items, marking items as lost, and transferring them to another account with identity confirmation. Archived items leave the main lists and appear under the Archived filter; their QR and NFC tags cannot receive new reports until restored. Wallet authentication uses Sign In With Solana through Mobile Wallet Adapter on Android.
 
@@ -92,21 +100,22 @@ The update migrates existing items to categories with stable IDs, preserving the
 | Write/cancel NFC | Native NDEF; requires compatible hardware and tags |
 | Sign in with Seeker/Solana and link sign-in methods | API-verified SIWS signature; Google/Apple after configuration |
 | Anonymous report and two-way conversation | Same screens and API; visitor credential stored in SecureStore |
+| Notifications and conversation links | In-app inbox and FCM push; notification taps open the matching conversation |
 | Return to a conversation after closing | Scan the tag again or open its link in the same app |
 | Confirm return and update history/counters | Owner conversations and API |
 | Transfer an item with identity confirmation | Existing password or fresh wallet/provider sign-in; recipient identified by linked wallet or account ID |
 | Network failure and retry | Visible error and draft preserved while the screen remains open |
 | Invalid/paused tag and conversation without credentials | Error states and navigation back to the home screen |
 
-Account-free visitor access is preserved in Android. Access without installing the app ended with the removal of the web frontend. Reward deposits, renewals, and payouts were added on Android; push notifications remain out of scope.
+Account-free visitor access is preserved in Android. Access without installing the app ended with the removal of the web frontend. Reward deposits, renewals, payouts, and notifications are available on Android. Push delivery requires Firebase Cloud Messaging configuration and notification permission on the device.
 
 ## Escrow rewards
 
-In **Add/Edit item**, the **Reward** section combines balance, SOL/USDC/SKR selection, a formatted amount input with −/+ buttons, and a duration in hours, days, months, or years. The range is 1 hour to 5 years; a month equals 30 days and a year equals 365 days. **Save and review deposit** opens a review in the same Gorhom sheet, showing the amount, expiration, network fee, and account costs before wallet signing. An amount entered in the form remains an advertised reward until the deposit is confirmed at `finalized` commitment.
+In **Add/Edit item**, the **Reward** section combines balance, SOL/USDC/SKR selection, an amount input, and a duration in hours, days, months, or years. **SKR is selected by default for new rewards**; editing an item preserves its selected currency. The range is 1 hour to 5 years; a month equals 30 days and a year equals 365 days. **Save and review deposit** opens a review in the same Gorhom sheet, showing the amount, expiration, network fee, and account costs before wallet signing. An amount entered in the form remains an advertised reward until the deposit is confirmed at `finalized` commitment.
 
-**Renew escrow** adds the selected period to the current expiration (or from today if it has already expired), without withdrawing or depositing the amount again. The total duration cannot exceed 5 years from today. **Cancel and reclaim** is available only after expiration and returns the balance to the original wallet; expiration does not move funds automatically.
+**Renew escrow** adds the selected period to the current expiration (or from today if it has already expired), without withdrawing or depositing the amount again. The total duration cannot exceed 5 years from today. **Cancel and reclaim** is available only after expiration and returns the balance to the original wallet; expiration does not move funds automatically. Refunds carry no SeekerTag service fee; network fees and account-creation costs are separate from the reward principal.
 
-In the conversation, the finder confirms a wallet by signing a message. After receiving the item, the owner chooses **Return and reward → Confirm return and pay** and signs the transaction. The API also signs off on the verified recipient wallet and closes the return only after confirming payment on the network. Before expiration, neither the owner nor the server can cancel early.
+In the conversation, the finder reviews and confirms a receiving address. Pasting an address requires no wallet signature; connecting a compatible wallet is optional. After receiving the item, the owner chooses **Finish return**, reviews the payout, and signs the transaction with the deposit wallet. The API validates the recorded recipient, co-signs the payout, and closes the return only after confirming payment on the network. The demonstrated service fee is 5%: a 1 SKR reward pays 0.95 SKR to the finder and 0.05 SKR to the treasury. Before expiration, neither the owner nor the server can cancel early.
 
 The initial integration uses **devnet**. USDC and SKR used by the scripts are custom test tokens with 6 decimal places; they are not the real assets and do not represent mainnet balances. Contract details, transaction recovery, configuration, and tests are documented in [apps/api/REWARDS.md](apps/api/REWARDS.md).
 
