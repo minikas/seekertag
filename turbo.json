@@ -4,6 +4,9 @@
     "@seekertag/landing#build": {
       "outputs": ["dist/**"]
     },
+    "@seekertag/finder-web#build": {
+      "outputs": ["dist/**"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

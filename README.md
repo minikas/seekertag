@@ -20,7 +20,7 @@ The preview APK is a standalone Android ARM64 build for Seeker, configured to us
 
 An **Android-only app focused on Solana Seeker**, built with Expo SDK 57 and React Native 0.86. QR/NFC tags help return lost items through private conversations without exposing the owner's contact details.
 
-The project includes an Android app, a Node.js API with SQLite, and a separate marketing landing page. There is no iOS project or web version of the app. The API is required for two devices to share items, reports, and messages.
+The project includes an Android owner app, a Node.js API with SQLite, a responsive finder website served independently by Caddy, and a separate marketing landing page. There is no iOS app. The API is required for the owner app and finder website to share items, reports, and messages.
 
 ## Pitch deck
 
@@ -38,12 +38,26 @@ To present locally, open the HTML and use the arrow keys. To regenerate the PDF 
 
 The buttons show the app's development status. No public store link is configured. The phone displays the current app Home in English, with the notifications bell and Home, Conversations, and Items tabs fully visible. The same real Seeker capture (`app-screen-en.png`, from the September 20 demo’s `my-items.mp4` at 2.5 seconds) is shared by all three website languages and the pitch cover. The README hero is a fresh capture of the English website. The tag follows the app's PDF design, with a demo QR code that opens `seekertag:///` without linking to a real item. The landing page does not change the API's `/found` flow.
 
+## Finder website
+
+`apps/finder-web` is the transactional, static browser client for people who find an item. It owns `/found/CODE`, `/chat/REPORT_ID`, and `/finder-assets/*`; the Node API owns only `/api/*`. In production, the custom Caddy image builds and serves the Finder on the API origin, which keeps existing tag links valid and allows path-scoped `HttpOnly` cookies without cross-origin credentials.
+
+For local development, start the API with the Finder origin and then the Finder proxy:
+
+```sh
+PUBLIC_URL=http://127.0.0.1:4321 npm run api
+npm run dev:finder
+```
+
+`npm run build:finder` generates `apps/finder-web/dist`. Set `FINDER_PORT` or `FINDER_API_ORIGIN` to override the local defaults `4321` and `http://127.0.0.1:4318`.
+
 ## Monorepo (Turborepo + npm workspaces)
 
 Requires Node.js 24+ and npm 11.8.0. Run `npm ci` once at the repository root.
 
 - `apps/mobile`: Expo 57 app, assets, plugins, EAS configuration, and mobile tests.
-- `apps/api`: Node/SQLite API, tests, and local `.env`; the database lives in `apps/api/data/`.
+- `apps/api`: Node/SQLite API, tests, and local `.env`; the database lives in `apps/api/data/`. It does not serve frontend assets.
+- `apps/finder-web`: static transactional client for tag opening and private finder conversations.
 - `apps/landing`: responsive, static marketing website, independent of the app.
 - `packages/shared`: the `@seekertag/shared` package used by the app and API.
 - `contracts`, `scripts`, and `artifacts`: Solana contracts, tooling, and build output at the repository root.
@@ -71,8 +85,8 @@ Docker builds still run from the repository root.
 
 1. The owner signs in with a Seeker/Solana wallet, Google, or Apple; an account is created on first sign-in. Google/Apple require provider activation. The welcome screen shows an illustration and a Get started action; all three providers appear in a Gorhom bottom sheet.
 2. The owner registers an item, generates its QR code, and shares/prints the PDF or writes an NFC tag.
-3. The finder scans the tag using the installed SeekerTag app. **No account is required**, but the app must be installed.
-4. The finder sends a report and chats with the owner. Conversation access is saved in the device's secure storage.
+3. The finder scans the QR with the phone camera or approaches the NFC tag. The HTTPS link opens the finder website; no account or app installation is required. The installed SeekerTag app remains an optional alternative.
+4. The finder sends a report and chats with the owner. Web access is saved in a path-scoped, HttpOnly browser cookie; the Android app uses the device's secure storage.
    To receive a reserved reward, the finder sets a receiving wallet directly in the conversation, pastes a Solana address, and reviews it before confirming. No Seeker phone, wallet connection, signature, or SeekerTag account is required for address entry. Connecting a compatible wallet remains optional. The address is fixed to that conversation after confirmation.
 5. After receiving the item, the owner chooses **Finish return** in the conversation. For a reserved reward, the owner reviews the recipient and fee and signs with the deposit wallet. Conversations close and the item's history updates after the API confirms payment on the network.
 
@@ -101,9 +115,9 @@ The update migrates existing items to categories with stable IDs, preserving the
 | View tag as a visitor | Opens in SeekerTag; the owner sees a preview without a report form |
 | Write/cancel NFC | Native NDEF; requires compatible hardware and tags |
 | Sign in with Seeker/Solana and link sign-in methods | API-verified SIWS signature; Google/Apple after configuration |
-| Anonymous report and two-way conversation | Same screens and API; visitor credential stored in SecureStore |
+| Anonymous report and two-way conversation | Responsive finder website or Android app; visitor credential stored in an HttpOnly browser cookie or SecureStore |
 | Notifications and conversation links | In-app inbox and FCM push; notification taps open the matching conversation |
-| Return to a conversation after closing | Scan the tag again or open its link in the same app |
+| Return to a conversation after closing | Open the chat in the same browser/app, or scan the tag again |
 | Confirm return and update history/counters | Owner conversations and API |
 | Transfer an item with identity confirmation | Existing password or fresh wallet/provider sign-in; recipient identified by linked wallet or account ID |
 | Network failure and retry | Visible error and draft preserved while the screen remains open |
@@ -231,11 +245,11 @@ Keep the API, Metro, and cable connected while testing. Repeat both `adb reverse
 
 ## Tag links
 
-QR codes and NFC tags retain the `PUBLIC_URL/found/CODE` format. The in-app scanner opens these links directly. When accessed externally, the API redirects to `seekertag:///found/CODE?origin=ORIGIN`; it does not serve HTML. **View as visitor**, in the item's **⋯** menu, opens the flow inside the app.
+QR codes and NFC tags retain the `PUBLIC_URL/found/CODE` format. The in-app scanner opens these links directly. When accessed externally, Caddy serves the responsive finder website on the same origin, where a visitor can notify the owner and continue the private conversation without installing the app. **View as visitor**, in the item's **⋯** menu, still opens the native flow inside the app.
 
-The app validates the link's origin against `EXPO_PUBLIC_API_URL`. Set `PUBLIC_URL` to the API origin without `/api`, and use the same address in builds. Links cannot change the server the app connects to. Conversations require the credential saved on the device, even when opened through a link.
+The app validates the link's origin against `EXPO_PUBLIC_API_URL`. Set `PUBLIC_URL` to the API origin without `/api`, and use the same address in builds. Links cannot change the server the app connects to. Native conversations require the credential saved on the device. Web conversations use a `Secure`, `HttpOnly`, `SameSite=Strict` cookie scoped to that conversation's API path and never expose the capability in the URL.
 
-Opening the redirect depends on the scanner/browser supporting app schemes and SeekerTag being installed. Without the app, there is no fallback page. In-app scanning is the supported path for testing tags. Verified Android App Links and store redirects are not configured.
+The phone's regular camera can open the HTTPS QR directly in the browser. Compatible phones can also open the same URL from the NFC NDEF record. The web page includes an optional native-app link; verified Android App Links and store redirects are not configured.
 
 Use a stable HTTPS domain before printing permanent tags. Old links still depend on their original address: if issued using port 8081 from the web version, regenerate tags with the API origin or keep that address forwarded and configure the app for the same origin. Item codes and the database do not need to change.
 
@@ -247,15 +261,16 @@ PUBLIC_URL=https://your-domain.example npm run api
 
 For builds, use `EXPO_PUBLIC_API_URL=https://your-domain.example/api`. Replace the example domain with a real one. The default database lives at `apps/api/data/seekertag.sqlite`, alongside its WAL/SHM files.
 
-Docker packages only the backend:
+The backend image contains only the API. Production Compose also builds a custom Caddy image containing `apps/finder-web/dist`:
 
 ```sh
 docker build -t seekertag-api .
+docker build -f deploy/Dockerfile.caddy -t seekertag-web .
 docker run --rm -p 4318:4318 -v seekertag-data:/data \
   -e PUBLIC_URL=https://your-domain.example seekertag-api
 ```
 
-Use HTTPS at the proxy and persistent storage with backups. No service is published automatically. Routes and contracts are documented in [apps/api/API.md](apps/api/API.md).
+Use HTTPS at the proxy and persistent storage with backups. In the production Caddyfile, `/found`, `/chat`, and `/finder-assets` are static Finder routes; remaining traffic is proxied to the API. No service is published automatically. Routes and contracts are documented in [apps/api/API.md](apps/api/API.md).
 
 ## Android build
 

@@ -99,6 +99,34 @@ test('anonymous finders and other signed-in accounts can still notify the owner'
   }
 });
 
+test('finder web sessions keep conversation capabilities in scoped HttpOnly cookies', async (t) => {
+  const h = await harness({ publicUrl: 'https://tags.example.com' }); t.after(h.close);
+  const owner = await h.register(); const tag = await h.tag(owner);
+  const web = await h.request(`/public/tags/${tag.code}/reports`, {
+    method: 'POST', headers: { 'X-SeekerTag-Client': 'web' }, body: { finderName: 'Web finder', message: 'Found it through the printed QR.' },
+  });
+  assert.equal(web.status, 201);
+  assert.equal(web.data.token, undefined);
+  const cookie = web.headers.get('set-cookie');
+  assert.match(cookie, /^seekertag_finder=[A-Za-z0-9_-]{43};/);
+  assert.match(cookie, new RegExp(`Path=/api/finder/reports/${web.data.report.id}`));
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Strict/);
+  assert.match(cookie, /; Secure/);
+  const cookieHeader = cookie.split(';', 1)[0];
+
+  const thread = await h.request(`/finder/reports/${web.data.report.id}`, { headers: { Cookie: cookieHeader } });
+  assert.equal(thread.status, 200);
+  assert.equal(thread.data.messages[0].body, 'Found it through the printed QR.');
+  assert.equal((await h.request(`/finder/reports/${web.data.report.id}/messages`, {
+    method: 'POST', headers: { Cookie: cookieHeader }, body: { body: 'Reply from the browser.' },
+  })).status, 201);
+
+  const another = await h.report(tag, 'A separate finder capability.');
+  assert.equal((await h.request(`/finder/reports/${another.report.id}`, { headers: { Cookie: cookieHeader } })).status, 404);
+  assert.equal((await h.request(`/finder/reports/${web.data.report.id}`)).status, 401);
+});
+
 test('a finder account resumes its saved conversation on another device and can claim an existing anonymous one', async (t) => {
   const h = await harness(); t.after(h.close);
   const owner = await h.register(); const finder = await h.register('Pessoa que encontrou'); const other = await h.register('Outra pessoa'); const tag = await h.tag(owner);
@@ -292,27 +320,12 @@ test('anonymous reports are limited per IP and Authorization secrets do not appe
   assert.ok(!JSON.stringify(error.data).includes(owner.token));
 });
 
-test('printed links hand off to the mobile app without serving a web frontend', async (t) => {
+test('the API process does not serve finder web pages or static assets', async (t) => {
   const h = await harness({ publicUrl: 'https://tags.example.com' }); t.after(h.close);
-  for (const path of ['/found/valid-public-code', '/found/code/', '/chat/thread-id']) {
-    const response = await h.request(path, { root: true, headers: { Host: 'attacker.example' } });
-    assert.equal(response.status, 302);
-    const link = new URL(response.headers.get('location'));
-    assert.equal(link.protocol, 'seekertag:');
-    assert.equal(link.pathname, path.replace(/\/$/, ''));
-    assert.equal(link.searchParams.get('origin'), 'https://tags.example.com');
-    assert.equal(response.bytes.length, 0, 'redirect has no HTML frontend');
-    assert.equal(response.headers.get('cache-control'), 'no-store');
-  }
-  const injected = await h.request('/found/code?origin=https://attacker.example&token=secret', { root: true });
-  assert.equal(injected.headers.get('location'), 'seekertag:///found/code?origin=https%3A%2F%2Ftags.example.com');
-  for (const path of ['/', '/index.html', '/assets/app.js', '/api/unknown', '/found', '/chat', '/found/code/extra', '/.env', '/%2e%2e%2fsecret.txt']) {
+  for (const path of ['/', '/index.html', '/finder-assets/app.js', '/api/unknown', '/found', '/chat', '/found/code', '/chat/thread-id', '/found/code/extra', '/.env', '/%2e%2e%2fsecret.txt']) {
     const response = await h.request(path, { root: true });
     assert.equal(response.status, 404, path);
     assert.equal(response.data.code, 'NOT_FOUND');
-  }
-  for (const method of ['POST', 'PATCH', 'DELETE']) {
-    assert.equal((await h.request('/found/code', { root: true, method })).status, 404);
   }
   assert.equal((await h.request('/health')).data.ok, true);
 });

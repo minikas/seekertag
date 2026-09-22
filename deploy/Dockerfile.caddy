@@ -1,0 +1,8 @@
+FROM node:24-bookworm-slim AS finder-builder
+WORKDIR /src
+COPY apps/finder-web ./apps/finder-web
+RUN node apps/finder-web/scripts/build.mjs
+
+FROM caddy:2.11.4-alpine
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=finder-builder /src/apps/finder-web/dist /srv/finder

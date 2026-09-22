@@ -1,8 +1,10 @@
 # Publicação da API
 
-Este diretório publica a API em `https://api-seeker.viralizai.co` com Docker e
-Caddy. O volume `seekertag_data` mantém o SQLite entre reinicializações e o
-volume `caddy_data` preserva os certificados TLS.
+Este diretório publica a API e o Finder Web em `https://api-seeker.viralizai.co`
+com Docker e Caddy. O backend Node atende somente `/api/*`; a imagem Caddy
+compila `apps/finder-web` e atende `/found/*`, `/chat/*` e `/finder-assets/*`.
+O volume `seekertag_data` mantém o SQLite entre reinicializações e o volume
+`caddy_data` preserva os certificados TLS.
 
 ## Antes de iniciar
 
@@ -39,6 +41,8 @@ curl --fail https://api-seeker.viralizai.co/api/health
 ```
 
 O retorno deve conter `"publicUrl":"https://api-seeker.viralizai.co"`.
+Confirme também que uma rota Finder válida recebe HTML e os cabeçalhos de
+segurança; códigos inexistentes exibem o estado de erro fornecido pela API.
 O arquivo `deploy/api.env` nunca deve entrar no Git. Preencha as credenciais de
 Google, Apple ou recompensas somente quando esses recursos forem ativados.
 
@@ -46,6 +50,9 @@ O Compose configura `TRUST_PROXY_HOPS=1`: a API confia apenas no primeiro salto,
 o Caddy, para identificar o IP do cliente e separar as cotas de autenticação.
 Mantenha a porta `4318` sem publicação no host e sem outra entrada pública.
 O Caddy deve substituir os cabeçalhos de encaminhamento recebidos do cliente.
+Os assets do Finder são copiados para a imagem Caddy durante o build, sem serem
+servidos ou montados no container da API. Portanto, mudanças em `apps/finder-web`
+exigem reconstruir o serviço `caddy`.
 Ao executar a API diretamente, use o padrão `TRUST_PROXY_HOPS=0`; não reutilize
 o valor `1` em uma topologia com acesso direto à API ou caminhos de tamanhos diferentes.
 

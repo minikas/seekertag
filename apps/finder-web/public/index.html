@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101a18" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>SeekerTag · Devolver objeto</title>
+    <link rel="icon" href="/finder-assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/finder-assets/styles.css" />
+    <script src="/finder-assets/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Pular para o conteúdo</a>
+    <header class="site-header">
+      <span class="brand" aria-label="SeekerTag">
+        <svg viewBox="0 0 32 38" aria-hidden="true">
+          <rect x="2" y="1" width="28" height="36" rx="9" fill="currentColor" />
+          <path d="M13 6h6M16 15v4m0 8v4M8 23h4m8 0h4" stroke="#0d1615" stroke-width="2.5" stroke-linecap="round" />
+          <circle cx="16" cy="23" r="6" fill="none" stroke="#0d1615" stroke-width="2.5" />
+        </svg>
+        <span>Seeker<span class="brand-light">Tag</span></span>
+      </span>
+      <label class="language-picker">
+        <span class="sr-only" data-copy="languageLabel">Idioma</span>
+        <select id="language" aria-label="Idioma">
+          <option value="pt">PT</option>
+          <option value="en">EN</option>
+          <option value="es">ES</option>
+        </select>
+      </label>
+    </header>
+
+    <main id="main" class="page-shell">
+      <section id="loading-view" class="state-view" aria-live="polite">
+        <div class="tag-mark loading-mark" aria-hidden="true"><span></span></div>
+        <p data-copy="loading">Abrindo a etiqueta…</p>
+      </section>
+
+      <section id="error-view" class="state-view hidden" aria-live="assertive">
+        <div class="state-symbol" aria-hidden="true">!</div>
+        <p class="eyebrow" data-copy="couldNotOpen">NÃO FOI POSSÍVEL ABRIR</p>
+        <h1 id="error-title" data-copy="unexpectedError">Algo não saiu como esperado.</h1>
+        <p id="error-message" class="lede"></p>
+        <button id="retry" class="button secondary" type="button" data-copy="tryAgain">Tentar novamente</button>
+      </section>
+
+      <section id="found-view" class="found-layout hidden">
+        <div class="found-intro">
+          <p class="eyebrow" data-copy="foundEyebrow">VOCÊ ENCONTROU ALGO IMPORTANTE</p>
+          <h1 data-copy="foundTitle">Vamos ajudar este objeto a voltar.</h1>
+          <p class="lede" data-copy="foundLead">Avise o dono sem revelar seu telefone ou e-mail. Não é preciso instalar o aplicativo.</p>
+          <a id="open-app" class="open-app-link" href="#" data-copy="openInApp">Abrir no aplicativo SeekerTag</a>
+        </div>
+
+        <div class="finder-panel">
+          <article class="item-card" aria-labelledby="item-name">
+            <div id="item-icon" class="item-icon" aria-hidden="true">◇</div>
+            <div class="item-copy">
+              <span id="item-status" class="status-pill"></span>
+              <h2 id="item-name"></h2>
+              <p id="item-category" class="item-category"></p>
+            </div>
+          </article>
+
+          <article id="owner-message-card" class="owner-message hidden">
+            <span class="section-label" data-copy="ownerMessage">Mensagem do dono</span>
+            <p id="owner-message"></p>
+          </article>
+
+          <article id="reward-card" class="reward-card hidden">
+            <div class="reward-icon" aria-hidden="true">✦</div>
+            <div>
+              <span id="reward-label" class="section-label" data-copy="reward">Recompensa</span>
+              <strong id="reward-value"></strong>
+              <small id="reward-network"></small>
+            </div>
+          </article>
+
+          <button id="resume-chat" class="resume-card hidden" type="button">
+            <span>
+              <strong data-copy="resumeTitle">Continuar sua conversa</strong>
+              <small data-copy="resumeText">Este navegador já avisou o dono sobre este objeto.</small>
+            </span>
+            <span aria-hidden="true">→</span>
+          </button>
+
+          <form id="report-form" class="report-form" novalidate>
+            <div class="field-group">
+              <label for="finder-name" data-copy="nameLabel">Seu nome <span>(opcional)</span></label>
+              <input id="finder-name" name="finderName" type="text" maxlength="60" autocomplete="nickname" data-copy-placeholder="namePlaceholder" placeholder="Seu primeiro nome ou apelido" />
+              <p id="name-error" class="field-error" role="alert"></p>
+            </div>
+            <div class="field-group">
+              <label for="message" data-copy="messageLabel">Mensagem para o dono</label>
+              <textarea id="message" name="message" maxlength="2000" rows="5" required data-copy-placeholder="messagePlaceholder" placeholder="Conte onde encontrou o objeto e como podem combinar a devolução."></textarea>
+              <div class="field-meta">
+                <p id="message-error" class="field-error" role="alert"></p>
+                <span id="message-count">0 / 2000</span>
+              </div>
+            </div>
+            <button id="send-report" class="button primary" type="submit">
+              <span data-copy="notifyOwner">Avisar o dono</span><span aria-hidden="true">→</span>
+            </button>
+            <p class="privacy-note">
+              <span class="shield" aria-hidden="true">◇</span>
+              <span data-copy="privacyNote">A conversa acontece de forma privada. Seus contatos e sua localização não são compartilhados automaticamente.</span>
+            </p>
+          </form>
+        </div>
+      </section>
+
+      <section id="chat-view" class="chat-layout hidden">
+        <aside class="chat-context">
+          <p class="eyebrow" data-copy="privateConversation">CONVERSA PRIVADA</p>
+          <div class="chat-item-heading">
+            <div id="chat-item-icon" class="item-icon small" aria-hidden="true">◇</div>
+            <div><h1 id="chat-item-name"></h1><p id="chat-item-category"></p></div>
+          </div>
+          <p class="lede" data-copy="chatLead">Combine a devolução por aqui. O dono não vê seus dados pessoais.</p>
+          <div class="browser-access">
+            <span aria-hidden="true">◎</span>
+            <p><strong data-copy="savedHere">Acesso salvo neste navegador</strong><small data-copy="savedHereText">Volte por este mesmo dispositivo para continuar a conversa.</small></p>
+          </div>
+        </aside>
+
+        <div class="conversation-panel">
+          <header class="conversation-header">
+            <div>
+              <span class="section-label" data-copy="conversation">Conversa</span>
+              <h2 id="finder-heading"></h2>
+            </div>
+            <span id="chat-status" class="status-pill"></span>
+          </header>
+
+          <div id="chat-notice" class="notice hidden" role="status"></div>
+          <div id="messages" class="messages" aria-live="polite"></div>
+
+          <section id="chat-reward" class="chat-reward hidden">
+            <div class="reward-summary">
+              <div class="reward-icon" aria-hidden="true">✦</div>
+              <div><span id="chat-reward-label" class="section-label"></span><strong id="chat-reward-value"></strong><small id="chat-reward-network"></small></div>
+            </div>
+            <div id="wallet-saved" class="wallet-saved hidden">
+              <span data-copy="receivingWallet">Sua carteira de recebimento</span>
+              <code id="wallet-address"></code>
+            </div>
+            <form id="wallet-form" class="wallet-form hidden" novalidate>
+              <div id="wallet-entry">
+                <label for="wallet-input" data-copy="walletLabel">Carteira para receber a recompensa</label>
+                <input id="wallet-input" type="text" maxlength="100" autocomplete="off" spellcheck="false" data-copy-placeholder="walletPlaceholder" placeholder="Cole um endereço Solana" />
+                <p class="helper" data-copy="walletHelper">Nenhuma conexão ou assinatura de carteira é necessária.</p>
+                <p id="wallet-error" class="field-error" role="alert"></p>
+                <button class="button secondary full" type="submit" data-copy="reviewAddress">Revisar endereço</button>
+              </div>
+              <div id="wallet-review" class="wallet-review hidden">
+                <span class="section-label" data-copy="reviewCarefully">CONFIRA COM ATENÇÃO</span>
+                <code id="wallet-review-address"></code>
+                <p data-copy="walletWarning">Depois de confirmar, este endereço ficará vinculado à conversa e não poderá ser trocado.</p>
+                <div class="review-actions">
+                  <button id="edit-wallet" class="button quiet" type="button" data-copy="edit">Editar</button>
+                  <button id="confirm-wallet" class="button primary" type="button" data-copy="confirmWallet">Confirmar carteira</button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <form id="message-form" class="composer" novalidate>
+            <label class="sr-only" for="chat-message" data-copy="newMessage">Nova mensagem</label>
+            <textarea id="chat-message" rows="1" maxlength="2000" required data-copy-placeholder="chatPlaceholder" placeholder="Escreva uma mensagem…"></textarea>
+            <button id="send-message" class="send-button" type="submit" aria-label="Enviar"><span aria-hidden="true">↑</span></button>
+          </form>
+          <p id="composer-error" class="field-error composer-error" role="alert"></p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>SeekerTag</span><span data-copy="footer">Menos coisas perdidas. Mais reencontros.</span>
+    </footer>
+  </body>
+</html>

@@ -18,6 +18,8 @@ const scrypt = promisify(scryptCallback);
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const now = () => new Date().toISOString();
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+const FINDER_SESSION_MS = 365 * 24 * 60 * 60 * 1000;
+const FINDER_COOKIE = 'seekertag_finder';
 const secret = () => randomBytes(32).toString('base64url');
 const recovery = () => randomBytes(20).toString('hex').toUpperCase().match(/.{1,5}/g).join('-');
 const normalizeRecovery = (value) => String(value || '').replaceAll('-', '').trim().toUpperCase();
@@ -127,7 +129,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const origin = req.headers.origin;
     const appleCallback = req.method === 'POST' && req.path === '/api/auth/oauth/apple/callback' && origin === 'https://appleid.apple.com';
     if (origin && !origins.has(origin) && !appleCallback) return res.status(403).json({ error: 'Origem não autorizada.', code: 'ORIGIN_DENIED' });
-    if (origin) res.set({ 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS', 'Access-Control-Expose-Headers': 'Content-Disposition' });
+    if (origin) res.set({ 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-SeekerTag-Client', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS', 'Access-Control-Expose-Headers': 'Content-Disposition' });
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
@@ -179,6 +181,12 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     if (!match) fail(401, 'Entre na sua conta para continuar.', 'UNAUTHORIZED');
     return match[1];
   };
+  const finderCookie = (req) => {
+    const entry = String(req.headers.cookie || '').split(';').map(value => value.trim()).find(value => value.startsWith(`${FINDER_COOKIE}=`));
+    if (!entry) return null;
+    const value = entry.slice(FINDER_COOKIE.length + 1);
+    return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : null;
+  };
   const requireOwner = (req, _res, next) => {
     const tokenHash = hash(bearer(req));
     const u = get('SELECT users.* FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.hash=? AND sessions.expires_at>?', tokenHash, Date.now());
@@ -204,7 +212,12 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     return report;
   };
   const requireFinder = (req, _res, next) => {
-    const tokenHash = hash(bearer(req));
+    // Native clients send a bearer capability. The finder website receives the
+    // same capability in a path-scoped HttpOnly cookie so page scripts never
+    // need to persist or read the conversation secret.
+    const capability = req.headers.authorization !== undefined ? bearer(req) : finderCookie(req);
+    if (!capability) fail(401, 'Abra a conversa no mesmo navegador em que enviou o aviso.', 'UNAUTHORIZED');
+    const tokenHash = hash(capability);
     // A finder can use the original device capability or the account to which
     // they explicitly saved this conversation. Neither grants access to other
     // finder conversations.
@@ -404,7 +417,13 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
       const inserted = run("INSERT INTO messages(report_id,role,body,created_at) VALUES(?,'finder',?,?)", id, message, at);
       notifications.enqueue(get('SELECT * FROM reports WHERE id=?', id), 'finder', Number(inserted.lastInsertRowid));
     });
-    res.status(201).json({ report: reportView(get('SELECT * FROM reports WHERE id=?', id)), token, messages: messagesFor(id) });
+    const report = reportView(get('SELECT * FROM reports WHERE id=?', id));
+    const webClient = req.get('X-SeekerTag-Client') === 'web';
+    if (webClient) res.cookie(FINDER_COOKIE, token, {
+      httpOnly: true, secure: canonical.protocol === 'https:', sameSite: 'strict',
+      maxAge: FINDER_SESSION_MS, path: `/api/finder/reports/${id}`,
+    });
+    res.status(201).json({ report, ...(webClient ? {} : { token }), messages: messagesFor(id) });
   });
   app.get('/api/reports', requireOwner, (req, res) => res.json({ reports: all('SELECT * FROM reports WHERE owner_id=? ORDER BY updated_at DESC, id DESC', req.user.id).map(reportView) }));
   app.get('/api/reports/:id', requireOwner, (req, res) => { const r = ownerReport(req); res.json({ report: reportView(r), messages: messagesFor(r.id) }); });
@@ -449,12 +468,6 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
   });
   app.post('/api/finder/reports/:id/messages', requireFinder, messageLimit, (req, res) => res.status(201).json({ message: addMessage(req.finderReport, 'finder', string(req.body.body, 'Mensagem', 2000)) }));
   const notFound = (_req, res) => res.status(404).json({ error: 'Recurso não encontrado.', code: 'NOT_FOUND' });
-  // Printed HTTP links only hand off to the installed mobile app. No HTML or
-  // static frontend is served; the origin comes from config, never from Host.
-  app.get(/^\/(found|chat)\/([A-Za-z0-9_-]+)\/?$/, (req, res) => {
-    const location = `seekertag:///${req.params[0]}/${req.params[1]}?origin=${encodeURIComponent(publicOrigin)}`;
-    res.status(302).set('Location', location).end();
-  });
   app.use(notFound);
   app.use((err, _req, res, _next) => {
     if (res.headersSent) return res.end();

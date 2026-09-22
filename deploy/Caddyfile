@@ -1,14 +1,30 @@
 api-seeker.viralizai.co {
-  encode zstd gzip
-  handle /.well-known/assetlinks.json {
-    root * /data/seekertag-public
-    file_server
-  }
-  handle_path /demo/* {
-    root * /data/seekertag-demo
-    file_server
-  }
-  handle {
-    reverse_proxy api:4318
-  }
+	encode zstd gzip
+	handle /.well-known/assetlinks.json {
+		root * /data/seekertag-public
+		file_server
+	}
+	handle_path /demo/* {
+		root * /data/seekertag-demo
+		file_server
+	}
+	handle_path /finder-assets/* {
+		root * /srv/finder
+		header Cache-Control "no-cache"
+		file_server
+	}
+	@finder path_regexp finder ^/(found|chat)/[A-Za-z0-9_-]+/?$
+	handle @finder {
+		root * /srv/finder
+		rewrite * /index.html
+		header {
+			Cache-Control "no-store"
+			Content-Security-Policy "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'"
+			Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		}
+		file_server
+	}
+	handle {
+		reverse_proxy api:4318
+	}
 }
