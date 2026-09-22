@@ -7,52 +7,44 @@
     {
       "id": "open",
       "start": 0,
-      "duration": 4.2,
-      "lines": [
-        "Lost happens.",
-        "Connection stays."
-      ],
-      "note": "Your things deserve a way back."
+      "duration": 2.4,
+      "title": "Where's my bag?",
+      "rule": "kinetic-beat-slam"
     },
     {
       "id": "tag",
-      "start": 4.2,
-      "duration": 4.2,
-      "lines": [
-        "One tag.",
-        "A way back."
-      ],
-      "note": "QR + NFC \u00b7 Printable labels"
+      "start": 2.4,
+      "duration": 3.0,
+      "title": "One scan.",
+      "rule": "device-frame-stage"
+    },
+    {
+      "id": "message",
+      "start": 5.4,
+      "duration": 3.6,
+      "title": "I found your backpack.",
+      "rule": "device-frame-stage / touch-indicator"
     },
     {
       "id": "chat",
-      "start": 8.4,
-      "duration": 4.2,
-      "lines": [
-        "A stranger.",
-        "A connection."
-      ],
-      "note": "Private chat. Real people."
+      "start": 9.0,
+      "duration": 3.6,
+      "title": "I can meet you there.",
+      "rule": "device-frame-stage / touch-indicator"
     },
     {
       "id": "reward",
       "start": 12.6,
       "duration": 3.6,
-      "lines": [
-        "Kindness.",
-        "Rewarded."
-      ],
-      "note": "SKR rewards, secured on Solana."
+      "title": "Backpack back. Finder rewarded.",
+      "rule": "kinetic-beat-slam / device-frame-stage"
     },
     {
       "id": "close",
       "start": 16.2,
       "duration": 3.6,
-      "lines": [
-        "What is yours.",
-        "Back to you."
-      ],
-      "note": "seekertag.vercel.app"
+      "title": "Lost. Found. Rewarded.",
+      "rule": "kinetic-beat-slam"
     }
   ]
 }

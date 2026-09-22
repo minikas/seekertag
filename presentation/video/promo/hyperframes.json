@@ -17,9 +17,19 @@
       "target": "compositions/components/device-frame-stage.html"
     },
     {
-      "name": "line-by-line-slide",
+      "name": "directional-wipe",
       "type": "hyperframes:component",
-      "target": "compositions/components/line-by-line-slide.html"
+      "target": "compositions/components/directional-wipe.html"
+    },
+    {
+      "name": "caption-kinetic-slam",
+      "type": "hyperframes:component",
+      "target": "compositions/components/caption-kinetic-slam.html"
+    },
+    {
+      "name": "touch-indicator",
+      "type": "hyperframes:component",
+      "target": "compositions/components/touch-indicator.html"
     }
   ]
 }

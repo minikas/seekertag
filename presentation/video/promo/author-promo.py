@@ -1,108 +1,119 @@
-"""Rebuild the 19.8-second portrait cut from verified app recordings."""
+"""Author the 19.8s music-led portrait story from current, verified app footage."""
 from pathlib import Path
 import html
 import json
 
 root = Path(__file__).resolve().parent
 scenes = [
-    dict(id='open', start=0, duration=4.2, lines=['Lost happens.', 'Connection stays.'], note='Your things deserve a way back.'),
-    dict(id='tag', start=4.2, duration=4.2, lines=['One tag.', 'A way back.'], note='QR + NFC · Printable labels'),
-    dict(id='chat', start=8.4, duration=4.2, lines=['A stranger.', 'A connection.'], note='Private chat. Real people.'),
-    dict(id='reward', start=12.6, duration=3.6, lines=['Kindness.', 'Rewarded.'], note='SKR rewards, secured on Solana.'),
-    dict(id='close', start=16.2, duration=3.6, lines=['What is yours.', 'Back to you.'], note='seekertag.vercel.app'),
+    dict(id='open',start=0,duration=2.4,title="Where's my bag?",rule='kinetic-beat-slam'),
+    dict(id='tag',start=2.4,duration=3.0,title='One scan.',rule='device-frame-stage'),
+    dict(id='message',start=5.4,duration=3.6,title='I found your backpack.',rule='device-frame-stage / touch-indicator'),
+    dict(id='chat',start=9.0,duration=3.6,title='I can meet you there.',rule='device-frame-stage / touch-indicator'),
+    dict(id='reward',start=12.6,duration=3.6,title='Backpack back. Finder rewarded.',rule='kinetic-beat-slam / device-frame-stage'),
+    dict(id='close',start=16.2,duration=3.6,title='Lost. Found. Rewarded.',rule='kinetic-beat-slam'),
 ]
 css = '''
-@font-face{font-family:PromoArial;src:url('assets/Arimo.ttf');font-weight:400 700}
+@font-face{font-family:Arimo;src:url('assets/Arimo.ttf');font-weight:400 700}
+@font-face{font-family:Archivo;src:url('assets/ArchivoBlack.ttf');font-weight:900}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}
-body{background:#0D1615;font-family:PromoArial,sans-serif;color:#F5FAF8}
-#root{position:relative;width:100%;height:100%;overflow:hidden;background:#0D1615}
-.background{position:absolute;inset:0;background:#0D1615}
-.route-shape{position:absolute;inset:0;width:1080px;height:1920px;opacity:.52}
-.brand{position:absolute;left:90px;top:174px;display:flex;gap:18px;align-items:center;height:64px;font-size:42px;font-weight:700;letter-spacing:-1.6px}
-.brand img{width:46px;height:56px;object-fit:contain}
-.chapter{position:absolute;right:90px;top:193px;color:#BCD0CA;font-size:25px;letter-spacing:3px}
-.heading{position:absolute;left:90px;right:90px;top:294px;margin:0;font-weight:700;font-size:96px;line-height:1.01;letter-spacing:-4.8px}
-.line{display:block}.line+.line{margin-top:7px;color:#00BDCD}
-.feature-stage{position:absolute;left:90px;right:90px;top:548px;display:flex;justify-content:center;align-items:flex-start;gap:48px}
-.phone{position:relative;width:438px;padding:11px;border:2px solid #64716D;border-radius:52px;background:linear-gradient(145deg,#394240,#171e1c 50%,#0c1110);box-shadow:0 22px 46px #0008}
-.phone:after{content:'';position:absolute;right:-6px;top:195px;width:4px;height:100px;background:#64716D;border-radius:3px}
-.screen{position:relative;width:412px;height:916px;overflow:hidden;border-radius:38px;background:#0D1615}
+body{background:#0D1615;color:#F5FAF8;font-family:Arimo,sans-serif}
+#root{position:relative;width:100%;height:100%;overflow:hidden}
+.scene-surface{position:absolute;inset:0;background:#0D1615;overflow:hidden}
+.paper{background:#EAF2EC;color:#0D1615}.cyan{background:#00BDCD;color:#0D1615}
+.brand-mini{position:absolute;left:80px;top:166px;display:flex;align-items:center;gap:14px;font-size:34px;font-weight:700;letter-spacing:-1px}
+.brand-mini img{width:36px;height:44px;object-fit:contain}
+.eyebrow{position:absolute;right:80px;top:180px;font-size:23px;letter-spacing:2px;font-weight:700;margin:0}
+.title{position:absolute;left:80px;right:80px;top:272px;margin:0;font-family:Archivo,sans-serif;font-size:144px;line-height:1.04;letter-spacing:-7px;font-weight:900}
+.title span{display:block}.accent{color:#00BDCD}.quote{font-family:Arimo,sans-serif;font-weight:700;font-size:103px;line-height:1.04;letter-spacing:-4.5px;top:270px}
+.phone-stage{position:absolute;left:0;right:0;top:502px;display:flex;justify-content:center}
+.phone{position:relative;width:508px;padding:11px;border:2px solid #61756E;border-radius:52px;background:#151F1B;box-shadow:0 24px 38px #0003;flex:none}
+.phone:after{content:'';position:absolute;right:-6px;top:210px;width:4px;height:96px;background:#61756E;border-radius:4px}
+.screen{position:relative;width:482px;height:1071.111px;overflow:hidden;border-radius:38px;background:#0D1615}
 .screen video{display:block;width:100%;height:100%;object-fit:contain}
-.duo-stage{top:618px;gap:58px}.participant{width:374px;position:relative}
-.participant-label{margin:0 0 20px;color:#BCD0CA;text-align:center;font-size:28px;font-weight:700;letter-spacing:2px}
-.participant .phone{width:374px;padding:9px;border-radius:45px}.participant .screen{width:352px;height:782px;border-radius:33px}
-.note{position:absolute;left:90px;right:90px;top:1575px;margin:0;text-align:center;font-size:35px;line-height:1.25;color:#BCD0CA}
-.proof-label{position:absolute;left:90px;right:90px;top:1632px;text-align:center;margin:0;font-size:26px;color:#BCD0CA}
-.close-group{position:absolute;left:90px;right:90px;top:520px}
-.close-brand{display:flex;align-items:center;gap:26px;margin-bottom:78px;font-size:92px;font-weight:700;letter-spacing:-4px}
-.close-brand img{width:88px;height:106px;object-fit:contain}
-.close-heading{margin:0;font-size:112px;line-height:1.02;letter-spacing:-5.5px;font-weight:700}
-.close-link{margin:64px 0 0;color:#F5FAF8;font-size:42px;letter-spacing:-.7px}
-.close-support{margin:26px 0 0;color:#BCD0CA;font-size:31px}
-.close-rule{margin-top:60px;width:160px;height:6px;background:#00BDCD;transform-origin:left center}
+.note{position:absolute;left:80px;right:80px;top:1650px;margin:0;text-align:center;font-size:32px;font-weight:700;letter-spacing:.2px}
+.pair-stage{top:582px;gap:60px}.participant{width:424px}.participant .phone{width:424px;padding:9px;border-radius:44px}
+.participant .screen{width:402px;height:893.333px;border-radius:32px}
+.participant-label{font-size:26px;font-weight:700;letter-spacing:2.5px;margin:0 0 20px;text-align:center}
+.touch{position:absolute;width:36px;height:36px;margin:-18px;border-radius:50%;opacity:0;pointer-events:none;z-index:4;background:#F5FAF888;border:3px solid #00BDCD;box-shadow:0 0 0 5px #00BDCD33}
+.open-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.open-title{position:absolute;left:78px;right:78px;top:258px;margin:0;color:#0D1615;font-family:Archivo,sans-serif;font-weight:900;font-size:166px;line-height:1.03;letter-spacing:-8px}
+.open-title span{display:block}.open-title .question{font-size:198px;letter-spacing:-10px;margin-top:6px}
+.open-tag{position:absolute;left:80px;top:154px;font-size:25px;font-weight:700;letter-spacing:2.3px;color:#0D1615;margin:0}
+.open-note{position:absolute;left:80px;bottom:224px;background:#00BDCD;color:#0D1615;padding:15px 24px;font-size:28px;font-weight:700;border-radius:6px}
+.reward-title{font-size:102px;line-height:1.02;top:265px;letter-spacing:-4px}
+.reward-stage{top:570px}.reward-stage .phone{width:452px;padding:10px;border-radius:47px}
+.reward-stage .screen{width:428px;height:951.111px;border-radius:34px}
+.reward-note{top:1608px;font-size:31px}.devnet{position:absolute;left:80px;right:80px;top:1660px;text-align:center;font-size:27px;margin:0;font-weight:400}
+.close-brand{position:absolute;left:80px;top:230px;display:flex;align-items:center;gap:23px;font-size:70px;letter-spacing:-3px;font-weight:700}
+.close-brand img{width:62px;height:76px}
+.close-stack{position:absolute;left:80px;right:80px;top:526px;font-family:Archivo,sans-serif;font-size:140px;line-height:1.18;letter-spacing:-8px;font-weight:900}
+.close-stack span{display:block}.close-link{position:absolute;left:84px;top:1250px;font-size:45px;font-weight:700;letter-spacing:-1.4px;margin:0}
+.close-support{position:absolute;left:84px;top:1330px;font-size:28px;margin:0}
+.close-line{position:absolute;left:84px;top:1435px;width:160px;height:7px;background:#0D1615;transform-origin:left center}
+.wipe{position:absolute;inset:0;background:#00BDCD;pointer-events:none}
 '''
 
-def phone(sid, clip, offset, duration, rate=1, role=None):
-    uid = f'{sid}-{role or "phone"}'
-    frame = f'''<div id="{uid}" class="phone"><div class="screen"><video id="{uid}-video" class="clip" src="assets/{clip}.mp4" data-start="0" data-duration="{duration}" data-media-start="{offset}" data-playback-rate="{rate}" data-track-index="1" data-volume="0" muted playsinline></video></div></div>'''
-    return f'<div class="participant"><p class="participant-label">{role.upper()}</p>{frame}</div>' if role else frame
+def phone(uid,clip,offset,duration,js,width=482,role=None,touches=()):
+    content=f'<video id="{uid}-video" class="clip" src="assets/{clip}.mp4" muted playsinline data-start="0" data-duration="{duration}" data-media-start="{offset}" data-playback-rate="1" data-volume="0" data-track-index="2"></video>'
+    for n,(time,x,y) in enumerate(touches):
+        at=time-offset
+        if not 0 <= at < duration-.25: continue
+        tid=f'{uid}-touch-{n}'
+        content+=f'<div id="{tid}" class="touch" style="left:{x/1080*width:.3f}px;top:{y/1080*width:.3f}px" data-layout-ignore></div>'
+        js+=f'tl.fromTo("#{tid}",{{opacity:0,scale:1.15}},{{opacity:1,scale:.82,duration:.07,ease:"power2.out",immediateRender:false}},{at-.04});tl.to("#{tid}",{{scale:1,opacity:0,duration:.17,ease:"power2.out"}},{at+.05});'
+    out=f'<div id="{uid}" class="phone"><div class="screen">{content}</div></div>'
+    if role: out=f'<div class="participant"><p class="participant-label">{role}</p>{out}</div>'
+    return out,js
 
-hosts = []
-board = ['# SeekerTag — A way back', 'Vertical 1080 × 1920 · 19.8 seconds · 30 fps', '']
-for scene in scenes:
-    sid, dur = 'promo-' + scene['id'], scene['duration']
-    heading = ''.join(f'<span class="line">{html.escape(line)}</span>' for line in scene['lines'])
-    if scene['id'] == 'close':
-        content = f'''<div class="close-group"><div class="close-brand"><img src="assets/logo.svg" alt="">SeekerTag</div><h1 class="close-heading">{heading}</h1><p class="close-link">seekertag.vercel.app</p><p class="close-support">Built for Solana Seeker · Android</p><div class="close-rule"></div></div>'''
-        motion = f'''tl.fromTo(".close-brand",{{x:-28,opacity:0}},{{x:0,opacity:1,duration:.48,ease:"power3.out"}},0);
-tl.fromTo(".line",{{x:-32,opacity:0}},{{x:0,opacity:1,duration:.45,stagger:.09,ease:"power3.out"}},.14);
-tl.fromTo(".close-link,.close-support",{{y:18,opacity:0}},{{y:0,opacity:1,duration:.35,stagger:.08,ease:"power2.out"}},.55);
-tl.fromTo(".close-rule",{{scaleX:0}},{{scaleX:1,duration:.65,ease:"power2.inOut"}},.65);'''
+def brand(extra=''):
+    return f'<div class="brand-mini"><img src="assets/logo.svg" alt="">SeekerTag</div><p class="eyebrow" data-layout-allow-occlusion>{extra}</p>'
+
+hosts=[]
+board=['# Where\'s my bag?','19.8s · 1080×1920 · music and SFX, no voiceover','']
+for number,s in enumerate(scenes,1):
+    sid='promo-'+s['id'];dur=s['duration'];js='const tl=gsap.timeline({paused:true});'
+    if s['id']=='open':
+        body='<div class="scene-surface paper"><img class="open-photo" src="assets/backpack-cafe.png" alt=""><p class="open-tag">YOU KNOW THAT FEELING.</p><h1 class="open-title"><span>WHERE’S</span><span class="question">MY BAG?</span></h1><div class="open-note">Left at the café.</div></div>'
+        js+='tl.fromTo(".question",{y:65,rotation:3,opacity:0},{y:0,rotation:0,opacity:1,duration:.36,ease:"back.out(1.1)"},.22);tl.fromTo(".open-note",{x:-32,opacity:0},{x:0,opacity:1,duration:.3,ease:"power3.out"},1.15);'
+    elif s['id']=='tag':
+        frame,js=phone(sid+'-phone','unique-qr',.2,dur,js)
+        body=f'<div class="scene-surface">{brand("QR + NFC")}<h1 class="title"><span>ONE <span class="accent" style="display:inline">SCAN.</span></span></h1><div class="phone-stage">{frame}</div><p class="note">Give your things a way back.</p></div>'
+        js+=f'tl.fromTo("#{sid}-phone",{{y:90,rotation:-2}},{{y:0,rotation:0,duration:.46,ease:"power3.out"}},0);tl.fromTo(".title",{{x:-70}},{{x:0,duration:.4,ease:"expo.out"}},0);'
+    elif s['id']=='message':
+        frame,js=phone(sid+'-phone','owner-notification',1.4,dur,js,touches=[(2.398,830.7,195.96),(4.377,450,602.25)])
+        body=f'<div class="scene-surface paper">{brand("A MESSAGE COMES IN")}<h1 class="title quote"><span>“I found your</span><span>backpack.”</span></h1><div class="phone-stage">{frame}</div><p class="note">A real person. A private conversation.</p></div>'
+        js+='tl.fromTo(".quote",{y:24},{y:0,duration:.35,ease:"power2.out"},0);'
+    elif s['id']=='chat':
+        owner,js=phone(sid+'-owner','chat-owner-receive',5.9,dur,js,width=402,role='YOU')
+        finder,js=phone(sid+'-finder','chat-finder-send',3.5,dur,js,width=402,role='THE FINDER',touches=[(4.92,950,2210)])
+        body=f'<div class="scene-surface">{brand("MAKE THE CONNECTION")}<h1 class="title quote"><span>“I can meet</span><span class="accent">you there.”</span></h1><div class="phone-stage pair-stage">{owner}{finder}</div><p class="note">No phone numbers exchanged.</p></div>'
+        js+=f'tl.fromTo("#{sid}-owner",{{x:110}},{{x:0,duration:.46,ease:"power3.out"}},0);tl.fromTo("#{sid}-finder",{{x:230}},{{x:0,duration:.52,ease:"power3.out"}},0);'
+    elif s['id']=='reward':
+        frame,js=phone(sid+'-phone','reward-paid',.75,dur,js,width=428)
+        body=f'<div class="scene-surface paper">{brand("THE RETURN")}<h1 class="title reward-title"><span>BAG BACK.</span><span>REWARD PAID.</span></h1><div class="phone-stage reward-stage">{frame}</div><p class="note reward-note">0.95 SKR to the finder. Thank you, on-chain.</p><p class="devnet">Demo on devnet · test SKR</p></div>'
+        js+='tl.fromTo(".reward-title span:nth-child(2)",{x:-45,opacity:0},{x:0,opacity:1,duration:.35,ease:"expo.out"},.3);'
     else:
-        if scene['id'] == 'chat':
-            phones = phone(sid, 'chat-owner-receive', 5.2, dur, role='owner') + phone(sid, 'chat-finder-receive', 4.7, dur, role='finder')
-            stage = 'feature-stage duo-stage'
-        else:
-            clip, offset, rate = {'open':('my-items',0,.8), 'tag':('unique-qr',0,.8), 'reward':('reward-paid',0,1)}[scene['id']]
-            phones = phone(sid, clip, offset, dur, rate)
-            stage = 'feature-stage'
-        proof = '<p class="proof-label">Demo on devnet · test SKR</p>' if scene['id']=='reward' else ''
-        content = f'<h1 class="heading">{heading}</h1><div class="{stage}">{phones}</div><p class="note">{scene["note"]}</p>{proof}'
-        motion = '''tl.fromTo(".line",{x:-32,opacity:0},{x:0,opacity:1,duration:.4,stagger:.08,ease:"power3.out"},.02);
-tl.fromTo(".note,.proof-label",{y:12,opacity:0},{y:0,opacity:1,duration:.32,stagger:.05,ease:"power2.out"},.35);'''
-        if scene['id']=='chat':
-            motion += f'''tl.fromTo("#{sid}-owner",{{x:-38,y:14,opacity:0}},{{x:0,y:0,opacity:1,duration:.48,ease:"power3.out"}},.02);
-tl.fromTo("#{sid}-finder",{{x:38,y:14,opacity:0}},{{x:0,y:0,opacity:1,duration:.48,ease:"power3.out"}},.10);'''
-        else:
-            motion += f'tl.fromTo("#{sid}-phone",{{y:32,opacity:0}},{{y:0,opacity:1,duration:.48,ease:"power3.out"}},.02);'
-        motion += f'tl.to(".heading,.feature-stage,.note,.proof-label",{{opacity:0,y:-10,duration:.16,ease:"power2.in"}},{dur-.16});'
-        if scene['id']=='open':
-            # Keep the hook readable on frame zero; only the second line reveals.
-            motion = motion.replace('tl.fromTo(".line",', 'tl.fromTo(".line:nth-child(2)",')
-    scene_html = f'''<!doctype html><html lang="en"><head><meta charset="UTF-8"></head><body><template>
-<style>#root{{position:absolute;inset:0;width:100%;height:100%}}</style>
-<div id="root" data-composition-id="{sid}" data-width="1080" data-height="1920" data-duration="{dur}">{content}</div>
-<script>const tl=gsap.timeline({{paused:true}});{motion}window.__timelines["{sid}"]=tl;</script>
-</template></body></html>'''
-    (root/'compositions'/f'{sid}.html').write_text(scene_html)
-    hosts.append(f'<div id="{sid}" class="clip" data-composition-id="{sid}" data-composition-src="compositions/{sid}.html" data-start="{scene["start"]}" data-duration="{dur}" data-track-index="0" data-width="1080" data-height="1920"></div>')
-    board.append(f'## Frame {len(board)-2}\nstatus: built\nsrc: compositions/{sid}.html\nStart: {scene["start"]}s · Duration: {dur}s\nRules: device-frame-stage, line-by-line-slide.\n{" / ".join(scene["lines"])}\n{scene["note"]}\n')
+        body='<div class="scene-surface cyan"><div class="close-brand"><img src="assets/logo.svg" alt="">SeekerTag</div><div class="close-stack"><span class="lost-word">LOST.</span><span class="found-word">FOUND.</span><span class="reward-word">REWARDED.</span></div><p class="close-link">seekertag.vercel.app ↗</p><p class="close-support">Built for Solana Seeker · Android</p><div class="close-line"></div></div>'
+        js+='tl.fromTo(".lost-word",{y:-45},{y:0,duration:.3,ease:"power4.out"},0);tl.fromTo(".found-word",{x:-70,opacity:0},{x:0,opacity:1,duration:.36,ease:"expo.out"},.28);tl.fromTo(".reward-word",{y:65,rotation:3,opacity:0},{y:0,rotation:0,opacity:1,duration:.38,ease:"back.out(1.05)"},.62);tl.fromTo(".close-link,.close-support",{y:20,opacity:0},{y:0,opacity:1,duration:.28,stagger:.06,ease:"power2.out"},1);tl.fromTo(".close-line",{scaleX:0},{scaleX:1,duration:.38,ease:"power2.inOut"},1.15);'
+    doc=f'<!doctype html><html lang="en"><body><template><style>#root{{position:absolute;inset:0;width:100%;height:100%}}</style><div id="root" data-composition-id="{sid}" data-width="1080" data-height="1920" data-duration="{dur}">{body}</div><script>{js}window.__timelines["{sid}"]=tl;</script></template></body></html>'
+    (root/'compositions'/f'{sid}.html').write_text(doc+'\n')
+    hosts.append(f'<div id="{sid}" class="clip" data-composition-id="{sid}" data-composition-src="compositions/{sid}.html" data-start="{s["start"]}" data-duration="{dur}" data-width="1080" data-height="1920" data-track-index="0"></div>')
+    board.append(f'## Frame {number}\nstatus: built\nsrc: compositions/{sid}.html\nStart: {s["start"]}s · Duration: {dur}s\nRules: {s["rule"]}; matched hard cut (directional wipe only at 2.4s and 16.2s).\n{s["title"]}\n')
 
-background = '''<div class="background"></div><svg class="route-shape" viewBox="0 0 1080 1920" data-layout-ignore aria-hidden="true"><path id="return-route" d="M 120 1750 C 840 1670 1060 1120 860 700 C 670 280 300 280 120 580" fill="none" stroke="#304540" stroke-width="3"/><rect id="tag-outline" x="170" y="460" width="740" height="1110" rx="180" fill="none" stroke="#304540" stroke-width="3"/></svg>'''
-(root/'compositions'/'promo-brand.html').write_text('''<!doctype html><html lang="en"><head><meta charset="UTF-8"></head><body><template><div id="root" data-composition-id="promo-brand" data-width="1080" data-height="1920" data-duration="16.2" style="position:absolute;inset:0;background:transparent"><div class="brand"><img src="assets/logo.svg" alt="">SeekerTag</div><div class="chapter">A WAY BACK</div></div><script>window.__timelines["promo-brand"]=gsap.timeline({paused:true});</script></template></body></html>''')
-brand = '<div id="promo-brand" class="clip" data-composition-id="promo-brand" data-composition-src="compositions/promo-brand.html" data-start="0" data-duration="16.2" data-width="1080" data-height="1920" data-track-index="10"></div>'
-automation = html.escape(json.dumps({'version':1,'lanes':[{'target':'volume','points':[{'t':0,'v':0},{'t':.3,'v':.45},{'t':18.8,'v':.45},{'t':19.8,'v':0}]}]}), quote=True)
-audio = f'<audio id="narration" src="assets/narration.wav" data-start="0" data-duration="19.8" data-track-index="20" data-volume="1"></audio><audio id="music-bed" src="assets/music.wav" data-start="0" data-duration="19.8" data-track-index="21" data-volume="0.45" data-automation="{automation}"></audio>'
-voice_fx = html.escape(json.dumps({'version':1,'nodes':[
-    {'id':'voice-level','type':'compressor','label':'Clear mobile narration','params':{'threshold':-17,'ratio':3,'attack':5,'release':90,'knee':3,'makeup':7.5,'mix':1}},
-    {'id':'voice-ceiling','type':'limiter','label':'Voice peak ceiling','params':{'limit':-1.7,'attack':3,'release':70,'level_out':0}}
-]}), quote=True)
-audio = audio.replace('id="narration"', f'id="narration" data-fx-chain="{voice_fx}"')
-if (root/'audio-mix.json').exists():
-    mix = json.loads((root/'audio-mix.json').read_text())
-    attributes = ' '.join(f'{key}="{html.escape(json.dumps(value, separators=(",", ":")), quote=True)}"' for key, value in mix.items())
-    audio = audio.replace(f'data-automation="{automation}"', attributes)
-(root/'index.html').write_text(f'''<!doctype html><html lang="en"><head><meta charset="UTF-8"><script src="assets/gsap.min.js"></script><style>{css}</style></head><body><div id="root" data-composition-id="seekertag-promo" data-width="1080" data-height="1920" data-duration="19.8" data-fps="30">{background}{''.join(hosts)}{brand}{audio}</div><script>const tl=gsap.timeline({{paused:true}});tl.fromTo("#tag-outline",{{y:26,rotation:-5}},{{y:-18,rotation:3,duration:19.8,ease:"sine.inOut"}},0);tl.fromTo("#return-route",{{opacity:.55}},{{opacity:1,duration:9.9,yoyo:true,repeat:1,ease:"sine.inOut"}},0);window.__timelines["seekertag-promo"]=tl;</script></body></html>''')
+transjs='const tl=gsap.timeline({paused:true});'
+for i,scene in enumerate([scenes[1], scenes[-1]]):
+    at=scene['start']
+    transjs+=f'tl.fromTo(".wipe",{{x:-1080}},{{x:0,duration:.18,ease:"power2.in",immediateRender:{"true" if i==0 else "false"}}},{at-.18});tl.fromTo(".wipe",{{x:0}},{{x:1080,duration:.22,ease:"power2.out",immediateRender:false}},{at});'
+(root/'compositions'/'promo-transitions.html').write_text(f'<!doctype html><html><body><template><div id="root" data-composition-id="promo-transitions" data-width="1080" data-height="1920" data-duration="19.8" style="position:absolute;inset:0;background:transparent;pointer-events:none"><div class="wipe" data-layout-ignore data-layout-allow-occlusion></div></div><script>{transjs}window.__timelines["promo-transitions"]=tl;</script></template></body></html>\n')
+hosts.append('<div id="promo-transitions" class="clip" data-composition-id="promo-transitions" data-composition-src="compositions/promo-transitions.html" data-start="0" data-duration="19.8" data-width="1080" data-height="1920" data-track-index="8"></div>')
+gain = html.escape(json.dumps({'version':1,'nodes':[{'id':'final-level','type':'gain','params':{'gain':3}}]}), quote=True)
+audio=f'<hf-audio-group id="promo-mix" data-fx-chain="{gain}"></hf-audio-group><audio id="music" data-audio-group="promo-mix" src="assets/music.wav" data-start="0" data-duration="19.8" data-volume="1" data-track-index="20"></audio><audio id="sound-design" data-audio-group="promo-mix" src="assets/sound-design.wav" data-start="0" data-duration="19.8" data-volume="1" data-track-index="21"></audio>'
+(root/'index.html').write_text(f'<!doctype html><html lang="en"><head><meta charset="UTF-8"><script src="assets/gsap.min.js"></script><style>{css}</style></head><body><div id="root" data-composition-id="seekertag-promo" data-width="1080" data-height="1920" data-duration="19.8" data-fps="30">{"".join(hosts)}{audio}</div><script>window.__timelines["seekertag-promo"]=gsap.timeline({{paused:true}});</script></body></html>\n')
 (root/'STORYBOARD.md').write_text('\n'.join(board))
 (root/'timing.json').write_text(json.dumps({'duration':19.8,'width':1080,'height':1920,'fps':30,'scenes':scenes},indent=2)+'\n')
-print('Authored five portrait scenes, 19.8 seconds.')
+# Accessibility subtitles describe the editorial text; this cut has no speech.
+captions=[('Where’s my bag?\nLeft at the café.',0,2.4),('One scan.\nQR + NFC tags.',2.4,5.4),('“I found your backpack.”',5.4,9),('“I can meet you there.”\nPrivate chat. No phone numbers exchanged.',9,12.6),('Backpack back. Finder rewarded.\n0.95 test SKR to the finder · Devnet demo',12.6,16.2),('SeekerTag. Lost. Found. Rewarded.\nseekertag.vercel.app',16.2,19.8)]
+def stamp(t):
+    ms=round(t*1000);return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
+(root/'seekertag-promo-en-vertical.srt').write_text('\n'.join(f'{i}\n{stamp(a)} --> {stamp(b)}\n{text}\n' for i,(text,a,b) in enumerate(captions,1)))
+print('Authored six story beats, covered cuts and exact recorded press markers.')

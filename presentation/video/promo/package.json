@@ -6,8 +6,5 @@
     "check": "npx --yes hyperframes@0.8.59 check",
     "render": "npx --yes hyperframes@0.8.59 render",
     "preview": "npx --yes hyperframes@0.8.59 preview"
-  },
-  "devDependencies": {
-    "@hyperframes/core": "0.8.59"
   }
 }

@@ -38,6 +38,11 @@ from the owner conversation. Match touch indicators to recorded actions. Show
 the NFC writing screen without claiming a physical tag was written. Never fill
 a missing current payment confirmation with footage from an older return.
 
+The vertical promotional cut lives in `presentation/video/promo/`; follow its
+`BRIEF.md` and `design.md`. Its accepted direction is short English text, music
+and message sounds, with no voiceover. It is a separate deliverable from the
+full narrated walkthrough, within the same canonical video project.
+
 After composition changes, run `python3 presentation/video/author-edit.py` and
 `npm run check --prefix presentation/video/edit`, then inspect affected scenes.
 After rendering, run `python3 presentation/video/validate-video.py` against the

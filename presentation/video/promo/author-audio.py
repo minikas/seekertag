@@ -1,85 +1,83 @@
-"""Assemble local Kokoro lines and an original instrumental cue.
+"""Original swung instrumental + frozen HyperFrames SFX. No voiceover.
 
-Requires numpy and soundfile. Run after generating assets/voice-{1..5}.wav.
-The instrumental is procedural original audio; it uses no samples.
+Requires numpy, scipy and soundfile; FFmpeg decodes the bundled source sounds.
 """
 from pathlib import Path
-import json
+import json,subprocess
 import numpy as np
 import soundfile as sf
+from scipy.signal import butter, sosfilt
 
-root = Path(__file__).resolve().parent
-rate = 24000
-duration = 19.8
-count = round(duration * rate)
-voice = np.zeros(count, dtype=np.float64)
-starts = [0.25, 4.45, 8.65, 12.8, 16.45]
-ends = [4.2, 8.4, 12.6, 16.2, 19.8]
-metadata = []
+root=Path(__file__).resolve().parent
+sr=48000;duration=19.8;size=round(sr*duration);rng=np.random.default_rng(210926)
+music=np.zeros((size,2));fx=np.zeros((size,2))
+def add(bus,start,wave,pan=0):
+    offset=round(start*sr)
+    if offset<0: wave=wave[-offset:];offset=0
+    n=min(len(wave),size-offset)
+    if n<=0:return
+    if wave.ndim==1: wave=np.column_stack((wave*np.sqrt((1-pan)/2),wave*np.sqrt((1+pan)/2)))
+    bus[offset:offset+n]+=wave[:n]
+def time(seconds): return np.arange(round(seconds*sr))/sr
+def hz(n):return 440*2**((n-69)/12)
+def filter_noise(n,lo,hi):
+    data=rng.normal(0,1,n)
+    return sosfilt(butter(2,[lo,hi],btype='bandpass',fs=sr,output='sos'),data)
+def bass(note,length=.35,velocity=1):
+    t=time(length);f=hz(note)
+    env=(1-np.exp(-t*190))*np.exp(-t*5)*np.minimum((length-t)/.04,1)
+    return velocity*.26*(np.sin(2*np.pi*f*t)+.25*np.sin(2*np.pi*2*f*t)+.07*np.sin(2*np.pi*3*f*t))*env
 
-def timestamp(seconds):
-    ms = round(seconds * 1000)
-    return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
+def keys(notes,length=1.1):
+    t=time(length);out=np.zeros(len(t))
+    for note in notes:
+        f=hz(note)
+        env=(1-np.exp(-t*260))*np.exp(-t*2.7)*np.minimum((length-t)/.12,1)
+        out+=(np.sin(2*np.pi*f*t+.45*np.sin(2*np.pi*2*f*t)*np.exp(-t*9))+.1*np.sin(2*np.pi*3*f*t))*env
+    return out*.027
 
-captions = []
-for i, (start, end) in enumerate(zip(starts, ends), 1):
-    samples, sr = sf.read(root / f'assets/voice-{i}.wav')
-    assert sr == rate and samples.ndim == 1
-    # Retain natural word attacks/tails; remove only exterior empty padding.
-    active = np.flatnonzero(np.abs(samples) > .003)
-    samples = samples[max(0, active[0]-round(.07*rate)):min(len(samples), active[-1]+round(.14*rate))]
-    assert start + len(samples)/rate < end, f'Voice {i} overruns its scene'
-    offset = round(start * rate)
-    voice[offset:offset+len(samples)] = samples
-    text = (root / f'assets/voice-{i}.txt').read_text().strip()
-    metadata.append({'scene':i,'start':start,'end':start+len(samples)/rate,'text':text})
-    display = text.replace('Q R', 'QR').replace('N F C', 'NFC').replace('S K R', 'SKR').replace('Seeker Tag', 'SeekerTag')
-    captions.append(f'{i}\n{timestamp(start)} --> {timestamp(start+len(samples)/rate)}\n{display}\n')
-voice *= .72 / np.max(np.abs(voice))
-sf.write(root/'assets/narration.wav', voice, rate, subtype='PCM_16')
-(root/'narration-timing.json').write_text(json.dumps(metadata, indent=2)+'\n')
-(root/'seekertag-promo-en-vertical.srt').write_text('\n'.join(captions))
-
-# 100 BPM, warm A-minor / F / C / G voicings and a soft rhythmic pulse.
-music = np.zeros(count, dtype=np.float64)
-rng = np.random.default_rng(9121)
-def add(t0, sound):
-    offset = round(t0*rate)
-    n = min(len(sound), count-offset)
-    if n > 0:
-        music[offset:offset+n] += sound[:n]
-
-def freq(midi):
-    return 440*2**((midi-69)/12)
-
-chords = [(57,60,64,71),(53,57,60,67),(48,55,60,64),(55,59,62,69)]
+chords=[(57,60,64,71),(53,57,60,67),(50,57,60,65),(55,59,62,69)]
 for beat in range(33):
-    t0 = beat*.6
-    chord = chords[(beat//8)%4]
-    # Low pluck with a short bell overtone; restrained so narration leads.
-    t = np.arange(round(1.3*rate))/rate
-    f = freq(chord[beat%4]+12)
-    env = (1-np.exp(-t*150))*np.exp(-t*4.8)
-    pluck = (.11*np.sin(2*np.pi*f*t)+.025*np.sin(2*np.pi*2*f*t))*env
-    add(t0, pluck)
-    if beat%2 == 0:
-        t = np.arange(round(.32*rate))/rate
-        phase = 2*np.pi*(49*t+25*.045*(1-np.exp(-t/.045)))
-        add(t0, .15*np.sin(phase)*(1-np.exp(-t*500))*np.exp(-t*15))
-    if beat%2 == 1:
-        t = np.arange(round(.12*rate))/rate
-        noise = rng.normal(0, 1, len(t))
-        noise = noise-np.roll(noise,1)
-        add(t0, .009*noise*np.exp(-t*42))
+    pos=beat*.6
+    active=pos>=2.4
+    # A short intake of breath before the closing brand lands.
+    if 15.65<pos<16.2:continue
+    t=time(.30)
+    kick=np.sin(2*np.pi*(48*t+29*.037*(1-np.exp(-t/.037))))*np.exp(-t*17)*(1-np.exp(-t*900))*.40
+    if beat%2==0 or (active and beat%8==7):add(music,pos,kick)
+    if active and beat%2==1:
+        t=time(.18);env=np.exp(-t*24)*(1-np.exp(-t*900))
+        snare=(filter_noise(len(t),700,11500)*.10+np.sin(2*np.pi*184*t)*.09)*env
+        add(music,pos+.005,snare,-.05)
+    if active:
+        chord=chords[((beat-4)//8)%4]
+        for off,note,vel in [(0,chord[0]-12,1),(.40,chord[0],.45)] if beat%2==0 else [(.30,chord[0]-12,.7)]:
+            add(music,pos+off+rng.uniform(-.007,.007),bass(note,.30,vel))
+        if beat%4 in [0,2]:add(music,pos+.31,keys(chord),(-.2 if beat%4==0 else .2))
+        for sub in [0,.32]:
+            t=time(.085);hat=filter_noise(len(t),5500,18000)*np.exp(-t*68)*(.042 if sub else .026)
+            add(music,pos+sub+rng.uniform(-.006,.006),hat,.35 if sub else -.35)
+# Opening chord/closing resolution are composed, not endless held synth pads.
+add(music,0,keys((57,60,64),1.0))
+add(music,16.2,keys((57,60,64,71),2.2))
+add(music,18.0,keys((57,60,64,69),1.8))
+t=np.arange(size)/sr
+music*= (np.minimum(t/.012,1)*np.minimum((duration-t)/.7,1))[:,None]
+# Short reductions around message and send accents make the actions audible.
+for event in [5.82,10.42,12.98]:
+    envelope=1-.30*np.exp(-((t-event)/.15)**2)
+    music*=envelope[:,None]
+music*=.60/np.max(np.abs(music))
+sf.write(root/'assets/music.wav',music,sr,subtype='PCM_16')
 
-for bar in range(4):
-    t = np.arange(round(5.2*rate))/rate
-    env = np.minimum(t/.4, 1)*np.minimum((5.2-t)/.8, 1)
-    sound = sum(np.sin(2*np.pi*freq(n)*t) for n in chords[bar])*.022*env
-    add(bar*4.8, sound)
-
-fade = np.minimum(np.arange(count)/rate/.15, 1)*np.minimum((duration-np.arange(count)/rate)/1.1, 1)
-music *= fade
-music *= .34 / np.max(np.abs(music))
-sf.write(root/'assets/music.wav', music, rate, subtype='PCM_16')
-print(json.dumps({'duration':duration,'voice_peak':float(np.max(np.abs(voice))),'music_peak':float(np.max(np.abs(music))),'lines':metadata}, indent=2))
+sounds=[('sfx-whoosh.mp3',2.20,.20),('sfx-notification.mp3',5.82,.32),('sfx-click.mp3',6.358,.18),('sfx-click.mp3',10.38,.16),('sfx-chime.mp3',12.98,.23),('sfx-whoosh.mp3',16.0,.16)]
+for name,start,gain in sounds:
+    result=subprocess.check_output(['ffmpeg','-v','error','-i',str(root/'assets'/name),'-f','f32le','-ac','2','-ar',str(sr),'-'])
+    wave=np.frombuffer(result,dtype=np.float32).reshape(-1,2).copy()
+    wave*=gain/max(.001,np.max(np.abs(wave)))
+    add(fx,start,wave)
+fx*=np.minimum((duration-t)/.3,1)[:,None]
+sf.write(root/'assets/sound-design.wav',fx,sr,subtype='PCM_16')
+assert np.max(np.abs(music+fx))<.95
+(root/'audio-timing.json').write_text(json.dumps({'duration':duration,'bpm':100,'voiceover':False,'seed':210926,'sounds':[{'file':f,'start':t,'gain':v} for f,t,v in sounds]},indent=2)+'\n')
+print('Original 100 BPM swung groove, notification/send/reward sound accents; no speech.')

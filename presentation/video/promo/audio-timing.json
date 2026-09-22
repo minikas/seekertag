@@ -1,0 +1,38 @@
+{
+  "duration": 19.8,
+  "bpm": 100,
+  "voiceover": false,
+  "seed": 210926,
+  "sounds": [
+    {
+      "file": "sfx-whoosh.mp3",
+      "start": 2.2,
+      "gain": 0.2
+    },
+    {
+      "file": "sfx-notification.mp3",
+      "start": 5.82,
+      "gain": 0.32
+    },
+    {
+      "file": "sfx-click.mp3",
+      "start": 6.358,
+      "gain": 0.18
+    },
+    {
+      "file": "sfx-click.mp3",
+      "start": 10.38,
+      "gain": 0.16
+    },
+    {
+      "file": "sfx-chime.mp3",
+      "start": 12.98,
+      "gain": 0.23
+    },
+    {
+      "file": "sfx-whoosh.mp3",
+      "start": 16.0,
+      "gain": 0.16
+    }
+  ]
+}

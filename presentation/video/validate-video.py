@@ -56,7 +56,9 @@ samples[expected_duration - 1 / fps] = 'last-frame'
 frames = []
 for i, (time, label) in enumerate(sorted(samples.items())):
     path = qa / f'frame-{i:02}-{time:g}s.jpg'
-    subprocess.run(['ffmpeg', '-v', 'error', '-ss', str(time), '-i', str(video), '-frames:v', '1', '-vf', 'scale=in_range=tv:out_range=pc,format=yuvj420p', '-color_range', 'pc', '-q:v', '2', '-y', str(path)], check=True)
+    # JPEG viewers assume BT.601; convert from the video's declared matrix.
+    # Retaining BT.709 YCbCr in a JPEG would shift the brand cyan in QA images.
+    subprocess.run(['ffmpeg', '-v', 'error', '-ss', str(time), '-i', str(video), '-frames:v', '1', '-vf', 'scale=out_range=pc:out_color_matrix=bt601,format=yuvj420p', '-color_range', 'pc', '-q:v', '2', '-y', str(path)], check=True)
     frames.append((path, time, label))
 for page in range((len(frames) + 8) // 9):
     tw, th = (360, 640) if height > width else (640, 360)

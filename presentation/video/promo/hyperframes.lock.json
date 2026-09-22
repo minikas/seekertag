@@ -1,4 +1,6 @@
 {
+  "compositions/components/caption-kinetic-slam.html": "86b7a54e045f626d1375636a2f1cde19c2f3cbdad1df1d7d0204fe6b4452044a",
   "compositions/components/device-frame-stage.html": "b76ff71a349fd95ebac6b7629548d0155b0f6029fdca14e099eacb0054b21866",
-  "compositions/components/line-by-line-slide.html": "4d6ce6381540c89e971dcebff09a48be031177455ceddacac41886113afe3f44"
+  "compositions/components/directional-wipe.html": "1630a4c974ba6d9ea9a23fdb84627ee464c1447cd7b6b963defe4c5bf9867a48",
+  "compositions/components/touch-indicator.html": "393b514128dbe2e01a8216c7edce130f72d90a5b28a5009abedbf3a97703e3c4"
 }

@@ -3,10 +3,10 @@ workflow: general-video
 flow: automation
 storyboard: no
 ---
-# SeekerTag vertical promo
+# SeekerTag — Where's my bag?
 
-A distinct promotional cut within the canonical video project; preserve the full hackathon demo. User requested a maximum of 20 seconds and explicitly selected vertical 9:16 for Reels, Shorts and Stories. Retain English from the accepted project language. Create and render the finished video within the existing publication authorization.
+Revise the existing vertical promotional cut in place. The user rejected the first version as generic, dull and robotic, then explicitly chose more impact: music, message sounds, short English phrases and **no voiceover**. Keep 9:16, a maximum of 20 seconds, real current app footage, and the existing GitHub delivery authorization. Preserve the full hackathon walkthrough.
 
-Duration: 19.8 seconds, 1080 × 1920, 30 fps. Show real current app recordings, native Android phone frames, current Home navigation, QR/NFC, two participants chatting, and the real SKR return. Close with SeekerTag and seekertag.vercel.app. Use the same Travel Backpack devnet example; label test tokens clearly. No fabricated physical NFC write, transfer, or application state. Never expose secure wallet screens. No repeated zooms, duplicated app crops, or disruptive motion.
+19.8 seconds, 1080×1920, 30 fps. Tell a concrete story: a backpack left in a cafe, a QR tag, a real incoming report, two people arranging the return, and the real SKR payout. An original generated photo illustrates the opening; application screens remain genuine September 20 Seeker/QEMU recordings. Use the same Travel Backpack return, with devnet/test-SKR labeling. No simulated wallet outcome or physical NFC write.
 
-Audio: local English Kokoro af_heart narration and a restrained original instrumental pulse. No paid services. Native app capture colors stay unchanged.
+The rhythm is hook → reveal → incoming message → exchange → payoff → brand. Use distinct scene choreography, readable held screens, brief matched press indicators and covered cuts without empty dark frames. Replace the previous repeated line reveals and quiet synthetic voice/music treatment. The user suggested Rive MCP; no Rive tools or plugin are exposed in this session, so continue with deterministic HyperFrames/GSAP motion.

@@ -1,19 +1,28 @@
 1
-00:00:00,250 --> 00:00:02,511
-Lost happens. Give your things a way back.
+00:00:00,000 --> 00:00:02,400
+Where’s my bag?
+Left at the café.
 
 2
-00:00:04,450 --> 00:00:06,285
-Add a QR or NFC tag.
+00:00:02,400 --> 00:00:05,400
+One scan.
+QR + NFC tags.
 
 3
-00:00:08,650 --> 00:00:10,442
-Talk privately. Bring it home.
+00:00:05,400 --> 00:00:09,000
+“I found your backpack.”
 
 4
-00:00:12,800 --> 00:00:14,677
-Reward the return with SKR.
+00:00:09,000 --> 00:00:12,600
+“I can meet you there.”
+Private chat. No phone numbers exchanged.
 
 5
-00:00:16,450 --> 00:00:18,626
-SeekerTag. What is yours, back to you.
+00:00:12,600 --> 00:00:16,200
+Backpack back. Finder rewarded.
+0.95 test SKR to the finder · Devnet demo
+
+6
+00:00:16,200 --> 00:00:19,800
+SeekerTag. Lost. Found. Rewarded.
+seekertag.vercel.app
