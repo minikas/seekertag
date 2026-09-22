@@ -1,0 +1,58 @@
+{
+  "duration": 19.8,
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "scenes": [
+    {
+      "id": "open",
+      "start": 0,
+      "duration": 4.2,
+      "lines": [
+        "Lost happens.",
+        "Connection stays."
+      ],
+      "note": "Your things deserve a way back."
+    },
+    {
+      "id": "tag",
+      "start": 4.2,
+      "duration": 4.2,
+      "lines": [
+        "One tag.",
+        "A way back."
+      ],
+      "note": "QR + NFC \u00b7 Printable labels"
+    },
+    {
+      "id": "chat",
+      "start": 8.4,
+      "duration": 4.2,
+      "lines": [
+        "A stranger.",
+        "A connection."
+      ],
+      "note": "Private chat. Real people."
+    },
+    {
+      "id": "reward",
+      "start": 12.6,
+      "duration": 3.6,
+      "lines": [
+        "Kindness.",
+        "Rewarded."
+      ],
+      "note": "SKR rewards, secured on Solana."
+    },
+    {
+      "id": "close",
+      "start": 16.2,
+      "duration": 3.6,
+      "lines": [
+        "What is yours.",
+        "Back to you."
+      ],
+      "note": "seekertag.vercel.app"
+    }
+  ]
+}

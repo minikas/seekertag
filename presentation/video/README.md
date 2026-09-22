@@ -19,7 +19,7 @@ A walkthrough of the updated application for the Solana hackathon, recorded on S
 
 This standalone source includes all 35 trimmed screen recordings, the complete narration, six HyperFrames scenes, timing, touch markers and captions. Raw recordings and temporary production files are not needed to render it.
 
-Requires Node.js 22+, FFmpeg/ffprobe and Python 3. HyperFrames was upgraded from **0.8.49 to 0.8.56**, which is pinned in `edit/package.json`. Narration uses Kokoro's `af_heart` English voice. The phone frame and brief press indicators adapt the upstream [HyperFrames](https://github.com/heygen-com/hyperframes) `device-frame-stage` and `touch-indicator` patterns. The entire phone stays visible, with no editorial zooms or duplicated enlargement. Native sheets, keyboards and scrolling provide the movement.
+Requires Node.js 22+, FFmpeg/ffprobe and Python 3. The published walkthrough was rendered with HyperFrames **0.8.56**. During the vertical promo build, the source CLI pin was upgraded from **0.8.56 to 0.8.59** and `npm run check` passed; this does not claim a frame-identical render across versions. Narration uses Kokoro's `af_heart` English voice. The phone frame and brief press indicators adapt the upstream [HyperFrames](https://github.com/heygen-com/hyperframes) `device-frame-stage` and `touch-indicator` patterns. The entire phone stays visible, with no editorial zooms or duplicated enlargement. Native sheets, keyboards and scrolling provide the movement.
 
 From this directory:
 
@@ -42,6 +42,12 @@ python3 validate-video.py renders/seekertag-seeker-demo-en.mp4
 ```
 
 The validator checks complete scene coverage, codecs, resolution, duration, all 4,980 video frames and full decoding, then writes review frames and contact sheets to `qa/`. Generated output and preview caches are ignored by Git.
+
+## Vertical promotional cut
+
+[Watch the 19.8-second promo](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-promo-en-vertical.mp4) · [Editable promo and production notes](promo/README.md) · [English subtitles](promo/seekertag-promo-en-vertical.srt)
+
+The additional 1080×1920 cut uses current Home, QR, two-device conversation and confirmed reward footage from the same recording session. It has English narration, an original instrumental cue, a visible devnet/test-SKR label and a closing website link. The complete walkthrough remains available above.
 
 ## Recording evidence
 

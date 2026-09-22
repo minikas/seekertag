@@ -12,6 +12,8 @@ Lost & found for Solana Seeker: QR/NFC tags, private owner–finder conversation
 
 **[▶ Watch the 2:46 demo](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-seeker-demo-en.mp4)** · [GitHub release](https://github.com/minikas/seekertag/releases/tag/v1.0.0-clock-in) · [English subtitles](presentation/video/seekertag-seeker-demo-en.srt) · [Editable video project](presentation/video/README.md)
 
+**[▶ Watch the 19.8-second vertical promo](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-promo-en-vertical.mp4)** — 1080×1920 for Reels, Shorts and Stories, with English narration, original music, current app footage, private chat and the SKR devnet return. [Promo source and subtitles](presentation/video/promo/README.md).
+
 Recorded on the updated app with English narration and captions: Seeker/Seed Vault sign-in, item creation, a 1 SKR test-token reward, QR and matching printable PDF, the NFC writing screen, lost status, incoming notification, two-device chat, receiving-address review, and Finish return directly in the conversation. The same reward is deposited and paid on Solana devnet: 0.95 test SKR to Testuser and a 0.05 test SKR service fee. See the [recording evidence](presentation/video/README.md#recording-evidence).
 
 The preview APK is a standalone Android ARM64 build for Seeker, configured to use the public SeekerTag API; Metro and a local backend are not required. The reward implementation supports devnet, testnet, and mainnet, with one network configured per server. The documented demo uses devnet test tokens.
