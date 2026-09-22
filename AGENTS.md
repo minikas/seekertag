@@ -41,7 +41,13 @@ a missing current payment confirmation with footage from an older return.
 The vertical promotional cut lives in `presentation/video/promo/`; follow its
 `BRIEF.md` and `design.md`. Its accepted direction is short English text, music
 and message sounds, with no voiceover. It is a separate deliverable from the
-full narrated walkthrough, within the same canonical video project.
+full narrated walkthrough, within the same canonical video project. Its bag scan
+and SKR reward use real Rive `.riv` assets, authored by `promo/author-rive.mjs`
+through the community [rive-mcp](https://github.com/ODU33104/rive-mcp), with its
+[rive-design-guidelines skill](https://github.com/ODU33104/rive-mcp/blob/main/skills/rive-design-guidelines/SKILL.md).
+Read `promo/README.md` before rebuilding; keep the QR tied to the same real tag,
+label the animated handover as illustrative, and verify the Rive frame output.
+The community server is distinct from Rive's official desktop MCP.
 
 After composition changes, run `python3 presentation/video/author-edit.py` and
 `npm run check --prefix presentation/video/edit`, then inspect affected scenes.

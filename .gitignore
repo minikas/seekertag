@@ -75,3 +75,7 @@ contracts/**/target/
 /presentation/video/**/.hyperframes/
 /presentation/video/**/.thumbnails/
 /presentation/video/**/.proxies/
+
+# Regenerated Rive media intermediates; editable scenes live in promo/rive.
+/presentation/video/promo/assets/bag-scan.mp4
+/presentation/video/promo/assets/finder-reward.mp4

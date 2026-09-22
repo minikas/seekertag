@@ -5,6 +5,13 @@
   "scripts": {
     "check": "npx --yes hyperframes@0.8.59 check",
     "render": "npx --yes hyperframes@0.8.59 render",
-    "preview": "npx --yes hyperframes@0.8.59 preview"
+    "preview": "npx --yes hyperframes@0.8.59 preview",
+    "author:rive": "node author-rive.mjs --render"
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0",
+    "qrcode": "1.5.4",
+    "rive-mcp-server": "0.6.1"
   }
 }

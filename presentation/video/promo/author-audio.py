@@ -64,13 +64,13 @@ add(music,18.0,keys((57,60,64,69),1.8))
 t=np.arange(size)/sr
 music*= (np.minimum(t/.012,1)*np.minimum((duration-t)/.7,1))[:,None]
 # Short reductions around message and send accents make the actions audible.
-for event in [5.82,10.42,12.98]:
+for event in [4.4,5.4,7.169,10.42,14.55]:
     envelope=1-.30*np.exp(-((t-event)/.15)**2)
     music*=envelope[:,None]
 music*=.60/np.max(np.abs(music))
 sf.write(root/'assets/music.wav',music,sr,subtype='PCM_16')
 
-sounds=[('sfx-whoosh.mp3',2.20,.20),('sfx-notification.mp3',5.82,.32),('sfx-click.mp3',6.358,.18),('sfx-click.mp3',10.38,.16),('sfx-chime.mp3',12.98,.23),('sfx-whoosh.mp3',16.0,.16)]
+sounds=[('sfx-whoosh.mp3',2.35,.20),('sfx-chime.mp3',4.40,.16),('sfx-notification.mp3',5.40,.27),('sfx-click.mp3',7.129,.18),('sfx-click.mp3',10.38,.16),('sfx-chime.mp3',14.55,.25),('sfx-whoosh.mp3',16.0,.16)]
 for name,start,gain in sounds:
     result=subprocess.check_output(['ffmpeg','-v','error','-i',str(root/'assets'/name),'-f','f32le','-ac','2','-ar',str(sr),'-'])
     wave=np.frombuffer(result,dtype=np.float32).reshape(-1,2).copy()

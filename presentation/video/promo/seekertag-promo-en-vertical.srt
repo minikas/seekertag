@@ -5,8 +5,8 @@ Left at the café.
 
 2
 00:00:02,400 --> 00:00:05,400
-One scan.
-QR + NFC tags.
+Scan the QR on the backpack.
+Say hello.
 
 3
 00:00:05,400 --> 00:00:09,000
@@ -14,8 +14,8 @@ QR + NFC tags.
 
 4
 00:00:09,000 --> 00:00:12,600
-“I can meet you there.”
-Private chat. No phone numbers exchanged.
+Meet at the café.
+“I will wait by the entrance.”
 
 5
 00:00:12,600 --> 00:00:16,200

@@ -1,0 +1,805 @@
+{
+  "artboard": {
+    "name": "FinderReward",
+    "width": 1080,
+    "height": 1920
+  },
+  "fonts": [
+    {
+      "id": "arimo",
+      "path": "assets/Arimo.ttf"
+    }
+  ],
+  "groups": [
+    {
+      "id": "wallet",
+      "x": 268,
+      "y": 1268
+    },
+    {
+      "id": "received",
+      "x": 265,
+      "y": 1470
+    },
+    {
+      "id": "coin0",
+      "x": 245,
+      "y": 930
+    },
+    {
+      "id": "coin1",
+      "x": 245,
+      "y": 930
+    },
+    {
+      "id": "coin2",
+      "x": 245,
+      "y": 930
+    }
+  ],
+  "shapes": [
+    {
+      "id": "background",
+      "type": "rect",
+      "x": 540,
+      "y": 960,
+      "width": 1080,
+      "height": 1920,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#EAF2EC"
+      },
+      "z": 0
+    },
+    {
+      "id": "wallet-shadow",
+      "type": "ellipse",
+      "x": 268,
+      "y": 1395,
+      "width": 324,
+      "height": 36,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "z": 5,
+      "opacity": 0.1
+    },
+    {
+      "id": "wallet-back",
+      "type": "rect",
+      "x": 0,
+      "y": -8,
+      "width": 300,
+      "height": 218,
+      "cornerRadius": 32,
+      "fill": {
+        "color": "#00BDCD"
+      },
+      "parent": "wallet",
+      "z": 10
+    },
+    {
+      "id": "wallet-inside",
+      "type": "rect",
+      "x": 0,
+      "y": -13,
+      "width": 275,
+      "height": 184,
+      "cornerRadius": 22,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "parent": "wallet",
+      "z": 11
+    },
+    {
+      "id": "wallet-front",
+      "type": "rect",
+      "x": 0,
+      "y": 40,
+      "width": 300,
+      "height": 158,
+      "cornerRadius": 27,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "parent": "wallet",
+      "z": 100
+    },
+    {
+      "id": "wallet-edge",
+      "type": "rect",
+      "x": 0,
+      "y": 43,
+      "width": 288,
+      "height": 144,
+      "cornerRadius": 23,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "parent": "wallet",
+      "z": 101,
+      "stroke": {
+        "color": "#61756E",
+        "thickness": 3
+      }
+    },
+    {
+      "id": "wallet-clasp",
+      "type": "rect",
+      "x": 121,
+      "y": 29,
+      "width": 96,
+      "height": 60,
+      "cornerRadius": 16,
+      "fill": {
+        "color": "#00BDCD"
+      },
+      "parent": "wallet",
+      "z": 102
+    },
+    {
+      "id": "wallet-dot",
+      "type": "ellipse",
+      "x": 108,
+      "y": 29,
+      "width": 13,
+      "height": 13,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "parent": "wallet",
+      "z": 103
+    },
+    {
+      "id": "coin0rim",
+      "type": "ellipse",
+      "x": 0,
+      "y": 0,
+      "width": 190,
+      "height": 190,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#00BDCD"
+      },
+      "parent": "coin0",
+      "z": 30
+    },
+    {
+      "id": "coin0inner",
+      "type": "ellipse",
+      "x": 0,
+      "y": 0,
+      "width": 178,
+      "height": 178,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "parent": "coin0",
+      "z": 31
+    },
+    {
+      "id": "coin1rim",
+      "type": "ellipse",
+      "x": 0,
+      "y": 0,
+      "width": 190,
+      "height": 190,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#00BDCD"
+      },
+      "parent": "coin1",
+      "z": 40
+    },
+    {
+      "id": "coin1inner",
+      "type": "ellipse",
+      "x": 0,
+      "y": 0,
+      "width": 178,
+      "height": 178,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "parent": "coin1",
+      "z": 41
+    },
+    {
+      "id": "coin2rim",
+      "type": "ellipse",
+      "x": 0,
+      "y": 0,
+      "width": 190,
+      "height": 190,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#00BDCD"
+      },
+      "parent": "coin2",
+      "z": 50
+    },
+    {
+      "id": "coin2inner",
+      "type": "ellipse",
+      "x": 0,
+      "y": 0,
+      "width": 178,
+      "height": 178,
+      "cornerRadius": 0,
+      "fill": {
+        "color": "#0D1615"
+      },
+      "parent": "coin2",
+      "z": 51
+    }
+  ],
+  "texts": [
+    {
+      "id": "finder-label",
+      "x": 90,
+      "y": 602,
+      "width": 350,
+      "align": "center",
+      "z": 100,
+      "runs": [
+        {
+          "text": "THE FINDER",
+          "fontSize": 29,
+          "font": "arimo",
+          "color": "#0D1615"
+        }
+      ]
+    },
+    {
+      "id": "reward-amount",
+      "x": -205,
+      "y": -25,
+      "width": 410,
+      "align": "center",
+      "parent": "received",
+      "z": 100,
+      "runs": [
+        {
+          "text": "+0.95 SKR",
+          "fontSize": 72,
+          "font": "arimo",
+          "color": "#0D1615"
+        }
+      ]
+    },
+    {
+      "id": "reward-sub",
+      "x": -200,
+      "y": 63,
+      "width": 400,
+      "align": "center",
+      "parent": "received",
+      "z": 100,
+      "runs": [
+        {
+          "text": "REWARD RECEIVED",
+          "fontSize": 25,
+          "font": "arimo",
+          "color": "#0D1615"
+        }
+      ]
+    }
+  ],
+  "imports": [
+    {
+      "spec": "rive/skr-shapes.json",
+      "id": "coin0logo",
+      "parent": "coin0",
+      "x": -77,
+      "y": -77,
+      "scale": 2.40625,
+      "z": 32
+    },
+    {
+      "spec": "rive/skr-shapes.json",
+      "id": "coin1logo",
+      "parent": "coin1",
+      "x": -77,
+      "y": -77,
+      "scale": 2.40625,
+      "z": 42
+    },
+    {
+      "spec": "rive/skr-shapes.json",
+      "id": "coin2logo",
+      "parent": "coin2",
+      "x": -77,
+      "y": -77,
+      "scale": 2.40625,
+      "z": 52
+    }
+  ],
+  "animations": [
+    {
+      "name": "reward",
+      "duration": 108,
+      "fps": 30,
+      "loop": "oneShot",
+      "tracks": [
+        {
+          "target": "coin0",
+          "property": "opacity",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 5,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 9,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 44,
+              "value": 1,
+              "easing": "hold"
+            },
+            {
+              "frame": 48,
+              "value": 0,
+              "easing": "ease-out"
+            }
+          ]
+        },
+        {
+          "target": "coin0",
+          "property": "x",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 120,
+              "easing": "hold"
+            },
+            {
+              "frame": 5,
+              "value": 120,
+              "easing": "hold"
+            },
+            {
+              "frame": 23,
+              "value": 335,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 48,
+              "value": 268,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin0",
+          "property": "y",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 970,
+              "easing": "hold"
+            },
+            {
+              "frame": 5,
+              "value": 970,
+              "easing": "hold"
+            },
+            {
+              "frame": 20,
+              "value": 825,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 48,
+              "value": 1255,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin0",
+          "property": "rotation",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": -24,
+              "easing": "hold"
+            },
+            {
+              "frame": 48,
+              "value": 30,
+              "easing": "ease-in-out"
+            }
+          ]
+        },
+        {
+          "target": "coin0",
+          "property": "scaleX",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0.75,
+              "easing": "hold"
+            },
+            {
+              "frame": 20,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 48,
+              "value": 0.5,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin0",
+          "property": "scaleY",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0.75,
+              "easing": "hold"
+            },
+            {
+              "frame": 20,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 48,
+              "value": 0.5,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin1",
+          "property": "opacity",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 11,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 15,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 50,
+              "value": 1,
+              "easing": "hold"
+            },
+            {
+              "frame": 54,
+              "value": 0,
+              "easing": "ease-out"
+            }
+          ]
+        },
+        {
+          "target": "coin1",
+          "property": "x",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 205,
+              "easing": "hold"
+            },
+            {
+              "frame": 11,
+              "value": 205,
+              "easing": "hold"
+            },
+            {
+              "frame": 29,
+              "value": 300,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 54,
+              "value": 268,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin1",
+          "property": "y",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 945,
+              "easing": "hold"
+            },
+            {
+              "frame": 11,
+              "value": 945,
+              "easing": "hold"
+            },
+            {
+              "frame": 26,
+              "value": 780,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 54,
+              "value": 1255,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin1",
+          "property": "rotation",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": -24,
+              "easing": "hold"
+            },
+            {
+              "frame": 54,
+              "value": 30,
+              "easing": "ease-in-out"
+            }
+          ]
+        },
+        {
+          "target": "coin1",
+          "property": "scaleX",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0.75,
+              "easing": "hold"
+            },
+            {
+              "frame": 26,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 54,
+              "value": 0.5,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin1",
+          "property": "scaleY",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0.75,
+              "easing": "hold"
+            },
+            {
+              "frame": 26,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 54,
+              "value": 0.5,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin2",
+          "property": "opacity",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 17,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 21,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 56,
+              "value": 1,
+              "easing": "hold"
+            },
+            {
+              "frame": 60,
+              "value": 0,
+              "easing": "ease-out"
+            }
+          ]
+        },
+        {
+          "target": "coin2",
+          "property": "x",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 290,
+              "easing": "hold"
+            },
+            {
+              "frame": 17,
+              "value": 290,
+              "easing": "hold"
+            },
+            {
+              "frame": 35,
+              "value": 265,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 60,
+              "value": 268,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin2",
+          "property": "y",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 920,
+              "easing": "hold"
+            },
+            {
+              "frame": 17,
+              "value": 920,
+              "easing": "hold"
+            },
+            {
+              "frame": 32,
+              "value": 735,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 60,
+              "value": 1255,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin2",
+          "property": "rotation",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": -24,
+              "easing": "hold"
+            },
+            {
+              "frame": 60,
+              "value": 30,
+              "easing": "ease-in-out"
+            }
+          ]
+        },
+        {
+          "target": "coin2",
+          "property": "scaleX",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0.75,
+              "easing": "hold"
+            },
+            {
+              "frame": 32,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 60,
+              "value": 0.5,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "coin2",
+          "property": "scaleY",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0.75,
+              "easing": "hold"
+            },
+            {
+              "frame": 32,
+              "value": 1,
+              "easing": "ease-out"
+            },
+            {
+              "frame": 60,
+              "value": 0.5,
+              "easing": "ease-in"
+            }
+          ]
+        },
+        {
+          "target": "received",
+          "property": "opacity",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 53,
+              "value": 0,
+              "easing": "hold"
+            },
+            {
+              "frame": 62,
+              "value": 1,
+              "easing": "ease-out"
+            }
+          ]
+        },
+        {
+          "target": "received",
+          "property": "y",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 1495,
+              "easing": "hold"
+            },
+            {
+              "frame": 53,
+              "value": 1495,
+              "easing": "hold"
+            },
+            {
+              "frame": 67,
+              "value": 1470,
+              "easing": "ease-out-back"
+            }
+          ]
+        }
+      ],
+      "presets": [
+        {
+          "preset": "attention",
+          "target": "wallet",
+          "at": 44,
+          "intensity": 0.55
+        }
+      ]
+    }
+  ]
+}

@@ -15,8 +15,8 @@
       "id": "tag",
       "start": 2.4,
       "duration": 3.0,
-      "title": "One scan.",
-      "rule": "device-frame-stage"
+      "title": "Scan the QR on the bag.",
+      "rule": "Rive phone scan"
     },
     {
       "id": "message",
@@ -29,7 +29,7 @@
       "id": "chat",
       "start": 9.0,
       "duration": 3.6,
-      "title": "I can meet you there.",
+      "title": "Meet at the cafe entrance.",
       "rule": "device-frame-stage / touch-indicator"
     },
     {

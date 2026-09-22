@@ -47,7 +47,7 @@ The validator checks complete scene coverage, codecs, resolution, duration, all 
 
 [Watch the 19.8-second promo](https://github.com/minikas/seekertag/releases/download/v1.0.0-clock-in/seekertag-promo-en-vertical.mp4) · [Editable promo and production notes](promo/README.md) · [English subtitles](promo/seekertag-promo-en-vertical.srt)
 
-The additional 1080×1920 cut follows a backpack left in a cafe through a QR tag, incoming notification, two-device conversation and confirmed reward. It uses short English text, a new instrumental groove and message sounds, with no voiceover. An illustrative generated photo opens the story; all app screens are real recordings, and the reward is labeled devnet/test SKR. The complete walkthrough remains available above.
+The additional 1080×1920 cut follows a backpack left in a cafe through a QR physically attached to the bag, a Rive camera-phone animation scanning it, real private chat agreeing on the café entrance, and animated SKR receipt beside the confirmed return. It uses short English text, a new instrumental groove and message sounds, with no voiceover. An illustrative generated photo opens the story; all app screens are real recordings, and the reward is labeled devnet/test SKR. The complete walkthrough remains available above.
 
 ## Recording evidence
 
