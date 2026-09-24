@@ -150,6 +150,16 @@
                 <input id="wallet-input" type="text" maxlength="100" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="wallet-error" data-copy-placeholder="walletPlaceholder" placeholder="Cole um endereço Solana" />
                 <p class="helper" data-copy="walletHelper">Nenhuma conexão ou assinatura de carteira é necessária.</p>
                 <p id="wallet-error" class="field-error" role="alert"></p>
+                <div class="qr-actions">
+                  <button id="scan-wallet" class="button quiet" type="button" data-copy="scanQr">Escanear QR code</button>
+                  <button id="upload-wallet-qr" class="button quiet" type="button" data-copy="qrImage">Ler imagem</button>
+                  <input id="wallet-qr-file" class="hidden" type="file" accept="image/*" />
+                </div>
+                <div id="wallet-scanner" class="hidden">
+                  <video id="wallet-camera" autoplay muted playsinline></video>
+                  <button id="stop-wallet-scan" class="button quiet full" type="button" data-copy="stopCamera">Parar câmera</button>
+                </div>
+                <p id="wallet-qr-status" class="helper" role="status"></p>
                 <button id="review-wallet" class="button primary full" type="submit" data-copy="reviewAddress" disabled>Revisar endereço</button>
               </div>
               <div id="wallet-review" class="wallet-review hidden">

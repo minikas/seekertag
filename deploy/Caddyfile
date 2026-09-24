@@ -19,8 +19,8 @@ api-seeker.viralizai.co {
 		rewrite * /index.html
 		header {
 			Cache-Control "no-store"
-			Content-Security-Policy "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'"
-			Permissions-Policy "camera=(), microphone=(), geolocation=()"
+			Content-Security-Policy "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none'; script-src 'self'; style-src 'self'"
+			Permissions-Policy "camera=(self), microphone=(), geolocation=()"
 		}
 		file_server
 	}

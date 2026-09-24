@@ -1,5 +1,6 @@
 const copy = {
   pt: {
+    scanQr: 'Escanear QR code', qrImage: 'Ler imagem', stopCamera: 'Parar câmera', qrAim: 'Aponte para o QR da sua carteira Solana.', qrReady: 'Endereço lido. Revise antes de confirmar.', qrInvalid: 'O QR não contém uma carteira Solana válida.', qrCameraError: 'Não foi possível abrir a câmera. Permita o acesso ou escolha uma imagem.', qrImageError: 'Não foi possível ler o QR. Escolha uma imagem nítida de até 10 MB.', qrReading: 'Lendo QR code…',
     talkingToOwner: 'Você está falando com o dono.', close: 'Fechar',
     setWallet: 'Informar carteira de recebimento',
     languageLabel: 'Idioma', loading: 'Abrindo a etiqueta…', couldNotOpen: 'NÃO FOI POSSÍVEL ABRIR', unexpectedError: 'Algo não saiu como esperado.', tryAgain: 'Tentar novamente',
@@ -14,6 +15,7 @@ const copy = {
     noAccessTitle: 'Conversa indisponível neste navegador.', noAccessText: 'Abra a conversa no navegador em que você enviou o aviso ou escaneie a etiqueta para enviar um novo aviso.', genericError: 'Não foi possível concluir. Verifique sua conexão e tente novamente.',
   },
   en: {
+    scanQr: 'Scan QR code', qrImage: 'Read image', stopCamera: 'Stop camera', qrAim: 'Point at your Solana wallet QR code.', qrReady: 'Address scanned. Review before confirming.', qrInvalid: 'This QR does not contain a valid Solana wallet.', qrCameraError: 'Could not open the camera. Allow access or choose an image.', qrImageError: 'Could not read the QR. Choose a clear image up to 10 MB.', qrReading: 'Reading QR code…',
     talkingToOwner: 'You’re talking to the owner.', close: 'Close',
     setWallet: 'Set wallet address',
     languageLabel: 'Language', loading: 'Opening the tag…', couldNotOpen: 'COULD NOT OPEN', unexpectedError: 'Something did not go as expected.', tryAgain: 'Try again',
@@ -28,6 +30,7 @@ const copy = {
     noAccessTitle: 'Conversation unavailable in this browser.', noAccessText: 'Open it in the browser where you sent the notice, or scan the tag to send a new notice.', genericError: 'Could not complete the request. Check your connection and try again.',
   },
   es: {
+    scanQr: 'Escanear QR', qrImage: 'Leer imagen', stopCamera: 'Detener cámara', qrAim: 'Apunta al QR de tu cartera Solana.', qrReady: 'Dirección leída. Revísala antes de confirmar.', qrInvalid: 'El QR no contiene una cartera Solana válida.', qrCameraError: 'No se pudo abrir la cámara. Permite el acceso o elige una imagen.', qrImageError: 'No se pudo leer el QR. Elige una imagen nítida de hasta 10 MB.', qrReading: 'Leyendo QR…',
     talkingToOwner: 'Estás hablando con el dueño.', close: 'Cerrar',
     setWallet: 'Indicar dirección de cartera',
     languageLabel: 'Idioma', loading: 'Abriendo la etiqueta…', couldNotOpen: 'NO SE PUDO ABRIR', unexpectedError: 'Algo no salió como esperábamos.', tryAgain: 'Intentar de nuevo',
@@ -339,6 +342,7 @@ $('#wallet-dialog').addEventListener('cancel', event => {
   if ($('#confirm-wallet').disabled) event.preventDefault();
 });
 $('#wallet-dialog').addEventListener('close', () => {
+  stopWalletScan();
   walletEditing = false;
   renderReward(currentReward);
 });
@@ -354,10 +358,100 @@ function validateWalletInput() {
 }
 $('#wallet-input').addEventListener('input', validateWalletInput);
 
+let scanGeneration = 0;
+let cameraStream;
+let scanTimer;
+function stopWalletScan() {
+  scanGeneration++;
+  clearTimeout(scanTimer);
+  cameraStream?.getTracks().forEach(track => track.stop());
+  cameraStream = null;
+  $('#wallet-camera').srcObject = null;
+  $('#wallet-scanner').classList.add('hidden');
+  $('#scan-wallet').disabled = false;
+  $('#upload-wallet-qr').disabled = false;
+  $('#wallet-qr-status').textContent = '';
+}
+function acceptWalletQr(text, scanner) {
+  const address = scanner.addressFromQr(text, globalThis.FinderWallet.receivingWalletAddress);
+  if (!address) {
+    $('#wallet-qr-status').textContent = t('qrInvalid');
+    return false;
+  }
+  stopWalletScan();
+  $('#wallet-input').value = address;
+  validateWalletInput();
+  $('#wallet-qr-status').textContent = t('qrReady');
+  return true;
+}
+$('#stop-wallet-scan').addEventListener('click', stopWalletScan);
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopWalletScan(); });
+window.addEventListener('pagehide', stopWalletScan);
+$('#scan-wallet').addEventListener('click', async () => {
+  stopWalletScan();
+  const generation = scanGeneration;
+  $('#wallet-input').blur();
+  $('#scan-wallet').disabled = true;
+  $('#wallet-scanner').classList.remove('hidden');
+  $('#wallet-qr-status').textContent = t('qrAim');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+    if (generation !== scanGeneration) { stream.getTracks().forEach(track => track.stop()); return; }
+    cameraStream = stream;
+    const video = $('#wallet-camera');
+    video.srcObject = stream;
+    await video.play();
+    const scanner = await import('/finder-assets/qr-scanner.js');
+    if (generation !== scanGeneration) return;
+    const tick = () => {
+      if (generation !== scanGeneration) return;
+      try {
+        const text = scanner.decodeQr(video, video.videoWidth, video.videoHeight);
+        if (text && acceptWalletQr(text, scanner)) return;
+      } catch { /* A frame may be unavailable while the camera starts. */ }
+      scanTimer = setTimeout(tick, 250);
+    };
+    tick();
+  } catch {
+    if (generation !== scanGeneration) return;
+    stopWalletScan();
+    $('#wallet-qr-status').textContent = t('qrCameraError');
+  }
+});
+$('#upload-wallet-qr').addEventListener('click', () => {
+  stopWalletScan();
+  $('#wallet-qr-file').click();
+});
+$('#wallet-qr-file').addEventListener('change', async event => {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  stopWalletScan();
+  const generation = scanGeneration;
+  $('#scan-wallet').disabled = true;
+  $('#upload-wallet-qr').disabled = true;
+  $('#wallet-qr-status').textContent = t('qrReading');
+  try {
+    const scanner = await import('/finder-assets/qr-scanner.js');
+    const text = await scanner.decodeImage(file);
+    if (generation !== scanGeneration) return;
+    if (text) acceptWalletQr(text, scanner);
+    else $('#wallet-qr-status').textContent = t('qrImageError');
+  } catch {
+    if (generation === scanGeneration) $('#wallet-qr-status').textContent = t('qrImageError');
+  } finally {
+    if (generation === scanGeneration) {
+      $('#scan-wallet').disabled = false;
+      $('#upload-wallet-qr').disabled = false;
+    }
+  }
+});
+
 $('#wallet-form').addEventListener('submit', event => {
   event.preventDefault();
   const address = validateWalletInput();
   if (!address) return;
+  stopWalletScan();
   $('#wallet-error').textContent = '';
   $('#wallet-review-error').textContent = '';
   $('#wallet-review-address').textContent = address;

@@ -2,14 +2,14 @@ import { createServer, request as requestUpstream } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { buildValidator } from './validator.mjs';
+import { buildValidator, buildQrScanner } from './validator.mjs';
 
 const sourceRoot = fileURLToPath(new URL('../public/', import.meta.url));
 const productionRoot = fileURLToPath(new URL('../dist/', import.meta.url));
 const securityHeaders = {
   'Cache-Control': 'no-store',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'",
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none'; script-src 'self'; style-src 'self'",
+  'Permissions-Policy': 'camera=(self), microphone=(), geolocation=()',
 };
 const mime = {
   '.css': 'text/css; charset=utf-8',
@@ -44,6 +44,7 @@ async function sendFile(req, res, root, relativePath, headers = {}) {
 
 export function createFinderServer({ root = sourceRoot, apiOrigin = 'http://127.0.0.1:4318' } = {}) {
   let validator;
+  let scanner;
   const canonicalApi = new URL(apiOrigin);
   return createServer(async (req, res) => {
     try {
@@ -56,6 +57,13 @@ export function createFinderServer({ root = sourceRoot, apiOrigin = 'http://127.
       }
       if (pathname.startsWith('/finder-assets/')) {
         const asset = pathname.slice('/finder-assets/'.length);
+        if (root === sourceRoot && asset === 'qr-scanner.js') {
+          scanner ||= buildQrScanner().catch(error => { scanner = null; throw error; });
+          const body = await scanner;
+          res.writeHead(200, { 'Content-Type': mime['.js'], 'Cache-Control': 'no-cache' });
+          res.end(req.method === 'HEAD' ? undefined : body);
+          return;
+        }
         if (root === sourceRoot && asset === 'wallet-validator.js') {
           validator ||= buildValidator().catch(error => { validator = null; throw error; });
           const body = await validator;

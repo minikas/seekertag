@@ -53,6 +53,8 @@ npm run dev:finder
 
 The Finder uses native HTML forms (not React Hook Form). Its build bundles the shared Solana receiving-address validator for browser use; the development server serves the same bundle. Wallet review stays disabled until the address passes that validation. The API still enforces conversation ownership, status and immutable recipient rules when saving.
 
+Receiving addresses can also be scanned from a QR using the rear camera (HTTPS and permission required) or an image up to 10 MB. Decoding stays in the browser, with a lazily loaded scanner; no images are uploaded. Raw addresses and `solana:ADDRESS` QR codes are supported; payment parameters are ignored, URLs are never followed, and review/confirmation is still required. Closing the form, stopping the scanner, or leaving the page stops camera tracks.
+
 ## Monorepo (Turborepo + npm workspaces)
 
 Requires Node.js 24+ and npm 11.8.0. Run `npm ci` once at the repository root.

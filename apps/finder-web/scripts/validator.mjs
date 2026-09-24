@@ -9,3 +9,12 @@ export async function buildValidator() {
   });
   return result.outputFiles[0].contents;
 }
+
+export async function buildQrScanner() {
+  const result = await build({
+    entryPoints: [fileURLToPath(new URL('../src/qr-scanner.js', import.meta.url))],
+    bundle: true, platform: 'browser', format: 'esm',
+    target: 'es2020', minify: true, write: false,
+  });
+  return result.outputFiles[0].contents;
+}
