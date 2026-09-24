@@ -184,6 +184,7 @@ test('finder wallet action appears after messages and before account prompt only
   chat.queryClient.setQueryData(['api', 'test-session', '/finder/reports/report-1/reward'], { reward: { status: 'reserved' }, recipient: 'already-confirmed', tagId: 'item-1' });
   const saved = chat.render();
   assert.ok(walletAction(saved));
+  assert.equal(walletAction(saved).props.disabled, false);
   assert.ok(nodes(saved).some(node => node.props?.accessibilityHint === 'already-confirmed'));
   walletAction(saved).props.onPress();
   assert.equal(nodes(chat.render()).find(node => node.type === 'ReceivingWalletSheet').props.recipient, 'already-confirmed');
@@ -193,7 +194,7 @@ test('finder can confirm a wallet before funding, but cannot open registration a
   for (const options of [{ reward: null }, { reward: { status: 'released' } }, { reward: { status: 'pending' } }, { reward: { status: 'reserved', operation: { status: 'submitted' } } }, { reward: { status: 'reserved' }, status: 'resolved' }]) {
     const chat = harness(new ConversationDrafts(), { finder: true, messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }], ...options });
     chat.render(); await tick(); chat.render(); await tick();
-    assert.equal(nodes(chat.render()).some(node => node.props?.testID === 'conversation-receiving-wallet'), options.status !== 'resolved');
+    assert.equal(nodes(chat.render()).some(node => node.props?.testID === 'conversation-receiving-wallet'), options.status !== 'resolved' && options.reward?.status !== 'released');
   }
 });
 
@@ -236,8 +237,8 @@ test('owner finish return appears when the finder wallet arrives and opens confi
 
 test('finish return is limited to owners with an available reward and a receiving wallet', async () => {
   for (const options of [
-    { finder: true }, { recipient: null }, { status: 'resolved' }, { reward: null },
-    { reward: { status: 'released' } }, { reward: { status: 'refunded' } }, { reward: { status: 'pending' } },
+    { finder: true }, { recipient: null }, { status: 'resolved' },
+    { reward: { status: 'released' } }, { reward: { status: 'pending' } },
     { reward: { status: 'reserved', operation: { kind: 'refund', status: 'submitted' } } },
   ]) {
     const chat = harness(new ConversationDrafts(), { recipient: 'FinderWallet', reward: { status: 'reserved' },
@@ -245,7 +246,7 @@ test('finish return is limited to owners with an available reward and a receivin
     chat.render(); await tick(); chat.render(); await tick();
     assert.ok(!nodes(chat.render()).some(node => node.props?.testID === 'conversation-finish-return'), JSON.stringify(options));
   }
-  for (const reward of [{ status: 'expired' }, { status: 'reserved', operation: { kind: 'release', status: 'submitted' } }]) {
+  for (const reward of [null, { status: 'refunded' }, { status: 'expired' }, { status: 'reserved', operation: { kind: 'release', status: 'submitted' } }]) {
     const chat = harness(new ConversationDrafts(), { recipient: 'FinderWallet', reward });
     chat.render(); await tick(); chat.render(); await tick();
     assert.ok(nodes(chat.render()).some(node => node.props?.testID === 'conversation-finish-return'));

@@ -8,8 +8,9 @@ import RewardReview, { Address, RewardReviewAction } from './RewardReview';
 import RewardSummary from './RewardSummary';
 import { Button, Notice, useUI } from './ui';
 
-export default function RewardReleaseSheet({ tagId, token, reportId, recipient, onClose, onChanged, onReleased }: {
+export default function RewardReleaseSheet({ tagId, token, reportId, recipient, onClose, onChanged, onReleased, onConfigureReward }: {
   tagId: string; token: string; reportId: string; recipient: string | null; onClose: () => void;
+  onConfigureReward?: () => void;
   onChanged: (reward: RewardView | null) => void; onReleased: () => void;
 }) {
   const { C, s, t } = useUI(); const sheet = useRef<AccountActionSheetHandle>(null);
@@ -20,7 +21,11 @@ export default function RewardReleaseSheet({ tagId, token, reportId, recipient, 
   return <AccountActionSheet ref={sheet} title={t('Finalizar devolução')} busy={wallet.busy}
     onBack={editableReview ? wallet.discardReview : undefined} onClose={() => { if (released.current) onReleased(); onClose(); }}>
     {!!wallet.error && <Notice error text={wallet.error} />}
-    {wallet.operation ? <><RewardReview controller={wallet} /><RewardReviewAction controller={wallet} releaseAllowed={!!recipient} /></> : wallet.loading ? <RewardReleaseSkeleton /> : <View style={{ gap: 20 }}>
+    {wallet.operation ? <><RewardReview controller={wallet} /><RewardReviewAction controller={wallet} releaseAllowed={!!recipient} /></> : wallet.loading ? <RewardReleaseSkeleton /> : wallet.data && (!wallet.data.reward || wallet.data.reward.status === 'refunded') ? <View style={{ gap: 20 }}>
+      {recipient && <Address label={t('Carteira de quem encontrou')} address={recipient} />}
+      <Notice text={t('Ainda não há recompensa reservada para esta devolução. Adicione uma recompensa no objeto e volte à conversa para liberar o pagamento.')} />
+      {onConfigureReward && <Button onPress={onConfigureReward}>{t('Adicionar recompensa')}</Button>}
+    </View> : <View style={{ gap: 20 }}>
       <Text style={s.body}>{t('Confirme somente se o objeto já estiver com você. O pagamento é definitivo e encerra as conversas deste objeto.')}</Text>
       <RewardSummary reward={wallet.data?.reward} />
       {recipient ? <Address label={t('Carteira de quem encontrou')} address={recipient} /> : <Notice text={t('Quem encontrou precisa confirmar a carteira de recebimento na conversa.')} />}

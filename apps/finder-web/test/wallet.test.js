@@ -14,16 +14,19 @@ for (const status of [null, 'pending', 'unverified', 'reserved', 'expired', 'rel
       return elements.get(selector);
     };
     const context = { $, currentConversation: { report: { status: 'open' } }, walletEditing: false,
-      rewardLabel: () => '', networkLabel: () => '' };
+      t: key => key, rewardLabel: () => '', networkLabel: () => '' };
     runInNewContext(`${renderSource}; this.renderReward = renderReward;`, context);
     const reward = status ? { status, amount: '1', currency: 'SOL', network: 'devnet' } : null;
     context.renderReward({ reward, recipient: null });
-    assert.equal($('#set-wallet').classList.hidden, false);
+    assert.equal($('#set-wallet').classList.hidden, status === 'released');
     assert.equal($('#chat-reward').classList.hidden, false);
     assert.equal($('#chat-reward-summary').classList.hidden, !reward);
+    context.renderReward({ reward, recipient: 'confirmed-address' });
+    assert.equal($('#set-wallet').classList.hidden, status === 'released');
+    assert.equal($('#set-wallet span').textContent, 'edit');
     context.walletEditing = true;
     context.renderReward({ reward, recipient: null });
-    assert.equal($('#wallet-form').classList.hidden, false);
+    assert.equal($('#wallet-form').classList.hidden, status === 'released');
     context.currentConversation.report.status = 'closed';
     context.renderReward({ reward, recipient: null });
     assert.equal($('#set-wallet').classList.hidden, true);

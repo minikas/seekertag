@@ -301,7 +301,8 @@ test('finder wallet proof is report-bound; confirmed payout resolves exactly one
   assert.equal((await h.request(`${base}/verify`, report.token, identity)).status, 200);
   assert.equal((await h.request(base, report.token, { address: finder.wallet.publicKey.toBase58() })).status, 200);
   assert.equal((await h.request(`/finder/reports/${report.report.id}/reward`, report.token)).data.recipientMethod, 'signature');
-  assert.equal((await h.request(base, report.token, { address: Keypair.generate().publicKey.toBase58() })).status, 409);
+  assert.equal((await h.request(base, report.token, { address: Keypair.generate().publicKey.toBase58() })).status, 200);
+  assert.equal((await h.request(base, report.token, { address: finder.wallet.publicKey.toBase58() })).status, 200);
   assert.equal((await h.request(`${base}/verify`, report.token, identity)).status, 401);
   const payout = await h.prepare(owner, tag, { kind: 'release', reportId: report.report.id }); assert.equal(payout.status, 201, JSON.stringify(payout));
   assert.equal(payout.data.operation.spec.recipient, finder.wallet.publicKey.toBase58());

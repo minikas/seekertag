@@ -168,8 +168,9 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     {notificationsOpen && <PageLayer><NotificationsScreen covered={!!chat || !!selected || !!form} onClose={() => setNotificationsOpen(false)} /></PageLayer>}
     {account && <PageLayer><Account token={token} user={user} onUserUpdated={onUserUpdated} onClose={() => setAccount(false)} onHelp={onHelp} onLogout={onLogout} /></PageLayer>}
     {chat && <Sheet title={t('Conversa')} scrollable={false} onClose={() => setChat(undefined)}>
-      <Conversation key={chat} id={chat} token={token} finder={finderChat} covered={!!selected} onViewItem={!finderChat ? report => {
-        setConversationTagId(report.id); setSelectedId(report.tagId);
+      <Conversation key={chat} id={chat} token={token} finder={finderChat} covered={!!selected || !!form} onViewItem={!finderChat ? (report, rewardOnly = false) => {
+        if (rewardOnly && tags.some(tag => tag.id === report.tagId)) { setRewardOnly(true); setForm(report.tagId); }
+        else { setConversationTagId(report.id); setSelectedId(report.tagId); }
         void invalidateApiResources(token, ['/tags', '/reports']);
       } : undefined} />
     </Sheet>}

@@ -219,12 +219,14 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     if (report.status !== 'open') fail(409, 'Esta conversa já foi encerrada.');
     if (get("SELECT subject FROM auth_identities WHERE user_id=? AND provider='solana'", report.owner_id)?.subject === address || get('SELECT id FROM rewards WHERE tag_id=? AND owner_id=? AND payer=?', report.tag_id, report.owner_id, address)) fail(403, 'A carteira de quem encontrou deve ser diferente da carteira do dono.');
     const existing = get('SELECT address FROM finder_reward_wallets WHERE report_id=?', report.id);
-    if (existing && existing.address !== address) fail(409, 'Esta conversa já tem uma carteira de recebimento confirmada.');
+    if (existing && existing.address !== address && get("SELECT o.id FROM reward_operations o JOIN rewards r ON r.id=o.reward_id WHERE r.release_report_id=? AND o.kind='release' AND o.status IN ('prepared','submitted','confirmed')", report.id)) {
+      fail(409, 'A liberação da recompensa já está em andamento. Aguarde a confirmação.', 'REWARD_PENDING');
+    }
     // Keep the legacy timestamp column for backwards compatibility; only
     // confirmation_method='signature' represents proof of wallet ownership.
-    if (!existing) {
+    if (!existing || existing.address !== address) {
       const at = now();
-      run('INSERT INTO finder_reward_wallets(report_id,address,verified_at,confirmation_method) VALUES(?,?,?,?)', report.id, address, at, method);
+      run('INSERT INTO finder_reward_wallets(report_id,address,verified_at,confirmation_method) VALUES(?,?,?,?) ON CONFLICT(report_id) DO UPDATE SET address=excluded.address,verified_at=excluded.verified_at,confirmation_method=excluded.confirmation_method', report.id, address, at, method);
       const message = run("INSERT INTO messages(report_id,role,body,created_at,kind) VALUES(?,'finder',?,?,'wallet_confirmed')",
         report.id, 'Carteira de recebimento confirmada.', at);
       run('UPDATE reports SET updated_at=? WHERE id=?', at, report.id);
@@ -303,6 +305,7 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
           if (kind === 'renew' && fresh.refund_after !== spec.previousRefundAfter) fail(409, 'A reserva mudou. Revise a renovação novamente.', 'REWARD_CHANGED');
           if (kind === 'release') {
             if (!get("SELECT id FROM reports WHERE id=? AND tag_id=? AND owner_id=? AND status='open'", req.body.reportId, tag.id, req.user.id)) fail(409, 'Esta conversa já foi encerrada.');
+            if (get('SELECT address FROM finder_reward_wallets WHERE report_id=?', req.body.reportId)?.address !== spec.recipient) fail(409, 'A carteira de recebimento mudou. Revise a devolução novamente.', 'REWARD_CHANGED');
             run('UPDATE rewards SET release_report_id=?,release_wallet=? WHERE id=?', req.body.reportId, spec.recipient, reward.id);
           }
         }

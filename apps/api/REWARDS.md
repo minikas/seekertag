@@ -146,7 +146,7 @@ Todas as rotas do dono exigem a sessão; as do visitante exigem a credencial daq
 | `POST /finder/reports/:id/reward/wallet` | Cadastra `{ address }` em base58 usando a credencial da conversa, sem assinatura |
 | `POST /finder/reports/:id/reward/wallet/verify` | Comprova posse, vincula carteira e consome nonce |
 
-Depósito recebe `{kind:"fund",currency:"SOL",amount:"0.01",durationSeconds:2592000}`; renovação `{kind:"renew",durationSeconds:604800}`; pagamento `{kind:"release",reportId}`; cancelamento `{kind:"refund"}`. O servidor escolhe destinatário, valor, mint, programa, verificador, treasury e percentual a partir de dados validados. A carteira do visitante não pode ser a do dono e não pode ser trocada depois da confirmação na conversa.
+Depósito recebe `{kind:"fund",currency:"SOL",amount:"0.01",durationSeconds:2592000}`; renovação `{kind:"renew",durationSeconds:604800}`; pagamento `{kind:"release",reportId}`; cancelamento `{kind:"refund"}`. O servidor escolhe destinatário, valor, mint, programa, verificador, treasury e percentual a partir de dados validados. A carteira do visitante não pode ser a do dono e pode ser editada enquanto a conversa estiver aberta e nenhuma liberação estiver preparada, enviada ou confirmada. A troca gera um novo aviso ao dono; repetir o mesmo endereço não duplica o aviso.
 
 As instruções `fund_sol`, `fund_token`, `fund_sol_timed` e `fund_token_timed` recebem treasury e percentual como parte do ABI. Não existe compatibilidade com depósitos experimentais anteriores a esse formato. As variantes antigas de prazo usam `days`; o aplicativo usa `durationSeconds` (`u32`). A API rejeita pedidos que misturam os dois formatos.
 

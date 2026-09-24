@@ -180,7 +180,6 @@ test('confirming a receiving wallet creates one conversation event and owner not
   const address = Keypair.generate().publicKey.toBase58();
   assert.equal((await h.request(path, found.token, { address })).status, 200);
   assert.equal((await h.request(path, found.token, { address })).status, 200);
-  assert.equal((await h.request(path, found.token, { address: Keypair.generate().publicKey.toBase58() })).status, 409);
   const conversation = (await h.request(`/reports/${found.report.id}`, h.owner.token)).data;
   assert.equal(conversation.messages.length, 2);
   assert.equal(conversation.messages[1].kind, 'wallet_confirmed');
@@ -192,6 +191,13 @@ test('confirming a receiving wallet creates one conversation event and owner not
   assert.equal(sent[0].data.reportId, found.report.id);
   assert.equal(sent[0].data.finder, false);
   assert.equal((await h.request(`/reports/${found.report.id}/reward`, h.owner.token)).data.recipient, address);
+  const edited = Keypair.generate().publicKey.toBase58();
+  assert.equal((await h.request(path, found.token, { address: edited })).status, 200);
+  assert.equal((await h.request(path, found.token, { address: edited })).status, 200);
+  assert.equal((await h.request(`/reports/${found.report.id}/reward`, h.owner.token)).data.recipient, edited);
+  assert.equal((await h.request(`/reports/${found.report.id}`, h.owner.token)).data.messages.length, 3);
+  await h.app.locals.notifications.flush();
+  assert.equal(sent.length, 2);
 });
 
 
@@ -216,4 +222,33 @@ test('signed wallet confirmation uses the same event and never duplicates an add
   const another = await h.report(null);
   assert.equal((await h.request(`/finder/reports/${another.report.id}/reward/wallet`, another.token, { address })).status, 200);
   assert.equal(h.app.locals.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE kind='wallet_confirmed'").get().n, 2);
+});
+
+
+test('receiving address edits stop when a payout is prepared or submitted and never change its recipient', async t => {
+  const h = await setup(t, null, { config: {} });
+  const found = await h.report(null);
+  const path = `/finder/reports/${found.report.id}/reward/wallet`;
+  const original = Keypair.generate().publicKey.toBase58();
+  const replacement = Keypair.generate().publicKey.toBase58();
+  assert.equal((await h.request(path, found.token, { address: original })).status, 200);
+  const db = h.app.locals.db;
+  db.prepare(`INSERT INTO rewards(id,tag_id,owner_id,payer,verifier,treasury,fee_bps,network,seed,escrow,currency,decimals,amount_units,status,created_at,release_report_id,release_wallet)
+    VALUES('edit-guard',?,?, 'payer','verifier','treasury',500,'devnet','seed','escrow','SOL',9,'1000','reserved',?,?,?)`).run(h.tag.id,h.owner.user.id,new Date().toISOString(),found.report.id,original);
+  db.prepare(`INSERT INTO reward_operations(id,reward_id,kind,spec,unsigned_tx,fee_lamports,rent_lamports,last_valid_height,status,created_at)
+    VALUES('payout-guard','edit-guard','release','{}','unsigned','0','0',100,'prepared',?)`).run(new Date().toISOString());
+  for (const status of ['prepared', 'submitted', 'confirmed']) {
+    db.prepare('UPDATE reward_operations SET status=?').run(status);
+    const response = await h.request(path, found.token, { address: replacement });
+    assert.equal(response.status, 409);
+    assert.equal(response.data.code, 'REWARD_PENDING');
+    assert.equal(db.prepare('SELECT address FROM finder_reward_wallets WHERE report_id=?').get(found.report.id).address, original);
+    assert.equal((await h.request(path, found.token, { address: original })).status, 200);
+  }
+  db.prepare("UPDATE reward_operations SET status='expired'").run();
+  assert.equal((await h.request(path, found.token, { address: replacement })).status, 200);
+  assert.equal((await h.request(path, found.token, { address: original })).status, 200);
+  assert.equal((await h.request(path, found.token, { address: h.owner.user.walletAddress || 'invalid' })).status, 400);
+  db.prepare("UPDATE reports SET status='resolved' WHERE id=?").run(found.report.id);
+  assert.equal((await h.request(path, found.token, { address: replacement })).status, 409);
 });

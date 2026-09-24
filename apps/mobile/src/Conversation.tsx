@@ -24,7 +24,7 @@ import { useNotifications } from './NotificationsProvider';
 type FinderItem = Pick<Tag, 'code' | 'name' | 'category' | 'categoryIcon' | 'color' | 'publicMessage' | 'status' | 'rewardAmount' | 'rewardCurrency'> & Partial<Pick<Tag, 'categoryDefaultKey'>>;
 type ConversationData = { report: Report; messages: Message[]; tag?: FinderItem };
 
-export default function Conversation({ id, token, finder = false, presentation = 'page', covered = false, historyFooter, onViewItem }: { id: string; token: string; finder?: boolean; presentation?: 'page' | 'sheet'; covered?: boolean; historyFooter?: React.ReactNode; onViewItem?: (report: Report) => void }) {
+export default function Conversation({ id, token, finder = false, presentation = 'page', covered = false, historyFooter, onViewItem }: { id: string; token: string; finder?: boolean; presentation?: 'page' | 'sheet'; covered?: boolean; historyFooter?: React.ReactNode; onViewItem?: (report: Report, rewardOnly?: boolean) => void }) {
   const { C, s, t, locale } = useUI();
   const drafts = useConversationDrafts();
   const draftKey = `${finder ? 'finder' : 'owner'}:${id}`;
@@ -60,12 +60,13 @@ export default function Conversation({ id, token, finder = false, presentation =
   }
   const recipient = rewardQuery.data?.recipient;
   const canEditReceivingWallet = finder && hasFinderMessage && report?.status === 'open'
-    && !!rewardQuery.data && !recipient && !rewardQuery.isError;
+    && !!rewardQuery.data && !rewardQuery.isError
+    && !(rewardQuery.data.reward?.operation?.kind === 'release') && rewardQuery.data.reward?.status !== 'released';
   const showReceivingWallet = finder && hasFinderMessage && (!!recipient || canEditReceivingWallet);
   const reward = rewardQuery.data?.reward;
   const showFinishReturn = !finder && report?.status === 'open' && !!recipient
-    && !!reward && ['reserved', 'expired'].includes(reward.status)
-    && (!reward.operation || reward.operation.kind === 'release');
+    && (!reward || ['reserved', 'expired', 'refunded'].includes(reward.status))
+    && (!reward?.operation || reward.operation.kind === 'release');
   const markResolved = () => queryClient.setQueryData<ConversationData>(apiQueryKey(token, path), previous => previous ? { ...previous, report: { ...previous.report, status: 'resolved' } } : previous);
   async function copyReceivingAddress() {
     if (!recipient) return;
@@ -138,7 +139,7 @@ export default function Conversation({ id, token, finder = false, presentation =
           onPress={() => { Keyboard.dismiss(); setReceivingWallet(true); }}
           style={({ pressed }) => [s.row, { gap: 12, minHeight: 44, opacity: pressed ? 0.65 : 1 }]}>
           <Text style={[s.h3, { flex: 1 }]}>{recipient ? t('Sua carteira de recebimento') : t('Informar carteira de recebimento')}</Text>
-          {canEditReceivingWallet && <Icon name="chevron-right" color={C.muted} size={22} />}
+          {canEditReceivingWallet && <><Text style={s.small}>{recipient ? t('Editar') : ''}</Text><Icon name="chevron-right" color={C.muted} size={22} /></>}
         </Pressable>
         {!!recipient && <Pressable testID="conversation-copy-receiving-wallet" accessibilityRole="button" accessibilityLabel={t('Copiar endereço da carteira')}
           accessibilityHint={recipient} onPress={() => void copyReceivingAddress()}
@@ -157,7 +158,7 @@ export default function Conversation({ id, token, finder = false, presentation =
         disabled={rewardQuery.isError} onPress={() => { Keyboard.dismiss(); setFinishReturn(true); }}
         style={({ pressed }) => ({ gap: 5, marginTop: 14, paddingTop: 30, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, opacity: pressed || rewardQuery.isError ? 0.65 : 1 })}>
         <View style={[s.row, { gap: 12 }]}><Text style={[s.h3, { flex: 1 }]}>{t('Finalizar devolução')}</Text><Icon name="chevron-right" color={C.muted} size={22} /></View>
-        <Text style={s.body}>{t('Libere a recompensa após receber seu objeto.')}</Text>
+        <Text style={s.body}>{t(!reward || reward.status === 'refunded' ? 'Adicione uma recompensa para pagar a quem encontrou.' : 'Libere a recompensa após receber seu objeto.')}</Text>
       </Pressable>}
       {historyFooter}
     </ScrollView>
@@ -189,6 +190,7 @@ export default function Conversation({ id, token, finder = false, presentation =
       ToastAndroid.show(t('Carteira de recebimento confirmada.'), ToastAndroid.SHORT);
     }} />}
     {!finder && finishReturn && rewardQuery.data && <RewardReleaseSheet tagId={rewardQuery.data.tagId} token={token} reportId={id} recipient={recipient || null}
+      onConfigureReward={onViewItem && report ? () => { setFinishReturn(false); onViewItem(report, true); } : undefined}
       onClose={() => { setFinishReturn(false); void rewardQuery.refetch(); }}
       onChanged={reward => queryClient.setQueryData<ConversationRewardData>(apiQueryKey(token, `${path}/reward`), previous => previous ? { ...previous, reward } : previous)}
       onReleased={markResolved} />}
