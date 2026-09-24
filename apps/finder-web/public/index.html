@@ -112,16 +112,11 @@
 
       <section id="chat-view" class="chat-layout hidden">
         <aside class="chat-context">
-          <p class="eyebrow" data-copy="privateConversation">CONVERSA PRIVADA</p>
           <div class="chat-item-heading">
             <div id="chat-item-icon" class="item-icon small" aria-hidden="true">◇</div>
             <div><h1 id="chat-item-name"></h1><p id="chat-item-category"></p></div>
           </div>
           <p class="lede" data-copy="chatLead">Combine a devolução por aqui. O dono não vê seus dados pessoais.</p>
-          <div class="browser-access">
-            <span aria-hidden="true">◎</span>
-            <p><strong data-copy="savedHere">Acesso salvo neste navegador</strong><small data-copy="savedHereText">Volte por este mesmo dispositivo para continuar a conversa.</small></p>
-          </div>
         </aside>
 
         <div class="conversation-panel">
@@ -137,7 +132,7 @@
           <div id="messages" class="messages" aria-live="polite"></div>
 
           <section id="chat-reward" class="chat-reward hidden">
-            <div class="reward-summary">
+            <div id="chat-reward-summary" class="reward-summary">
               <div class="reward-icon" aria-hidden="true">✦</div>
               <div><span id="chat-reward-label" class="section-label"></span><strong id="chat-reward-value"></strong><small id="chat-reward-network"></small></div>
             </div>
@@ -145,6 +140,7 @@
               <span data-copy="receivingWallet">Sua carteira de recebimento</span>
               <code id="wallet-address"></code>
             </div>
+            <button id="set-wallet" class="button secondary full hidden" type="button" data-copy="setWallet">Informar carteira de recebimento</button>
             <form id="wallet-form" class="wallet-form hidden" novalidate>
               <div id="wallet-entry">
                 <label for="wallet-input" data-copy="walletLabel">Carteira para receber a recompensa</label>
@@ -157,6 +153,7 @@
                 <span class="section-label" data-copy="reviewCarefully">CONFIRA COM ATENÇÃO</span>
                 <code id="wallet-review-address"></code>
                 <p data-copy="walletWarning">Depois de confirmar, este endereço ficará vinculado à conversa e não poderá ser trocado.</p>
+                <p id="wallet-review-error" class="field-error" role="alert"></p>
                 <div class="review-actions">
                   <button id="edit-wallet" class="button quiet" type="button" data-copy="edit">Editar</button>
                   <button id="confirm-wallet" class="button primary" type="button" data-copy="confirmWallet">Confirmar carteira</button>

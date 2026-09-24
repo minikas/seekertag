@@ -1,5 +1,6 @@
 const copy = {
   pt: {
+    setWallet: 'Informar carteira de recebimento',
     languageLabel: 'Idioma', loading: 'Abrindo a etiqueta…', couldNotOpen: 'NÃO FOI POSSÍVEL ABRIR', unexpectedError: 'Algo não saiu como esperado.', tryAgain: 'Tentar novamente',
     foundEyebrow: 'VOCÊ ENCONTROU ALGO IMPORTANTE', foundTitle: 'Vamos ajudar este objeto a voltar.', foundLead: 'Avise o dono sem revelar seu telefone ou e-mail. Não é preciso instalar o aplicativo.', openInApp: 'Abrir no aplicativo SeekerTag',
     ownerMessage: 'Mensagem do dono', reward: 'Recompensa', resumeTitle: 'Continuar sua conversa', resumeText: 'Este navegador já avisou o dono sobre este objeto.',
@@ -12,6 +13,7 @@ const copy = {
     noAccessTitle: 'Conversa indisponível neste navegador.', noAccessText: 'Abra a conversa no navegador em que você enviou o aviso ou escaneie a etiqueta para enviar um novo aviso.', genericError: 'Não foi possível concluir. Verifique sua conexão e tente novamente.',
   },
   en: {
+    setWallet: 'Set wallet address',
     languageLabel: 'Language', loading: 'Opening the tag…', couldNotOpen: 'COULD NOT OPEN', unexpectedError: 'Something did not go as expected.', tryAgain: 'Try again',
     foundEyebrow: 'YOU FOUND SOMETHING IMPORTANT', foundTitle: 'Let’s help this item find its way back.', foundLead: 'Notify the owner without revealing your phone number or email. No app installation required.', openInApp: 'Open in the SeekerTag app',
     ownerMessage: 'Message from the owner', reward: 'Reward', resumeTitle: 'Continue your conversation', resumeText: 'This browser has already notified the owner about this item.',
@@ -24,6 +26,7 @@ const copy = {
     noAccessTitle: 'Conversation unavailable in this browser.', noAccessText: 'Open it in the browser where you sent the notice, or scan the tag to send a new notice.', genericError: 'Could not complete the request. Check your connection and try again.',
   },
   es: {
+    setWallet: 'Indicar dirección de cartera',
     languageLabel: 'Idioma', loading: 'Abriendo la etiqueta…', couldNotOpen: 'NO SE PUDO ABRIR', unexpectedError: 'Algo no salió como esperábamos.', tryAgain: 'Intentar de nuevo',
     foundEyebrow: 'ENCONTRASTE ALGO IMPORTANTE', foundTitle: 'Ayudemos a que este objeto vuelva.', foundLead: 'Avisa al dueño sin revelar tu teléfono o correo. No necesitas instalar la aplicación.', openInApp: 'Abrir en la aplicación SeekerTag',
     ownerMessage: 'Mensaje del dueño', reward: 'Recompensa', resumeTitle: 'Continuar tu conversación', resumeText: 'Este navegador ya avisó al dueño sobre este objeto.',
@@ -45,6 +48,7 @@ let currentTag;
 let currentConversation;
 let currentReward;
 let pollTimer;
+let walletEditing = false;
 
 function t(key) { return copy[language][key] || copy.pt[key] || key; }
 function applyLanguage() {
@@ -248,16 +252,19 @@ function renderReward(data) {
   currentReward = data;
   const reward = data.reward;
   const section = $('#chat-reward');
-  section.classList.toggle('hidden', !reward);
-  if (!reward) return;
-  $('#chat-reward-label').textContent = rewardLabel(reward);
-  $('#chat-reward-value').textContent = `${reward.amount} ${reward.currency}`;
-  $('#chat-reward-network').textContent = networkLabel(reward.network);
+  section.classList.toggle('hidden', !reward && !data.recipient);
+  $('#chat-reward-summary').classList.toggle('hidden', !reward);
+  if (reward) {
+    $('#chat-reward-label').textContent = rewardLabel(reward);
+    $('#chat-reward-value').textContent = `${reward.amount} ${reward.currency}`;
+    $('#chat-reward-network').textContent = networkLabel(reward.network);
+  }
   const hasWallet = Boolean(data.recipient);
   $('#wallet-saved').classList.toggle('hidden', !hasWallet);
   $('#wallet-address').textContent = data.recipient || '';
-  const canSetWallet = !hasWallet && ['reserved', 'expired'].includes(reward.status) && !reward.operation && currentConversation?.report.status === 'open' && data.config;
-  $('#wallet-form').classList.toggle('hidden', !canSetWallet);
+  const canSetWallet = !hasWallet && reward && !['released', 'refunded'].includes(reward.status) && currentConversation?.report.status === 'open';
+  $('#set-wallet').classList.toggle('hidden', !canSetWallet || walletEditing);
+  $('#wallet-form').classList.toggle('hidden', !canSetWallet || !walletEditing);
 }
 
 async function loadConversation(id, { quiet = false } = {}) {
@@ -311,11 +318,18 @@ function resizeComposer(field) {
 }
 $('#chat-message').addEventListener('input', event => { $('#composer-error').textContent = ''; resizeComposer(event.target); });
 
+$('#set-wallet').addEventListener('click', () => {
+  walletEditing = true;
+  renderReward(currentReward);
+  $('#wallet-input').focus();
+});
+
 $('#wallet-form').addEventListener('submit', event => {
   event.preventDefault();
   const address = $('#wallet-input').value.trim();
   if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) { $('#wallet-error').textContent = t('invalidWallet'); return; }
   $('#wallet-error').textContent = '';
+  $('#wallet-review-error').textContent = '';
   $('#wallet-review-address').textContent = address;
   $('#wallet-entry').classList.add('hidden');
   $('#wallet-review').classList.remove('hidden');
@@ -324,15 +338,15 @@ $('#edit-wallet').addEventListener('click', () => { $('#wallet-review').classLis
 $('#confirm-wallet').addEventListener('click', async () => {
   const button = $('#confirm-wallet');
   button.disabled = true;
+  $('#wallet-review-error').textContent = '';
   try {
     const { recipient } = await request(`/api/finder/reports/${encodeURIComponent(currentConversation.report.id)}/reward/wallet`, { method: 'POST', body: { address: $('#wallet-review-address').textContent } });
+    walletEditing = false;
     renderReward({ ...currentReward, recipient });
     $('#chat-notice').textContent = t('walletSaved');
     $('#chat-notice').classList.remove('hidden', 'error');
   } catch (error) {
-    $('#wallet-review').classList.add('hidden');
-    $('#wallet-entry').classList.remove('hidden');
-    $('#wallet-error').textContent = friendlyError(error);
+    $('#wallet-review-error').textContent = friendlyError(error);
   } finally { button.disabled = false; }
 });
 
