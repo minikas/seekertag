@@ -206,6 +206,8 @@ code { display: block; overflow-wrap: anywhere; color: #d9e5e0; font-family: ui-
   .found-intro, .chat-context { position: static; }
   h1 { font-size: clamp(46px, 12vw, 70px); }
   .chat-context .lede { display: none; }
+  .chat-layout { row-gap: 20px; }
+  .chat-item-heading { margin-bottom: 0; }
   .browser-access { margin-top: 26px; }
 }
 
@@ -213,6 +215,7 @@ code { display: block; overflow-wrap: anywhere; color: #d9e5e0; font-family: ui-
   .site-header { min-height: 76px; }
   .page-shell { width: 100%; }
   .found-layout, .chat-layout { padding: 50px 17px 70px; gap: 38px; }
+  .chat-layout { row-gap: 20px; }
   .found-intro h1 { font-size: 51px; }
   .finder-panel, .conversation-panel { border-radius: 23px; }
   .finder-panel { padding: 22px 19px; }

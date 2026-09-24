@@ -252,17 +252,19 @@ function renderReward(data) {
   currentReward = data;
   const reward = data.reward;
   const section = $('#chat-reward');
-  section.classList.toggle('hidden', !reward && !data.recipient);
+  const hasWallet = Boolean(data.recipient);
+  // Receiving wallets belong to conversations, not to a particular escrow.
+  // Older conversations can receive an address before a reward is reserved.
+  const canSetWallet = !hasWallet && currentConversation?.report.status === 'open';
+  section.classList.toggle('hidden', !reward && !hasWallet && !canSetWallet);
   $('#chat-reward-summary').classList.toggle('hidden', !reward);
   if (reward) {
     $('#chat-reward-label').textContent = rewardLabel(reward);
     $('#chat-reward-value').textContent = `${reward.amount} ${reward.currency}`;
     $('#chat-reward-network').textContent = networkLabel(reward.network);
   }
-  const hasWallet = Boolean(data.recipient);
   $('#wallet-saved').classList.toggle('hidden', !hasWallet);
   $('#wallet-address').textContent = data.recipient || '';
-  const canSetWallet = !hasWallet && reward && !['released', 'refunded'].includes(reward.status) && currentConversation?.report.status === 'open';
   $('#set-wallet').classList.toggle('hidden', !canSetWallet || walletEditing);
   $('#wallet-form').classList.toggle('hidden', !canSetWallet || !walletEditing);
 }
