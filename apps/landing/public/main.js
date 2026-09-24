@@ -105,7 +105,9 @@ document.querySelector("#year").textContent = new Date().getFullYear();
 const header = document.querySelector(".header");
 let headerFrame;
 const updateHeader = () => {
-  header.classList.toggle("is-scrolled", window.scrollY > 48);
+  // Separate thresholds prevent tiny reversals from toggling the header.
+  const compact = header.classList.contains("is-scrolled");
+  header.classList.toggle("is-scrolled", compact ? window.scrollY > 24 : window.scrollY > 48);
   headerFrame = undefined;
 };
 window.addEventListener(
