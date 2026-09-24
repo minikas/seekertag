@@ -1,5 +1,6 @@
 const copy = {
   pt: {
+    talkingToOwner: 'Você está falando com o dono.', close: 'Fechar',
     setWallet: 'Informar carteira de recebimento',
     languageLabel: 'Idioma', loading: 'Abrindo a etiqueta…', couldNotOpen: 'NÃO FOI POSSÍVEL ABRIR', unexpectedError: 'Algo não saiu como esperado.', tryAgain: 'Tentar novamente',
     foundEyebrow: 'VOCÊ ENCONTROU ALGO IMPORTANTE', foundTitle: 'Vamos ajudar este objeto a voltar.', foundLead: 'Avise o dono sem revelar seu telefone ou e-mail. Não é preciso instalar o aplicativo.', openInApp: 'Abrir no aplicativo SeekerTag',
@@ -13,6 +14,7 @@ const copy = {
     noAccessTitle: 'Conversa indisponível neste navegador.', noAccessText: 'Abra a conversa no navegador em que você enviou o aviso ou escaneie a etiqueta para enviar um novo aviso.', genericError: 'Não foi possível concluir. Verifique sua conexão e tente novamente.',
   },
   en: {
+    talkingToOwner: 'You’re talking to the owner.', close: 'Close',
     setWallet: 'Set wallet address',
     languageLabel: 'Language', loading: 'Opening the tag…', couldNotOpen: 'COULD NOT OPEN', unexpectedError: 'Something did not go as expected.', tryAgain: 'Try again',
     foundEyebrow: 'YOU FOUND SOMETHING IMPORTANT', foundTitle: 'Let’s help this item find its way back.', foundLead: 'Notify the owner without revealing your phone number or email. No app installation required.', openInApp: 'Open in the SeekerTag app',
@@ -26,6 +28,7 @@ const copy = {
     noAccessTitle: 'Conversation unavailable in this browser.', noAccessText: 'Open it in the browser where you sent the notice, or scan the tag to send a new notice.', genericError: 'Could not complete the request. Check your connection and try again.',
   },
   es: {
+    talkingToOwner: 'Estás hablando con el dueño.', close: 'Cerrar',
     setWallet: 'Indicar dirección de cartera',
     languageLabel: 'Idioma', loading: 'Abriendo la etiqueta…', couldNotOpen: 'NO SE PUDO ABRIR', unexpectedError: 'Algo no salió como esperábamos.', tryAgain: 'Intentar de nuevo',
     foundEyebrow: 'ENCONTRASTE ALGO IMPORTANTE', foundTitle: 'Ayudemos a que este objeto vuelva.', foundLead: 'Avisa al dueño sin revelar tu teléfono o correo. No necesitas instalar la aplicación.', openInApp: 'Abrir en la aplicación SeekerTag',
@@ -73,6 +76,7 @@ $('#language').addEventListener('change', event => {
 $('#retry').addEventListener('click', () => location.reload());
 
 function show(view) {
+  document.body.classList.toggle('chat-page', view === 'chat-view');
   ['loading-view', 'error-view', 'found-view', 'chat-view'].forEach(id => $(`#${id}`).classList.toggle('hidden', id !== view));
 }
 
@@ -323,7 +327,19 @@ $('#chat-message').addEventListener('input', event => { $('#composer-error').tex
 $('#set-wallet').addEventListener('click', () => {
   walletEditing = true;
   renderReward(currentReward);
+  $('#wallet-dialog').showModal();
   $('#wallet-input').focus();
+});
+
+$('#close-wallet').addEventListener('click', () => {
+  if (!$('#confirm-wallet').disabled) $('#wallet-dialog').close();
+});
+$('#wallet-dialog').addEventListener('cancel', event => {
+  if ($('#confirm-wallet').disabled) event.preventDefault();
+});
+$('#wallet-dialog').addEventListener('close', () => {
+  walletEditing = false;
+  renderReward(currentReward);
 });
 
 $('#wallet-form').addEventListener('submit', event => {
@@ -345,6 +361,7 @@ $('#confirm-wallet').addEventListener('click', async () => {
     const { recipient } = await request(`/api/finder/reports/${encodeURIComponent(currentConversation.report.id)}/reward/wallet`, { method: 'POST', body: { address: $('#wallet-review-address').textContent } });
     walletEditing = false;
     renderReward({ ...currentReward, recipient });
+    $('#wallet-dialog').close();
     $('#chat-notice').textContent = t('walletSaved');
     $('#chat-notice').classList.remove('hidden', 'error');
   } catch (error) {

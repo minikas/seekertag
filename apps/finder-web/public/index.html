@@ -116,7 +116,7 @@
             <div id="chat-item-icon" class="item-icon small" aria-hidden="true">◇</div>
             <div><h1 id="chat-item-name"></h1><p id="chat-item-category"></p></div>
           </div>
-          <p class="lede" data-copy="chatLead">Combine a devolução por aqui. O dono não vê seus dados pessoais.</p>
+          <p class="chat-subtitle" data-copy="talkingToOwner">Você está falando com o dono.</p>
         </aside>
 
         <div class="conversation-panel">
@@ -140,14 +140,16 @@
               <span data-copy="receivingWallet">Sua carteira de recebimento</span>
               <code id="wallet-address"></code>
             </div>
-            <button id="set-wallet" class="button secondary full hidden" type="button" data-copy="setWallet">Informar carteira de recebimento</button>
+            <button id="set-wallet" class="wallet-action hidden" type="button"><span data-copy="setWallet">Informar carteira de recebimento</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button>
+            <dialog id="wallet-dialog" class="wallet-dialog" aria-labelledby="wallet-dialog-title">
+              <header class="wallet-dialog-header"><h2 id="wallet-dialog-title" data-copy="receivingWallet">Sua carteira de recebimento</h2><button id="close-wallet" class="button quiet" type="button"><span data-copy="close">Fechar</span></button></header>
             <form id="wallet-form" class="wallet-form hidden" novalidate>
               <div id="wallet-entry">
                 <label for="wallet-input" data-copy="walletLabel">Carteira para receber a recompensa</label>
                 <input id="wallet-input" type="text" maxlength="100" autocomplete="off" spellcheck="false" data-copy-placeholder="walletPlaceholder" placeholder="Cole um endereço Solana" />
                 <p class="helper" data-copy="walletHelper">Nenhuma conexão ou assinatura de carteira é necessária.</p>
                 <p id="wallet-error" class="field-error" role="alert"></p>
-                <button class="button secondary full" type="submit" data-copy="reviewAddress">Revisar endereço</button>
+                <button class="button primary full" type="submit" data-copy="reviewAddress">Revisar endereço</button>
               </div>
               <div id="wallet-review" class="wallet-review hidden">
                 <span class="section-label" data-copy="reviewCarefully">CONFIRA COM ATENÇÃO</span>
@@ -160,12 +162,13 @@
                 </div>
               </div>
             </form>
+            </dialog>
           </section>
 
           <form id="message-form" class="composer" novalidate>
             <label class="sr-only" for="chat-message" data-copy="newMessage">Nova mensagem</label>
             <textarea id="chat-message" rows="1" maxlength="2000" required data-copy-placeholder="chatPlaceholder" placeholder="Escreva uma mensagem…"></textarea>
-            <button id="send-message" class="send-button" type="submit" aria-label="Enviar"><span aria-hidden="true">↑</span></button>
+            <button id="send-message" class="send-button" type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13" /></svg></button>
           </form>
           <p id="composer-error" class="field-error composer-error" role="alert"></p>
         </div>
