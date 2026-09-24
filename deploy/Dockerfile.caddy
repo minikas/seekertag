@@ -1,6 +1,9 @@
 FROM node:24-bookworm-slim AS finder-builder
 WORKDIR /src
+COPY package.json package-lock.json ./
+COPY packages/shared ./packages/shared
 COPY apps/finder-web ./apps/finder-web
+RUN npm ci --workspace=@seekertag/finder-web --include-workspace-root=false --ignore-scripts
 RUN node apps/finder-web/scripts/build.mjs
 
 FROM caddy:2.11.4-alpine

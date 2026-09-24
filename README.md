@@ -51,6 +51,8 @@ npm run dev:finder
 
 `npm run build:finder` generates `apps/finder-web/dist`. Set `FINDER_PORT` or `FINDER_API_ORIGIN` to override the local defaults `4321` and `http://127.0.0.1:4318`.
 
+The Finder uses native HTML forms (not React Hook Form). Its build bundles the shared Solana receiving-address validator for browser use; the development server serves the same bundle. Wallet review stays disabled until the address passes that validation. The API still enforces conversation ownership, status and immutable recipient rules when saving.
+
 ## Monorepo (Turborepo + npm workspaces)
 
 Requires Node.js 24+ and npm 11.8.0. Run `npm ci` once at the repository root.

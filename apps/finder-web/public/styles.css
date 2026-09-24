@@ -181,7 +181,7 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 code { display: block; overflow-wrap: anywhere; color: #d9e5e0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.6; }
 .wallet-form { margin-top: 17px; padding-top: 17px; border-top: 1px solid var(--raised); }
 .wallet-form label { display: block; margin-bottom: 9px; }
-.wallet-form input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.wallet-form input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 16px; }
 .helper { margin: 7px 0 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .wallet-review code { margin: 12px 0; padding: 13px; border-radius: 12px; background: var(--surface); }
 .wallet-review p { color: var(--muted); font-size: 12px; line-height: 1.55; }

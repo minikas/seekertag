@@ -8,6 +8,7 @@
     <title>SeekerTag · Devolver objeto</title>
     <link rel="icon" href="/finder-assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/finder-assets/styles.css" />
+    <script src="/finder-assets/wallet-validator.js" defer></script>
     <script src="/finder-assets/app.js" defer></script>
   </head>
   <body>
@@ -146,10 +147,10 @@
             <form id="wallet-form" class="wallet-form hidden" novalidate>
               <div id="wallet-entry">
                 <label for="wallet-input" data-copy="walletLabel">Carteira para receber a recompensa</label>
-                <input id="wallet-input" type="text" maxlength="100" autocomplete="off" spellcheck="false" data-copy-placeholder="walletPlaceholder" placeholder="Cole um endereço Solana" />
+                <input id="wallet-input" type="text" maxlength="100" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="wallet-error" data-copy-placeholder="walletPlaceholder" placeholder="Cole um endereço Solana" />
                 <p class="helper" data-copy="walletHelper">Nenhuma conexão ou assinatura de carteira é necessária.</p>
                 <p id="wallet-error" class="field-error" role="alert"></p>
-                <button class="button primary full" type="submit" data-copy="reviewAddress">Revisar endereço</button>
+                <button id="review-wallet" class="button primary full" type="submit" data-copy="reviewAddress" disabled>Revisar endereço</button>
               </div>
               <div id="wallet-review" class="wallet-review hidden">
                 <span class="section-label" data-copy="reviewCarefully">CONFIRA COM ATENÇÃO</span>

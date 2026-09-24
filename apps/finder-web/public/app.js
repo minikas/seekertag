@@ -328,6 +328,7 @@ $('#set-wallet').addEventListener('click', () => {
   walletEditing = true;
   renderReward(currentReward);
   $('#wallet-dialog').showModal();
+  validateWalletInput();
   $('#wallet-input').focus();
 });
 
@@ -342,10 +343,21 @@ $('#wallet-dialog').addEventListener('close', () => {
   renderReward(currentReward);
 });
 
+function validateWalletInput() {
+  const input = $('#wallet-input');
+  const address = globalThis.FinderWallet?.receivingWalletAddress(input.value) || null;
+  const invalid = Boolean(input.value.trim()) && !address;
+  $('#review-wallet').disabled = !address;
+  input.setAttribute('aria-invalid', String(invalid));
+  $('#wallet-error').textContent = invalid ? t('invalidWallet') : '';
+  return address;
+}
+$('#wallet-input').addEventListener('input', validateWalletInput);
+
 $('#wallet-form').addEventListener('submit', event => {
   event.preventDefault();
-  const address = $('#wallet-input').value.trim();
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) { $('#wallet-error').textContent = t('invalidWallet'); return; }
+  const address = validateWalletInput();
+  if (!address) return;
   $('#wallet-error').textContent = '';
   $('#wallet-review-error').textContent = '';
   $('#wallet-review-address').textContent = address;

@@ -11,5 +11,9 @@
     "build": "node scripts/build.mjs",
     "preview": "node scripts/serve.mjs --production",
     "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@seekertag/shared": "^1.0.0",
+    "esbuild": "^0.28.2"
   }
 }

@@ -2,6 +2,7 @@ import { createServer, request as requestUpstream } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildValidator } from './validator.mjs';
 
 const sourceRoot = fileURLToPath(new URL('../public/', import.meta.url));
 const productionRoot = fileURLToPath(new URL('../dist/', import.meta.url));
@@ -42,6 +43,7 @@ async function sendFile(req, res, root, relativePath, headers = {}) {
 }
 
 export function createFinderServer({ root = sourceRoot, apiOrigin = 'http://127.0.0.1:4318' } = {}) {
+  let validator;
   const canonicalApi = new URL(apiOrigin);
   return createServer(async (req, res) => {
     try {
@@ -54,6 +56,13 @@ export function createFinderServer({ root = sourceRoot, apiOrigin = 'http://127.
       }
       if (pathname.startsWith('/finder-assets/')) {
         const asset = pathname.slice('/finder-assets/'.length);
+        if (root === sourceRoot && asset === 'wallet-validator.js') {
+          validator ||= buildValidator().catch(error => { validator = null; throw error; });
+          const body = await validator;
+          res.writeHead(200, { 'Content-Type': mime['.js'], 'Cache-Control': 'no-cache' });
+          res.end(req.method === 'HEAD' ? undefined : body);
+          return;
+        }
         if (!asset || asset.includes('/')) throw new Error('NOT_FOUND');
         await sendFile(req, res, root, asset, { 'Cache-Control': 'no-cache' });
         return;
