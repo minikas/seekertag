@@ -9,7 +9,7 @@ export type User = { id: string; name: string; email: string | null; createdAt: 
 export type Category = { id: string; name: string; icon: string; color: string; defaultKey: string | null; tagCount: number };
 export type Tag = { id: string; code: string; name: string; category: string; categoryId: string | null; categoryIcon: string; categoryDefaultKey: string | null; color: string; description: string; publicMessage: string; status: 'active' | 'lost' | 'paused'; rewardAmount: number; rewardCurrency: string; publicUrl: string; createdAt: string; updatedAt: string; returnedAt: string | null; recoveryCount: number; reportCount: number; openReportCount: number; reward?: RewardView | null };
 export type Report = { id: string; tagId: string; tagName: string; tagCode: string; finderName: string; status: 'open' | 'resolved'; createdAt: string; updatedAt: string; lastMessage: string; messageCount: number };
-export type Message = { id: number; role: 'owner' | 'finder'; body: string; createdAt: string };
+export type Message = { kind?: 'wallet_confirmed'; id: number; role: 'owner' | 'finder'; body: string; createdAt: string };
 export class ApiError extends Error { constructor(message: string, public status: number) { super(message); } }
 export async function api<T>(path: string, token?: string | null, body?: unknown, method?: string, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();

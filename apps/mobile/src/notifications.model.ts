@@ -1,5 +1,5 @@
 export type InboxNotification = {
-  id: number; reportId: string; tagName: string; senderName: string | null;
+  kind?: 'wallet_confirmed'; id: number; reportId: string; tagName: string; senderName: string | null;
   finder: boolean; body: string; createdAt: string; read: boolean;
 };
 export type NotificationInbox = { notifications: InboxNotification[]; unreadCount: number; latestId: number; nextCursor: number | null };

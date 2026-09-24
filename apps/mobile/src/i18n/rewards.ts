@@ -1,5 +1,6 @@
 // Shared reward, wallet and on-chain validation copy.
 export const rewards: Record<string, readonly [string, string]> = {
+  'Carteira de recebimento confirmada.': ['Receiving wallet confirmed.', 'Cartera de recepción confirmada.'],
   'Não foi possível verificar o saldo mínimo da rede. Tente novamente.': ['Could not verify the network minimum balance. Try again.', 'No se pudo verificar el saldo mínimo de la red. Inténtalo de nuevo.'],
   'A reserva mudou. Revise a renovação novamente.': ['The reservation changed. Review the renewal again.', 'La reserva cambió. Revisa la renovación de nuevo.'],
   "Confirmar ação": ["Confirm action", "Confirmar acción"],

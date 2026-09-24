@@ -12,7 +12,7 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const now = () => new Date().toISOString();
 const activeStatuses = ['pending', 'reserved'];
 
-export function createRewards({ db, get, all, run, transaction, fail, chain, publicOrigin, ownerTag, ownerReport, requireOwner, requireFinder, writeLimit }) {
+export function createRewards({ db, get, all, run, transaction, fail, chain, publicOrigin, ownerTag, ownerReport, requireOwner, requireFinder, writeLimit, notifications }) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS rewards (
       id TEXT PRIMARY KEY, tag_id TEXT NOT NULL REFERENCES tags(id), owner_id TEXT NOT NULL REFERENCES users(id),
@@ -222,7 +222,14 @@ export function createRewards({ db, get, all, run, transaction, fail, chain, pub
     if (existing && existing.address !== address) fail(409, 'Esta conversa já tem uma carteira de recebimento confirmada.');
     // Keep the legacy timestamp column for backwards compatibility; only
     // confirmation_method='signature' represents proof of wallet ownership.
-    if (!existing) run('INSERT INTO finder_reward_wallets(report_id,address,verified_at,confirmation_method) VALUES(?,?,?,?)', report.id, address, now(), method);
+    if (!existing) {
+      const at = now();
+      run('INSERT INTO finder_reward_wallets(report_id,address,verified_at,confirmation_method) VALUES(?,?,?,?)', report.id, address, at, method);
+      const message = run("INSERT INTO messages(report_id,role,body,created_at,kind) VALUES(?,'finder',?,?,'wallet_confirmed')",
+        report.id, 'Carteira de recebimento confirmada.', at);
+      run('UPDATE reports SET updated_at=? WHERE id=?', at, report.id);
+      notifications.enqueue(report, 'finder', Number(message.lastInsertRowid));
+    }
     else if (method === 'signature') run("UPDATE finder_reward_wallets SET confirmation_method='signature',verified_at=? WHERE report_id=?", now(), report.id);
   }
   function install(app) {

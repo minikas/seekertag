@@ -63,7 +63,7 @@ export function NotificationsProvider({ token, userId, onOpen, children }: Props
       for (const item of arrivals) {
         if (current.current !== identity) return;
         await Notifications.scheduleNotificationAsync({ identifier: `message-${userId}-${item.id}`,
-          content: { title: `${latest.current.t('Nova mensagem')} · ${item.tagName}`, body: item.body.slice(0, 240), sound: 'default',
+          content: { title: `${latest.current.t(item.kind === 'wallet_confirmed' ? 'Carteira de recebimento confirmada.' : 'Nova mensagem')} · ${item.tagName}`, body: (item.kind === 'wallet_confirmed' ? latest.current.t(item.body) : item.body).slice(0, 240), sound: 'default',
             data: { messageId: item.id, reportId: item.reportId, userId, finder: item.finder, apiOrigin } }, trigger: { channelId: 'messages' } });
       }
     })().catch(() => {});

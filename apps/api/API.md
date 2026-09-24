@@ -208,6 +208,13 @@ Rotas autenticadas com a sessão da conta:
   `409 PUSH_PROJECT_MISMATCH`.
 - `DELETE /api/notifications/devices`: `{ token }`. Revoga o dispositivo da conta.
 
+A primeira confirmação de carteira (por endereço ou assinatura) grava um evento
+`kind: 'wallet_confirmed'` em `messages` e na central do dono, com push pela mesma
+fila de mensagens. O evento e a carteira são gravados na mesma transação.
+Repetir a confirmação do mesmo endereço não gera outro evento. Carteiras
+confirmadas antes desta versão continuam visíveis no estado da recompensa;
+não são criadas notificações retroativas.
+
 As próprias mensagens não geram notificações. As conversas de visitante só são
 incluídas após serem vinculadas à conta. A permissão Android e o cadastro do
 dispositivo não são necessários para consultar a central. Veja a configuração

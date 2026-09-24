@@ -98,6 +98,9 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     CREATE INDEX IF NOT EXISTS events_tag ON tag_events(tag_id, owner_id);
     CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
   `);
+  if (!db.prepare('PRAGMA table_info(messages)').all().some(column => column.name === 'kind')) {
+    db.exec("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'message';");
+  }
   migrateAuth(db);
   // Older installations created finder conversations without an account. Keep
   // those conversations usable, while allowing their holder to save them.
@@ -233,7 +236,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     if (tag.status === 'paused') fail(410, 'Esta etiqueta está pausada pelo dono.', 'TAG_PAUSED');
     return tag;
   };
-  const rewards = createRewards({ db, get, all, run, transaction, fail, chain: rewardChain, publicOrigin, ownerTag, ownerReport, requireOwner, requireFinder, writeLimit: ownerWriteLimit });
+  const rewards = createRewards({ db, get, all, run, transaction, fail, chain: rewardChain, publicOrigin, ownerTag, ownerReport, requireOwner, requireFinder, writeLimit: ownerWriteLimit, notifications });
   rewards.install(app);
   function tagView(t) {
     const counts = get("SELECT COUNT(*) AS total, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open FROM reports WHERE tag_id=? AND owner_id=?", t.id, t.owner_id);
@@ -246,7 +249,7 @@ export function createApp({ dbPath = './data/seekertag.sqlite', publicUrl = 'htt
     const count = get('SELECT COUNT(*) AS n FROM messages WHERE report_id=?', r.id).n;
     return { id: r.id, tagId: r.tag_id, tagName: r.tag_name, tagCode: r.tag_code, finderName: r.finder_name, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at, lastMessage: last?.body || '', messageCount: count };
   }
-  const messageView = (m) => ({ id: m.id, role: m.role, body: m.body, createdAt: m.created_at });
+  const messageView = (m) => ({ id: m.id, role: m.role, body: m.body, createdAt: m.created_at, ...(m.kind === 'wallet_confirmed' ? { kind: m.kind } : {}) });
   const messagesFor = (id) => all('SELECT * FROM messages WHERE report_id=? ORDER BY id', id).map(messageView);
   function addMessage(report, role, body) {
     if (report.status !== 'open') fail(409, 'A devolução já foi concluída. Esta conversa está encerrada.', 'REPORT_RESOLVED');

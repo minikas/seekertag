@@ -1,10 +1,13 @@
+import { createPrivateKey, sign } from 'node:crypto';
+import { createSignInMessage } from '@solana/wallet-standard-util';
+import { Keypair } from '@solana/web3.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../app.js';
 
-async function setup(t, pushSender) {
-  const app = createApp({ dbPath: ':memory:', rateLimits: false, pushSender: pushSender || null });
+async function setup(t, pushSender, rewardChain) {
+  const app = createApp({ dbPath: ':memory:', rateLimits: false, pushSender: pushSender || null, rewardChain });
   const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(async () => { await new Promise(resolve => server.close(resolve)); app.locals.close(); });
   async function request(path, token, body, method = body === undefined ? 'GET' : 'POST') {
@@ -162,4 +165,55 @@ test('an in-flight delivery cannot delete a new account job that reused the same
   finish('sent'); await flushing;
   const job = h.app.locals.db.prepare('SELECT user_id FROM push_jobs').get();
   assert.equal(job.user_id, h.finder.user.id);
+});
+
+
+test('confirming a receiving wallet creates one conversation event and owner notification, including retries', async t => {
+  const sent = [];
+  const h = await setup(t, { projectId: 'seekertag-qa', send: async message => { sent.push(message); } }, { config: {} });
+  const found = await h.report(null);
+  await h.request('/notifications/read', h.owner.token, { throughId: found.messages[0].id });
+  await h.request('/notifications/devices', h.owner.token, registration('fcm_wallet_confirmation_device'));
+  const path = `/finder/reports/${found.report.id}/reward/wallet`;
+  assert.equal((await h.request(path, found.token, { address: 'invalid' })).status, 400);
+  assert.equal((await h.request('/notifications', h.owner.token)).data.unreadCount, 0);
+  const address = Keypair.generate().publicKey.toBase58();
+  assert.equal((await h.request(path, found.token, { address })).status, 200);
+  assert.equal((await h.request(path, found.token, { address })).status, 200);
+  assert.equal((await h.request(path, found.token, { address: Keypair.generate().publicKey.toBase58() })).status, 409);
+  const conversation = (await h.request(`/reports/${found.report.id}`, h.owner.token)).data;
+  assert.equal(conversation.messages.length, 2);
+  assert.equal(conversation.messages[1].kind, 'wallet_confirmed');
+  assert.equal((await h.request('/notifications', h.owner.token)).data.unreadCount, 1);
+  assert.equal((await h.request('/notifications', h.stranger.token)).data.unreadCount, 0);
+  await h.app.locals.notifications.flush();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].title, 'Receiving wallet confirmed · Keys');
+  assert.equal(sent[0].data.reportId, found.report.id);
+  assert.equal(sent[0].data.finder, false);
+  assert.equal((await h.request(`/reports/${found.report.id}/reward`, h.owner.token)).data.recipient, address);
+});
+
+
+test('signed wallet confirmation uses the same event and never duplicates an address confirmation', async t => {
+  const h = await setup(t, null, { config: {} });
+  const found = await h.report(null);
+  const base = `/finder/reports/${found.report.id}/reward/wallet`;
+  const wallet = Keypair.generate();
+  const address = wallet.publicKey.toBase58();
+  const confirm = async () => {
+    const { data: { challengeId, payload } } = await h.request(`${base}/challenge`, found.token, {});
+    const message = createSignInMessage({ ...payload, address });
+    const key = createPrivateKey({ type: 'pkcs8', format: 'der', key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.from(wallet.secretKey.slice(0, 32))]) });
+    return h.request(`${base}/verify`, found.token, { challengeId, address: wallet.publicKey.toBuffer().toString('base64'),
+      signedMessage: Buffer.from(message).toString('base64'), signature: sign(null, message, key).toString('base64') });
+  };
+  assert.equal((await confirm()).status, 200);
+  assert.equal((await confirm()).status, 200);
+  assert.equal((await h.request(base, found.token, { address })).status, 200);
+  assert.equal(h.app.locals.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE kind='wallet_confirmed'").get().n, 1);
+  assert.equal((await h.request('/notifications', h.owner.token)).data.unreadCount, 2);
+  const another = await h.report(null);
+  assert.equal((await h.request(`/finder/reports/${another.report.id}/reward/wallet`, another.token, { address })).status, 200);
+  assert.equal(h.app.locals.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE kind='wallet_confirmed'").get().n, 2);
 });

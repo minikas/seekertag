@@ -39,7 +39,7 @@ function harness(drafts, options = {}) {
   };
   const dependencies = {
     react,
-    'react-native': { StyleSheet: { hairlineWidth: 1 }, View: 'View', Text: 'Text', TextInput: 'TextInput', ScrollView: 'ScrollView', AppState: { currentState: 'active' }, Keyboard: { dismiss() {} }, ToastAndroid: { show() {}, SHORT: 0 } },
+    'react-native': { StyleSheet: { hairlineWidth: 1 }, View: 'View', Text: 'Text', TextInput: 'TextInput', ScrollView: 'ScrollView', RefreshControl: 'RefreshControl', AppState: { currentState: 'active' }, Keyboard: { dismiss() {} }, ToastAndroid: { show() {}, SHORT: 0 } },
     'expo-clipboard': { setStringAsync: async value => { clipboard.push(value); } },
     'react-hook-form': { Controller: 'Controller', useForm: config => {
       if (!initialized) { body = config.defaultValues.body; initialized = true; }
@@ -189,11 +189,11 @@ test('finder wallet action appears after messages and before account prompt only
   assert.equal(nodes(chat.render()).find(node => node.type === 'ReceivingWalletSheet').props.recipient, 'already-confirmed');
 });
 
-test('finder wallet action is hidden without an available reserved reward or after resolution', async () => {
+test('finder can confirm a wallet before funding, but cannot open registration after resolution', async () => {
   for (const options of [{ reward: null }, { reward: { status: 'released' } }, { reward: { status: 'pending' } }, { reward: { status: 'reserved', operation: { status: 'submitted' } } }, { reward: { status: 'reserved' }, status: 'resolved' }]) {
     const chat = harness(new ConversationDrafts(), { finder: true, messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }], ...options });
     chat.render(); await tick(); chat.render(); await tick();
-    assert.ok(!nodes(chat.render()).some(node => node.props?.testID === 'conversation-receiving-wallet'));
+    assert.equal(nodes(chat.render()).some(node => node.props?.testID === 'conversation-receiving-wallet'), options.status !== 'resolved');
   }
 });
 
@@ -280,4 +280,33 @@ test('finder can still set a receiving wallet after the refund date while the es
   const chat = harness(new ConversationDrafts(), { finder: true, reward: { status: 'expired' }, messages: [{ id: 1, role: 'finder', body: 'Found it', createdAt: new Date().toISOString() }] });
   chat.render(); await tick(); chat.render(); await tick();
   assert.ok(nodes(chat.render()).some(node => node.props?.testID === 'conversation-receiving-wallet'));
+});
+
+
+test('pull to refresh fetches both messages and the receiving wallet without erasing the draft', async () => {
+  const options = { reward: { status: 'reserved' } };
+  const chat = harness(new ConversationDrafts(), options);
+  chat.render(); await tick(); chat.render(); await tick();
+  input(chat.render()).onChangeText('Unsaved message');
+  options.recipient = 'NewReceivingWallet';
+  const list = nodes(chat.render()).find(node => node.props?.testID === 'conversation-messages');
+  const before = chat.requests.length;
+  list.props.refreshControl.props.onRefresh();
+  assert.equal(nodes(chat.render()).find(node => node.props?.testID === 'conversation-messages').props.refreshControl.props.refreshing, true);
+  await tick();
+  const tree = chat.render();
+  assert.deepEqual(chat.requests.slice(before).map(request => request.path).sort(), ['/reports/report-1', '/reports/report-1/reward']);
+  assert.equal(nodes(tree).find(node => node.props?.testID === 'conversation-messages').props.refreshControl.props.refreshing, false);
+  assert.equal(input(tree).value, 'Unsaved message');
+  assert.ok(nodes(tree).some(node => node.props?.testID === 'conversation-finish-return'));
+});
+
+
+test('owner sees a previously confirmed wallet even without a reserved reward or a new wallet event', async () => {
+  const chat = harness(new ConversationDrafts(), { recipient: 'PreviouslyConfirmedWallet', reward: null });
+  chat.render(); await tick(); chat.render(); await tick();
+  const row = nodes(chat.render()).find(node => node.props?.testID === 'conversation-finder-wallet');
+  assert.equal(row.props.accessibilityHint, 'PreviouslyConfirmedWallet');
+  row.props.onPress(); await tick();
+  assert.deepEqual(chat.clipboard, ['PreviouslyConfirmedWallet']);
 });

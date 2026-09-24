@@ -30,7 +30,7 @@ export function createNotifications({ db, get, all, run, fail, publicOrigin, pus
   const args = id => [id, id, id];
   const view = row => ({ id: row.id, reportId: row.report_id, tagName: row.tag_name,
     senderName: row.role === 'finder' ? row.finder_name : null, finder: row.role === 'owner',
-    body: row.body, createdAt: row.created_at, read: row.id <= (row.read_id || 0) });
+    ...(row.kind === 'wallet_confirmed' ? { kind: row.kind } : {}), body: row.body, createdAt: row.created_at, read: row.id <= (row.read_id || 0) });
   function inbox(userId, before) {
     const rows = all(`SELECT m.*,r.tag_name,r.finder_name,n.message_id AS read_id ${received}
       ${before ? 'AND m.id < ?' : ''} ORDER BY m.id DESC LIMIT 51`, ...args(userId), ...(before ? [before] : []));
@@ -87,6 +87,7 @@ export function createNotifications({ db, get, all, run, fail, publicOrigin, pus
       WHERE d.user_id=? AND d.project_id=? AND s.user_id=d.user_id AND s.expires_at>?`, messageId, Date.now(), recipient, pushSender.projectId, Date.now());
   }
   const title = { pt: 'Nova mensagem', en: 'New message', es: 'Nuevo mensaje' };
+  const walletTitle = { pt: 'Carteira de recebimento confirmada', en: 'Receiving wallet confirmed', es: 'Cartera de recepción confirmada' };
   let closed = false, flushing = false;
   async function flush() {
     if (closed || flushing || !pushSender) return;
@@ -95,7 +96,7 @@ export function createNotifications({ db, get, all, run, fail, publicOrigin, pus
       // Logout, recovery, expiry and account switching revoke push delivery.
       run(`DELETE FROM push_devices WHERE NOT EXISTS (SELECT 1 FROM sessions s
         WHERE s.hash=push_devices.session_hash AND s.user_id=push_devices.user_id AND s.expires_at>?)`, Date.now());
-      const jobs = all(`SELECT j.*,d.language,m.body,m.role,m.report_id,r.tag_name
+      const jobs = all(`SELECT j.*,d.language,m.body,m.role,m.report_id,m.kind,r.tag_name
         FROM push_jobs j JOIN push_devices d ON d.token=j.token AND d.user_id=j.user_id
         JOIN messages m ON m.id=j.message_id JOIN reports r ON r.id=m.report_id
         WHERE j.next_at<=? AND d.project_id=? ORDER BY j.id LIMIT 30`, Date.now(), pushSender.projectId);
@@ -107,7 +108,7 @@ export function createNotifications({ db, get, all, run, fail, publicOrigin, pus
           run('DELETE FROM push_jobs WHERE id=? AND token=? AND user_id=? AND message_id=?', job.id, job.token, job.user_id, job.message_id); continue;
         }
         try {
-          await pushSender.send({ token: job.token, title: `${title[job.language]} · ${job.tag_name}`, body: job.body.slice(0, 240),
+          await pushSender.send({ token: job.token, title: `${job.kind === 'wallet_confirmed' ? walletTitle[job.language] : title[job.language]} · ${job.tag_name}`, body: job.kind === 'wallet_confirmed' ? walletTitle[job.language] : job.body.slice(0, 240),
             data: { messageId: job.message_id, reportId: job.report_id, userId: job.user_id, finder: job.role === 'owner', apiOrigin: publicOrigin } });
           if (!closed) run('DELETE FROM push_jobs WHERE id=? AND token=? AND user_id=? AND message_id=?', job.id, job.token, job.user_id, job.message_id);
         } catch (error) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AppState, Keyboard, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from 'react-native';
+import { AppState, Keyboard, RefreshControl, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
@@ -33,6 +33,7 @@ export default function Conversation({ id, token, finder = false, presentation =
   const readThrough = useRef(0);
   useEffect(() => { if (!covered) setActiveReport(id); readThrough.current = 0; return () => setActiveReport(undefined); }, [id, covered, setActiveReport]);
   const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
   const [sendError, setSendError] = useState('');
   const sending = useRef(false);
   const [details, setDetails] = useState(false);
@@ -51,10 +52,15 @@ export default function Conversation({ id, token, finder = false, presentation =
     enabled: !!report && (!finder || hasFinderMessage) && !covered && !details,
     refetchInterval: 6000,
   });
+  async function refreshConversation() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try { await Promise.all([conversation.refetch(), rewardQuery.refetch()]); }
+    finally { setRefreshing(false); }
+  }
   const recipient = rewardQuery.data?.recipient;
   const canEditReceivingWallet = finder && hasFinderMessage && report?.status === 'open'
-    && !!rewardQuery.data?.reward && ['reserved', 'expired'].includes(rewardQuery.data.reward.status)
-    && !rewardQuery.data.reward.operation && !rewardQuery.isError;
+    && !!rewardQuery.data && !recipient && !rewardQuery.isError;
   const showReceivingWallet = finder && hasFinderMessage && (!!recipient || canEditReceivingWallet);
   const reward = rewardQuery.data?.reward;
   const showFinishReturn = !finder && report?.status === 'open' && !!recipient
@@ -124,8 +130,8 @@ export default function Conversation({ id, token, finder = false, presentation =
       <View style={{ width: '58%', height: 42, borderRadius: 16, backgroundColor: C.surface, alignSelf: 'flex-end' }} />
       <View style={{ width: '70%', height: 58, borderRadius: 16, backgroundColor: C.surface }} />
     </View> : null}
-    <ScrollView ref={scroll} testID="conversation-messages" style={[sheet ? { maxHeight: 300, minHeight: 180 } : { flex: 1, minHeight: 0 }, { display: report ? 'flex' : 'none' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingVertical: 6, gap: 14 }} onScroll={event => { const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent; nearEnd.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 80; }} scrollEventThrottle={64} onLayout={() => { if (nearEnd.current && !covered) scroll.current?.scrollToEnd({ animated: false }); }} onContentSizeChange={() => { if (nearEnd.current && !covered) scroll.current?.scrollToEnd({ animated: false }); }}>
-      {messages.map(message => { const own = message.role === (finder ? 'finder' : 'owner'); return <View key={message.id} style={{ alignSelf: own ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 5 }}><View style={{ backgroundColor: own ? C.primary : C.surface, paddingHorizontal: 16, paddingVertical: 13, borderRadius: 16, borderBottomRightRadius: own ? 4 : 16, borderBottomLeftRadius: own ? 16 : 4 }}><Text style={{ color: own ? C.onPrimary : C.ink, fontSize: 17, lineHeight: 25 }}>{message.body}</Text></View><Text style={[s.small, { fontSize: 12, alignSelf: own ? 'flex-end' : 'flex-start' }]}>{own ? t("Você") : message.role === 'owner' ? t("Dono") : report?.finderName || t("Quem encontrou")} · {new Date(message.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</Text></View>; })}
+    <ScrollView ref={scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refreshConversation()} tintColor={C.accent} colors={[C.accent]} />} alwaysBounceVertical testID="conversation-messages" style={[sheet ? { maxHeight: 300, minHeight: 180 } : { flex: 1, minHeight: 0 }, { display: report ? 'flex' : 'none' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingVertical: 6, gap: 14 }} onScroll={event => { const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent; nearEnd.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 80; }} scrollEventThrottle={64} onLayout={() => { if (nearEnd.current && !covered) scroll.current?.scrollToEnd({ animated: false }); }} onContentSizeChange={() => { if (nearEnd.current && !covered) scroll.current?.scrollToEnd({ animated: false }); }}>
+      {messages.map(message => { if (message.kind === 'wallet_confirmed') return <View key={message.id} style={{ alignSelf: 'center' }}><Notice tone="success" text={t('Carteira de recebimento confirmada.')} /></View>; const own = message.role === (finder ? 'finder' : 'owner'); return <View key={message.id} style={{ alignSelf: own ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 5 }}><View style={{ backgroundColor: own ? C.primary : C.surface, paddingHorizontal: 16, paddingVertical: 13, borderRadius: 16, borderBottomRightRadius: own ? 4 : 16, borderBottomLeftRadius: own ? 16 : 4 }}><Text style={{ color: own ? C.onPrimary : C.ink, fontSize: 17, lineHeight: 25 }}>{message.body}</Text></View><Text style={[s.small, { fontSize: 12, alignSelf: own ? 'flex-end' : 'flex-start' }]}>{own ? t("Você") : message.role === 'owner' ? t("Dono") : report?.finderName || t("Quem encontrou")} · {new Date(message.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</Text></View>; })}
       {showReceivingWallet && <View style={{ gap: 5, marginTop: 14, paddingTop: 30, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }}>
         <Pressable testID="conversation-receiving-wallet" accessibilityRole={canEditReceivingWallet ? 'button' : undefined}
           accessibilityLabel={recipient ? t('Sua carteira de recebimento') : t('Informar carteira de recebimento')} disabled={!canEditReceivingWallet}
@@ -140,6 +146,13 @@ export default function Conversation({ id, token, finder = false, presentation =
           <Text style={[s.body, { flex: 1 }]} numberOfLines={1}>{recipient.slice(0, 8)}…{recipient.slice(-8)}</Text><Icon name="copy" color={C.muted} size={20} />
         </Pressable>}
       </View>}
+      {!finder && !!recipient && <Pressable testID="conversation-finder-wallet" accessibilityRole="button"
+        accessibilityLabel={t('Copiar endereço da carteira')} accessibilityHint={recipient} onPress={() => void copyReceivingAddress()}
+        style={[s.row, { gap: 12, paddingVertical: 16 }]}>
+        <View style={{ flex: 1, gap: 5 }}><Text style={s.small}>{t('Carteira de recebimento confirmada.')}</Text>
+          <Text style={s.body}>{recipient.slice(0, 8)}…{recipient.slice(-8)}</Text></View>
+        <Icon name="copy" color={C.muted} size={20} />
+      </Pressable>}
       {showFinishReturn && <Pressable testID="conversation-finish-return" accessibilityRole="button" accessibilityLabel={t('Finalizar devolução')}
         disabled={rewardQuery.isError} onPress={() => { Keyboard.dismiss(); setFinishReturn(true); }}
         style={({ pressed }) => ({ gap: 5, marginTop: 14, paddingTop: 30, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, opacity: pressed || rewardQuery.isError ? 0.65 : 1 })}>
@@ -172,6 +185,8 @@ export default function Conversation({ id, token, finder = false, presentation =
     {finder && receivingWallet && <ReceivingWalletSheet id={id} token={token} recipient={recipient} onClose={() => setReceivingWallet(false)} onSaved={recipient => {
       queryClient.setQueryData<ConversationRewardData>(apiQueryKey(token, `${path}/reward`), previous => previous ? { ...previous, recipient } : previous);
       setReceivingWallet(false);
+      void conversation.refetch();
+      ToastAndroid.show(t('Carteira de recebimento confirmada.'), ToastAndroid.SHORT);
     }} />}
     {!finder && finishReturn && rewardQuery.data && <RewardReleaseSheet tagId={rewardQuery.data.tagId} token={token} reportId={id} recipient={recipient || null}
       onClose={() => { setFinishReturn(false); void rewardQuery.refetch(); }}

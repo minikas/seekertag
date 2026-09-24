@@ -28,7 +28,7 @@ export default function NotificationsScreen({ onClose, covered = false }: { onCl
           <Button variant="secondary" icon="bell" onPress={() => void inbox.enable()}>{t('Ativar notificações')}</Button>
         </View> : !inbox.pushReady ? <Text style={s.small}>{t('Os avisos funcionam enquanto o app está aberto. As mensagens recebidas fora do app aparecem aqui ao voltar.')}</Text> : null}
       </View>}
-      renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`${item.read ? '' : t('Não lida') + '. '}${item.tagName}. ${item.body}`}
+      renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`${item.read ? '' : t('Não lida') + '. '}${item.tagName}. ${item.kind === 'wallet_confirmed' ? t(item.body) : item.body}`}
         onPress={() => inbox.open(item)} style={({ pressed }) => ({ flexDirection: 'row', gap: 14, padding: 16, marginBottom: 10,
           borderRadius: 20, backgroundColor: item.read ? C.bg : C.surface, opacity: pressed ? 0.65 : 1 })}>
         <View style={[s.circle, { backgroundColor: item.read ? C.surface : C.soft }]}><Icon name="message-circle" color={item.read ? C.muted : C.accent} /></View>
@@ -36,7 +36,7 @@ export default function NotificationsScreen({ onClose, covered = false }: { onCl
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={2} style={[s.h3, { flex: 1 }]}>{item.tagName}</Text>
             {!item.read && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent }} />}</View>
           <Text style={s.small}>{item.finder ? t('Dono') : item.senderName}</Text>
-          <Text numberOfLines={3} style={s.body}>{item.body}</Text>
+          <Text numberOfLines={3} style={s.body}>{item.kind === 'wallet_confirmed' ? t(item.body) : item.body}</Text>
           <Text style={s.small}>{formatDate(item.createdAt, locale)}</Text>
         </View>
       </Pressable>}

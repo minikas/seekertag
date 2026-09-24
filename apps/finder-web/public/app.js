@@ -11,7 +11,7 @@ const copy = {
     active: 'Ativa', lost: 'Perdido', open: 'Em conversa', closed: 'Devolvido', you: 'Você', owner: 'Dono', anonymous: 'Pessoa que encontrou',
     nameTooLong: 'Use no máximo 60 caracteres.', messageRequired: 'Escreva uma mensagem para o dono.', messageTooLong: 'Use no máximo 2.000 caracteres.', sending: 'Enviando…', send: 'Enviar',
     invalidWallet: 'Informe um endereço Solana válido.', rewardReserved: 'Recompensa reservada', rewardPending: 'Depósito pendente', rewardExpired: 'Prazo encerrado', rewardReleased: 'Recompensa entregue', rewardRefunded: 'Depósito recuperado', rewardUnverified: 'Reserva não verificada',
-    devnet: 'Rede de testes · Devnet', testnet: 'Rede de testes · Testnet', localnet: 'Rede local de testes', walletSaved: 'Carteira confirmada. Ela receberá a recompensa quando o dono concluir a devolução.', resolvedNotice: 'Devolução confirmada. Obrigado por fazer parte deste reencontro!',
+    devnet: 'Rede de testes · Devnet', testnet: 'Rede de testes · Testnet', localnet: 'Rede local de testes', walletConfirmed: 'Carteira de recebimento confirmada.', walletSaved: 'Carteira confirmada. Ela receberá a recompensa quando o dono concluir a devolução.', resolvedNotice: 'Devolução confirmada. Obrigado por fazer parte deste reencontro!',
     noAccessTitle: 'Conversa indisponível neste navegador.', noAccessText: 'Abra a conversa no navegador em que você enviou o aviso ou escaneie a etiqueta para enviar um novo aviso.', genericError: 'Não foi possível concluir. Verifique sua conexão e tente novamente.',
   },
   en: {
@@ -26,7 +26,7 @@ const copy = {
     active: 'Active', lost: 'Lost', open: 'In conversation', closed: 'Returned', you: 'You', owner: 'Owner', anonymous: 'Person who found it',
     nameTooLong: 'Use no more than 60 characters.', messageRequired: 'Write a message to the owner.', messageTooLong: 'Use no more than 2,000 characters.', sending: 'Sending…', send: 'Send',
     invalidWallet: 'Enter a valid Solana address.', rewardReserved: 'Reserved reward', rewardPending: 'Deposit pending', rewardExpired: 'Deadline ended', rewardReleased: 'Reward delivered', rewardRefunded: 'Deposit recovered', rewardUnverified: 'Unverified reserve',
-    devnet: 'Test network · Devnet', testnet: 'Test network · Testnet', localnet: 'Local test network', walletSaved: 'Wallet confirmed. It will receive the reward when the owner completes the return.', resolvedNotice: 'Return confirmed. Thank you for making this reunion possible!',
+    devnet: 'Test network · Devnet', testnet: 'Test network · Testnet', localnet: 'Local test network', walletConfirmed: 'Receiving wallet confirmed.', walletSaved: 'Wallet confirmed. It will receive the reward when the owner completes the return.', resolvedNotice: 'Return confirmed. Thank you for making this reunion possible!',
     noAccessTitle: 'Conversation unavailable in this browser.', noAccessText: 'Open it in the browser where you sent the notice, or scan the tag to send a new notice.', genericError: 'Could not complete the request. Check your connection and try again.',
   },
   es: {
@@ -41,7 +41,7 @@ const copy = {
     active: 'Activa', lost: 'Perdido', open: 'En conversación', closed: 'Devuelto', you: 'Tú', owner: 'Dueño', anonymous: 'Persona que lo encontró',
     nameTooLong: 'Usa como máximo 60 caracteres.', messageRequired: 'Escribe un mensaje para el dueño.', messageTooLong: 'Usa como máximo 2.000 caracteres.', sending: 'Enviando…', send: 'Enviar',
     invalidWallet: 'Introduce una dirección Solana válida.', rewardReserved: 'Recompensa reservada', rewardPending: 'Depósito pendiente', rewardExpired: 'Plazo terminado', rewardReleased: 'Recompensa entregada', rewardRefunded: 'Depósito recuperado', rewardUnverified: 'Reserva no verificada',
-    devnet: 'Red de pruebas · Devnet', testnet: 'Red de pruebas · Testnet', localnet: 'Red local de pruebas', walletSaved: 'Cartera confirmada. Recibirá la recompensa cuando el dueño complete la devolución.', resolvedNotice: 'Devolución confirmada. ¡Gracias por hacer posible este reencuentro!',
+    devnet: 'Red de pruebas · Devnet', testnet: 'Red de pruebas · Testnet', localnet: 'Red local de pruebas', walletConfirmed: 'Cartera de recepción confirmada.', walletSaved: 'Cartera confirmada. Recibirá la recompensa cuando el dueño complete la devolución.', resolvedNotice: 'Devolución confirmada. ¡Gracias por hacer posible este reencuentro!',
     noAccessTitle: 'Conversación no disponible en este navegador.', noAccessText: 'Ábrela en el navegador donde enviaste el aviso o escanea la etiqueta para enviar un nuevo aviso.', genericError: 'No se pudo completar. Revisa tu conexión e inténtalo de nuevo.',
   },
 };
@@ -222,14 +222,14 @@ function renderMessages(messages, report) {
   if (previousLast === nextLast && container.children.length === messages.length) return;
   container.replaceChildren(...messages.map(message => {
     const article = document.createElement('article');
-    article.className = `message ${message.role === 'finder' ? 'own' : ''}`;
+    article.className = `message ${message.kind === 'wallet_confirmed' ? 'system-event' : message.role === 'finder' ? 'own' : ''}`;
     article.dataset.id = message.id;
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-    bubble.textContent = message.body;
+    bubble.textContent = message.kind === 'wallet_confirmed' ? t('walletConfirmed') : message.body;
     const meta = document.createElement('span');
     meta.className = 'message-meta';
-    meta.textContent = `${message.role === 'finder' ? t('you') : t('owner')} · ${messageTime(message.createdAt)}`;
+    meta.textContent = `${message.kind === 'wallet_confirmed' ? 'SeekerTag' : message.role === 'finder' ? t('you') : t('owner')} · ${messageTime(message.createdAt)}`;
     article.append(bubble, meta);
     return article;
   }));
