@@ -1,0 +1,63 @@
+appId: app.seekertag.mobile
+name: Swipe between tabs and preserve search
+---
+# Signed-in English dashboard. No items or conversations are modified.
+- tapOn:
+    id: "tab-items"
+- swipe:
+    start: 85%, 55%
+    end: 15%, 55%
+    duration: 500
+- assertVisible: "Conversations"
+- swipe:
+    start: 85%, 55%
+    end: 15%, 55%
+    duration: 500
+- assertVisible:
+    id: "object-search"
+- tapOn:
+    id: "object-search"
+- inputText: "Backpack"
+- hideKeyboard
+# The last page does not wrap around.
+- swipe:
+    start: 85%, 65%
+    end: 15%, 65%
+    duration: 500
+- assertVisible:
+    id: "object-search"
+    text: "Backpack"
+- swipe:
+    start: 15%, 65%
+    end: 85%, 65%
+    duration: 500
+- assertVisible: "Conversations"
+- swipe:
+    start: 15%, 55%
+    end: 85%, 55%
+    duration: 500
+- assertVisible: "Add item"
+# Tapping a distant tab uses the same pager and retains local state.
+- tapOn:
+    id: "tab-tags"
+- assertVisible:
+    id: "object-search"
+    text: "Backpack"
+- takeScreenshot: swipe-preserve-search
+- tapOn: "Clear search"
+# Android Back from Items must also move the pager back to Home.
+- back
+- assertVisible: "Add item"
+# The first page also stops at its boundary.
+- swipe:
+    start: 15%, 55%
+    end: 85%, 55%
+    duration: 500
+- assertVisible: "Add item"
+# A small drag settles back instead of changing tabs.
+- swipe:
+    start: 65%, 55%
+    end: 60%, 55%
+    duration: 800
+- assertVisible: "Add item"
+- takeScreenshot: swipe-home-boundary

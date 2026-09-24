@@ -1,7 +1,7 @@
 import { useThemedStyles } from './PreferencesProvider';
 import { Colors } from './theme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueryKey, apiQueryOptions, invalidateApiResources, queryClient } from './query';
 import TagRow from './TagRow';
@@ -11,7 +11,7 @@ import { useNotifications } from './NotificationsProvider';
 import type { NotificationTarget } from './notifications.model';
 import { homePreviewTags, matchesTagFilter, TagFilter } from './tag-search.model';
 import { conversationCount } from './i18n';
-import { RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import Pressable from './HapticPressable';
 import { ApiError, Report, Tag, User } from './api';
 import { Button, formatDate, Icon, IconName, Notice, useUI } from './ui';
@@ -21,7 +21,8 @@ import Conversation from './Conversation';
 import Account from './Account';
 import { Sheet } from './ui';
 import { PageLayer, useNavigationState } from './Navigation';
-import Animated from 'react-native-reanimated';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
+import PagerView from 'react-native-pager-view';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useScrollHeader } from './useScrollHeader';
 
@@ -41,6 +42,8 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   const [finderChat, setFinderChat] = useState(false);
   const [browseRevision, setBrowseRevision] = useState(0);
   const [tab, setTab] = useState<Tab>('items');
+  const pager = useRef<PagerView>(null);
+  const reduceMotion = useReducedMotion();
   const [refreshing, setRefreshing] = useState(false);
   const [browsing, setBrowsing] = useState<TagFilter>('all');
   const [form, setForm] = useState<string | 'new' | null>(null);
@@ -73,7 +76,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   }, [tagsQuery.refetch, reportsQuery.refetch]);
   const homeTags = homePreviewTags(tags);
   const openReports = reports.filter(r => r.status === 'open');
-  const switchTab = (key: Tab) => { setAccount(false); setNotificationsOpen(false); setTab(key); setChat(undefined); setFinderChat(false); };
+  const switchTab = (key: Tab) => {
+    Keyboard.dismiss();
+    setAccount(false); setNotificationsOpen(false); setChat(undefined); setFinderChat(false);
+    const index = tabs.findIndex(item => item.key === key);
+    if (reduceMotion) pager.current?.setPageWithoutAnimation(index);
+    else pager.current?.setPage(index);
+  };
   const browseTags = (filter: TagFilter) => { setBrowsing(filter); setBrowseRevision(value => value + 1); switchTab('tags'); };
   useEffect(() => {
     // A deliberate notification tap replaces pages, including another chat.
@@ -103,9 +112,13 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
   ];
 
   return <View style={styles.page}>
-    <View style={{ flex: 1 }}>
+    {/* Keep each page mounted so searches and scroll positions survive swipes. */}
+    <PagerView ref={pager} style={{ flex: 1 }} initialPage={0} offscreenPageLimit={2}
+      scrollEnabled={!covered && navigation.tasks === 0} overScrollMode="never" keyboardDismissMode="on-drag"
+      onPageSelected={event => setTab(tabs[event.nativeEvent.position].key)}
+      onPageScrollStateChanged={event => { if (event.nativeEvent.pageScrollState === 'dragging') Keyboard.dismiss(); }}>
     {(['items', 'messages'] as const).map(pane => { const header = pane === 'items' ? itemHeader : messageHeader; return (
-    <View key={pane} style={[StyleSheet.absoluteFill, { opacity: pane === tab ? 1 : 0 }]} pointerEvents={pane === tab ? 'auto' : 'none'} accessibilityElementsHidden={pane !== tab || navigation.top !== 0} importantForAccessibility={pane !== tab || navigation.top !== 0 ? 'no-hide-descendants' : 'auto'}>
+    <View key={pane} collapsable={false} style={{ width: '100%', height: '100%' }} pointerEvents={pane === tab ? 'auto' : 'none'} accessibilityElementsHidden={pane !== tab || navigation.top !== 0} importantForAccessibility={pane !== tab || navigation.top !== 0 ? 'no-hide-descendants' : 'auto'}>
     <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)} animatedProps={header.accessibilityProps} style={[styles.topBar, header.style]}><Button variant="ghost" icon="user" label={t("Minha conta")} onPress={() => setAccount(true)} style={{ backgroundColor: C.surface, borderRadius: 18 }} /><Text style={{ color: C.ink, fontSize: 20, fontWeight: '500' }}>SeekerTag</Text><View style={{ flexDirection: 'row', alignItems: 'center' }}><View><Button variant="ghost" icon="bell" onPress={() => setNotificationsOpen(true)} label={inbox.unreadCount ? t("Notificações, {count} não lidas", { count: inbox.unreadCount }) : t("Notificações")} />{inbox.unreadCount > 0 && <View pointerEvents="none" style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{inbox.unreadCount > 99 ? '99+' : inbox.unreadCount}</Text></View>}</View><Button variant="ghost" icon="maximize" onPress={onScan} label={t("Escanear etiqueta")} /></View></Animated.View>
     <KeyboardAwareScrollView bottomOffset={24} onScroll={header.onScroll} scrollEventThrottle={16} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} progressViewOffset={headerHeight} />} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight }]}>
       <View style={styles.content}>
@@ -154,10 +167,10 @@ export default function Dashboard({ token, user, onUserUpdated, onLogout, onScan
     </View>
     </View>
     ); })}
-    <View style={[StyleSheet.absoluteFill, { opacity: tab === 'tags' ? 1 : 0 }]} pointerEvents={tab === 'tags' ? 'auto' : 'none'} accessibilityElementsHidden={tab !== 'tags' || account || notificationsOpen} importantForAccessibility={tab !== 'tags' || account || notificationsOpen ? 'no-hide-descendants' : 'auto'}>
+    <View key="tags" collapsable={false} style={{ width: '100%', height: '100%' }} pointerEvents={tab === 'tags' ? 'auto' : 'none'} accessibilityElementsHidden={tab !== 'tags' || account || notificationsOpen} importantForAccessibility={tab !== 'tags' || account || notificationsOpen ? 'no-hide-descendants' : 'auto'}>
       <ObjectsScreen active={tab === 'tags'} filterRevision={browseRevision} embedded initialFilter={browsing} tags={tags} onSelect={setSelected} onAdd={() => setForm('new')} onClose={() => switchTab('items')} refreshing={refreshing} loading={initialLoading} onRefresh={() => void refresh()} error={error} covered={tab !== 'tags' || !!selected || !!form || !!chat || account || notificationsOpen} suspended={!!form} />
     </View>
-    </View>
+    </PagerView>
     <View style={styles.navigation} accessibilityElementsHidden={!!(account || notificationsOpen || selected || form || chat)} importantForAccessibility={account || notificationsOpen || selected || form || chat ? "no-hide-descendants" : "auto"}>{tabs.map(tabItem => <Pressable key={tabItem.key} testID={`tab-${tabItem.key}`} accessibilityRole="tab" accessibilityLabel={t(tabItem.label)} accessibilityState={{ selected: tab === tabItem.key }} onPress={() => switchTab(tabItem.key)} style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
       <View style={styles.tabIcon}>
         {!account && tab === tabItem.key && <View pointerEvents="none" style={styles.tabSelection} />}

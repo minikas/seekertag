@@ -50,9 +50,10 @@ function harness() {
     './tag-search.model': { homePreviewTags, matchesTagFilter },
     './i18n': { conversationCount: () => '1 conversation' },
     './api': { ApiError: class ApiError extends Error {} }, './ui': ui,
-    'react-native': { View: 'View', Text: 'Text', RefreshControl: 'RefreshControl', StyleSheet: { create: identity } },
+    'react-native': { Keyboard: { dismiss: noop }, View: 'View', Text: 'Text', RefreshControl: 'RefreshControl', StyleSheet: { create: identity } },
     'react-native-keyboard-controller': { KeyboardAwareScrollView: 'KeyboardAwareScrollView' },
-    'react-native-reanimated': { __esModule: true, default: { View: 'AnimatedView' } },
+    'react-native-pager-view': { __esModule: true, default: 'PagerView' },
+    'react-native-reanimated': { __esModule: true, useReducedMotion: () => false, default: { View: 'AnimatedView' } },
     'react-native-svg': { __esModule: true, default: 'Svg', Defs: 'Defs', LinearGradient: 'LinearGradient', Rect: 'Rect', Stop: 'Stop' },
   };
   for (const name of ['TagRow', 'ObjectsScreen', 'NotificationsScreen', 'TagForm', 'TagDetails', 'Conversation', 'Account', 'HapticPressable']) {
@@ -122,4 +123,20 @@ test('a protected modal keeps a notification queued until its financial or draft
   h.navigation.tasks = 0; h.render();
   assert.equal(screen(h.render(), 'Conversation').props.id, 'second');
   assert.equal(h.props.notification, undefined);
+});
+
+test('native page selection updates the active tab and protected tasks disable swiping', () => {
+  const h = harness();
+  screen(h.render(), 'PagerView').props.onPageSelected({ nativeEvent: { position: 2 } });
+  const root = h.render();
+  assert.equal(screen(root, 'ObjectsScreen').props.active, true);
+  assert.equal(nodes(root).find(node => node.props?.testID === 'tab-tags').props.accessibilityState.selected, true);
+  assert.equal(screen(root, 'PagerView').props.scrollEnabled, true);
+  h.navigation.tasks = 1;
+  assert.equal(screen(h.render(), 'PagerView').props.scrollEnabled, false);
+  h.navigation.tasks = 0;
+  screen(h.render(), 'ObjectsScreen').props.onSelect(item);
+  assert.equal(screen(h.render(), 'PagerView').props.scrollEnabled, false);
+  screen(h.render(), 'TagDetails').props.onClose();
+  assert.equal(screen(h.render(), 'PagerView').props.scrollEnabled, true);
 });
